@@ -26,6 +26,11 @@ curl.exe -s -b "$env:TEMP\ck.txt" http://localhost:8642/api/db/tasks
 - 端口被占时用 `netstat -ano | Select-String ':8642'` 找 PID（沙箱内 Get-NetTCPConnection 不可靠）。
 - 前端改动的端到端验证靠 Browser 子代理，见下方「测试约定」。
 
+## 上线流程（硬性规则）
+
+- **每次部署上线前必须先提交到 GitHub**。deploy.ps1 已内置强制 `git add/commit/push`（推送失败即中止），直接执行 `.\deploy.ps1 [可选提交说明]` 即可，**不要绕过 deploy.ps1 手动 scp**。该脚本只传代码（server.py/index.html/sw.js/js/css/lib 等），绝不传数据（workbench*.db/users.json/sessions.json/zhipu.key/backups）。服务器 root@111.228.27.161:/data/app/workbench，端口 8642。
+- 改了 js/css 等静态文件记得升 sw.js 的 `CACHE` 版本号（workbench-vNN），否则用户浏览器走旧缓存。
+
 ## 架构
 
 ### 后端：server.py 单文件（FastAPI + SQLite WAL）

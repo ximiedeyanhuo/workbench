@@ -1061,7 +1061,7 @@ input.invalid, select.invalid, textarea.invalid {
 .tx-sum-cnt { font-size: 11px; color: var(--muted); margin-left: 4px; }
 .tx-detail {
   list-style: none;
-  background: var(--card2); border-radius: 10px;
+  background: var(--card2); border-radius: var(--radius-xs);
   padding: 10px 14px; margin: 2px 0 6px;
   font-size: 12.5px; line-height: 1.9; color: var(--ink-2);
 }
@@ -1073,7 +1073,7 @@ input.invalid, select.invalid, textarea.invalid {
   display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
   font-size: 12px; color: var(--muted);
   padding: 8px 10px; margin-bottom: 10px;
-  background: var(--card2); border-radius: 10px;
+  background: var(--card2); border-radius: var(--radius-xs);
   font-variant-numeric: tabular-nums;
 }
 .tx-filter-sum b { font-size: 12.5px; }
