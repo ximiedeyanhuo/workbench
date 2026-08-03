@@ -49,6 +49,7 @@
 
   const now = new Date();
   let finYear = now.getFullYear();
+  let finAllYears = false;        // 流水明细：true = 全部年份（不影响统计卡/趋势等 finYear 共享方）
   let finMonth = now.getMonth();
   let finTab = "expense";
   let finStatView = "cal";      // 统计卡视图：cal | week | month | year（明细列表固定在明细卡）
@@ -278,9 +279,11 @@
       <span class="tx-cat">${esc(c.name)}</span>
       <span class="tx-note">${esc(t.note)}</span>
       <span class="tx-amt" style="color:${color}">${sign}${fmtYuan(t.amount)}</span>
-      <button class="icon-btn plain" data-act="copy-fin" title="复制为新记录">⧉</button>
-      <button class="icon-btn plain" data-act="edit-fin" title="编辑">✎</button>
-      <button class="icon-btn" data-act="del-fin" title="删除">✕</button>
+      <span class="tx-acts">
+        <button class="icon-btn plain" data-act="copy-fin" title="复制为新记录">⧉</button>
+        <button class="icon-btn plain" data-act="edit-fin" title="编辑">✎</button>
+        <button class="icon-btn" data-act="del-fin" title="删除">✕</button>
+      </span>
     </li>`;
     if (t.id === finDetailId) {
       html += `<li class="tx-detail" data-id="${t.id}">
@@ -333,11 +336,12 @@
   }
 
   /** 列表数据源：设了日期范围按范围取；否则默认取 finYear 全年
-   *  （当月数据太少，默认展示当年流水，明细卡顶部 ←→ 切年份） */
+   *  （当月数据太少，默认展示当年流水，明细卡顶部 ←→ 切年份；finAllYears=true 时查全部年份） */
   function scopedTx(txs) {
     if (finDateStart || finDateEnd) {
       return txs.filter((t) => (!finDateStart || t.date >= finDateStart) && (!finDateEnd || t.date <= finDateEnd));
     }
+    if (finAllYears) return txs.filter((t) => t.date);
     return txs.filter((t) => t.date && t.date.slice(0, 4) === String(finYear));
   }
 
@@ -386,7 +390,7 @@
     const pageTx = tabTx.slice((finPage - 1) * FIN_PAGE_SIZE, finPage * FIN_PAGE_SIZE);
     const empty = finFilterCat || finKeyword || finDateStart || finDateEnd
       ? "没有匹配的记录"
-      : `${finYear}年还没有${typeLabel(finTab)}记录`;
+      : finAllYears ? `还没有${typeLabel(finTab)}记录` : `${finYear}年还没有${typeLabel(finTab)}记录`;
     return sumBar + groupedListHtml(cats, pageTx, empty) + pageBarHtml(total, totalPages);
   }
 
@@ -570,12 +574,20 @@
       .map((c) => `<option value="${c.id}" ${c.id === finFilterCat ? "selected" : ""}>${esc(c.name)}</option>`)
       .join("");
 
+    // 年份选项：数据中实际存在的年份 + 当前年（降序），另含"全部年份"
+    const yearSet = new Set([String(now.getFullYear())]);
+    txs.forEach((t) => { if (t.date) yearSet.add(t.date.slice(0, 4)); });
+    const yearOpts = [...yearSet].sort((a, b) => b.localeCompare(a))
+      .map((y) => `<option value="${y}" ${!finAllYears && y === String(finYear) ? "selected" : ""}>${y}年</option>`)
+      .join("");
+
     return `<div class="card" id="finListCard">
       <h2>流水明细
-        <span class="count" style="display:flex;gap:6px;align-items:center">
-          <button class="icon-btn plain" id="finPrev" title="上一年">←</button>
-          ${finYear}年
-          <button class="icon-btn plain" id="finNext" title="下一年">→</button>
+        <span style="margin-left:auto">
+          <select id="finYearSel" class="tx-year-sel" title="选择年份；「全部年份」查看所有流水">
+            <option value="" ${finAllYears ? "selected" : ""}>全部年份</option>
+            ${yearOpts}
+          </select>
         </span>
       </h2>
       <div class="tabs" id="txTabs" style="margin-bottom:12px">${typeToggle}</div>
@@ -991,13 +1003,12 @@
       const $ = (sel) => el.querySelector(sel);
       const on = (sel, ev, fn) => { const n = $(sel); if (n) n.addEventListener(ev, fn); };
 
-      // 明细卡：切年份（流水默认展示当年全部记录）
-      on("#finPrev", "click", () => {
-        finYear--; finPage = 1;
-        finSelDay = null; finEditId = null; finDetailId = null; rerender();
-      });
-      on("#finNext", "click", () => {
-        finYear++; finPage = 1;
+      // 明细卡：年份选择（含"全部年份"；切换只影响明细列表数据源，不动 finYear 供统计卡共享）
+      on("#finYearSel", "change", (e) => {
+        const v = e.target.value;
+        if (v === "") { finAllYears = true; }
+        else { finAllYears = false; finYear = Number(v); }
+        finPage = 1;
         finSelDay = null; finEditId = null; finDetailId = null; rerender();
       });
 
@@ -1150,6 +1161,7 @@
           if (dates.length) {
             const max = dates.sort().pop();
             finYear = Number(max.slice(0, 4));
+            finAllYears = false;
             finMonth = Number(max.slice(5, 7)) - 1;
             finDateStart = ""; finDateEnd = ""; finFilterCat = ""; finKeyword = ""; finPage = 1;
             finEditId = null; finDetailId = null;
@@ -1201,6 +1213,7 @@
         finDateStart = start; finDateEnd = end;
         finFilterCat = ""; finKeyword = ""; finPage = 1; finEditId = null; finDetailId = null;
         finYear = Number(start.slice(0, 4));
+        finAllYears = false;
         finMonth = Number(start.slice(5, 7)) - 1;
         await rerender();
         const card = el.querySelector("#finListCard");

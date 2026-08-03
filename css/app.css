@@ -933,6 +933,32 @@ input.invalid, select.invalid, textarea.invalid {
   letter-spacing: -0.01em;
 }
 
+/* 记账：流水明细年份选择器（含"全部年份"） */
+.tx-year-sel {
+  font-size: 12.5px; padding: 3px 8px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--card); color: var(--ink);
+  cursor: pointer;
+}
+.tx-year-sel:focus { border-color: var(--accent); outline: none; }
+
+/* 记账：流水行操作按钮组（复制/编辑/删除，分组描边，触控热区加大） */
+.tx-acts {
+  display: flex; align-items: center; gap: 2px;
+  flex-shrink: 0; margin-left: 4px;
+  padding: 2px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--card2);
+}
+.tx-acts .icon-btn {
+  width: 28px; height: 28px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: calc(var(--radius-sm) - 2px);
+  font-size: 14px;
+}
+.tx-acts .icon-btn.plain:hover { color: var(--ink); background: var(--card); }
+.tx-acts .icon-btn:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 6%, transparent); }
+
 /* 记账：饼图容器 */
 .tx-chart-box {
   margin-top: 14px; padding: 14px;
@@ -1385,6 +1411,7 @@ mark.news-kw {
   .btn.sm { padding: 8px 14px; font-size: 13px; }
   .chk { width: 22px; height: 22px; font-size: 13px; }
   .icon-btn { padding: 8px 10px; font-size: 16px; }
+  .tx-acts .icon-btn { width: 34px; height: 34px; font-size: 16px; }
   .tab { padding: 8px 14px; font-size: 13px; }
   .item { padding: 12px 10px; }
   .theme-btn.mini { padding: 8px 12px; }
