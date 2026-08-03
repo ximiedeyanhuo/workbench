@@ -14,5 +14,8 @@ backups/
 # 日志
 server.log
 
+# 部署脚本（含服务器 IP，只保留本地）
+deploy.ps1
+
 # 本地工作记忆
 .workbuddy/
