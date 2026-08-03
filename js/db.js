@@ -1,0 +1,543 @@
+/**
+ * db.js — 数据层：ApiRepository（默认，走 server.py + SQLite）+ IndexedDB 回退
+ * 所有业务模块只通过 WB.repo(store) 访问数据，两套实现接口完全一致。
+ * USE_API = false 可整体回退为纯浏览器 IndexedDB 模式（无后端也能用）。
+ */
+(function () {
+  "use strict";
+
+  // ---------- 数据后端开关 ----------
+  // 启动时探测后端：ping /api/ping，超时 1.5s，成功走 ApiRepository（SQLite），
+  // 失败降级 IndexedDB（纯本地模式）。手机端 PWA 离线时会自动落到本地。
+  // 手动强制模式：URL 加 ?mode=local 或 ?mode=api 可覆盖。
+  const API_BASE = "/api/db/";
+  const PROBE_TIMEOUT = 1500;
+
+  let USE_API = null; // null=未探测；true/false=已决定
+  const modeReadyCbs = [];
+  function onModeReady(cb) {
+    if (USE_API !== null) return cb(USE_API);
+    modeReadyCbs.push(cb);
+  }
+  function fireModeReady(val) {
+    USE_API = val;
+    // WB.USE_API 是 getter，直接返回内部 USE_API 变量即可，无需赋值
+    modeReadyCbs.splice(0).forEach((cb) => { try { cb(val); } catch (e) {} });
+  }
+
+  async function probeBackend() {
+    // URL 强制覆盖：便于调试和手机端主动锁本地
+    try {
+      const m = (location.search.match(/[?&]mode=(local|api)/) || [])[1];
+      if (m === "local") return false;
+      if (m === "api") return true;
+    } catch (e) { /* ignore */ }
+    // file:// 协议无后端可谈
+    if (location.protocol === "file:") return false;
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), PROBE_TIMEOUT);
+      const res = await fetch("/api/ping", { signal: ctrl.signal, cache: "no-store" });
+      clearTimeout(timer);
+      return res.ok;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ---------- 登录鉴权（仅在线模式） ----------
+  // 会话 token 存 HttpOnly Cookie，浏览器自动携带，JS 接触不到。
+  // 未登录/会话过期时后端回 401，前端弹出全屏登录遮罩；登录成功整页 reload。
+  const auth = {
+    user: null,
+    isAdmin: false,
+    async logout() {
+      try { await fetch("/api/auth/logout", { method: "POST" }); } catch (e) { /* ignore */ }
+      location.reload();
+    },
+  };
+
+  function showLogin(msg) {
+    const mask = document.getElementById("loginMask");
+    if (!mask || !mask.hidden) return;
+    mask.hidden = false;
+    if (msg) {
+      const sub = document.getElementById("loginSub");
+      if (sub) sub.textContent = msg;
+    }
+    setTimeout(() => {
+      const u = document.getElementById("loginUser");
+      if (u) u.focus();
+    }, 50);
+  }
+
+  function bindLoginForm() {
+    const form = document.getElementById("loginForm");
+    if (!form) return;
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById("loginErr");
+      const btn = document.getElementById("loginBtn");
+      const username = document.getElementById("loginUser").value.trim();
+      const password = document.getElementById("loginPwd").value;
+      if (!username || !password) {
+        errEl.hidden = false;
+        errEl.textContent = "请输入用户名和密码";
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = "登录中…";
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || "登录失败 HTTP " + res.status);
+        location.reload(); // 以已登录身份重新完整启动
+      } catch (err) {
+        errEl.hidden = false;
+        errEl.textContent = (err && err.message) || "登录失败";
+        btn.disabled = false;
+        btn.textContent = "登 录";
+      }
+    });
+  }
+  bindLoginForm();
+
+  /** 检查登录态：已登录 true；401 false；其它异常视为已登录（避免网络抖动误锁） */
+  async function checkAuth() {
+    try {
+      const res = await fetch("/api/auth/me", { cache: "no-store" });
+      if (res.status === 401) return false;
+      if (res.ok) {
+        const me = await res.json();
+        auth.user = me.username;
+        auth.isAdmin = !!me.isAdmin;
+      }
+      return true;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  /** 请求中途会话过期：弹登录遮罩（登录后 reload 恢复） */
+  function on401() {
+    showLogin("登录已过期，请重新登录");
+  }
+
+  const DB_NAME = "workbench";
+  const DB_VERSION = 1;
+  const STORES = ["tasks", "notes", "bookmarks", "habits", "finance", "quicklinks", "settings"];
+  // feeds 用独立库：给已上线的主库加 store 需版本升级，而多标签同时打开时升级会互相
+  // 阻塞、导致页面卡在「加载中」。独立库首次创建即为 v1，永不触发主库升级。
+  const FEEDS_DB = "workbench_feeds";
+  const FEEDS_VERSION = 1;
+  const FEEDS_STORES = ["feeds"];
+  // health 同理独立建库（2026-07 新增），首次创建即 v1，不碰主库版本
+  const HEALTH_DB = "workbench_health";
+  const HEALTH_VERSION = 1;
+  const HEALTH_STORES = ["health"];
+  // stocks 同理独立建库（2026-07 股票持仓新增）
+  const STOCKS_DB = "workbench_stocks";
+  const STOCKS_VERSION = 1;
+  const STOCKS_STORES = ["stocks"];
+  // mockexams 同理独立建库（考公模考记录），首次创建即 v1，不碰主库版本
+  const MOCKEXAMS_DB = "workbench_mockexams";
+  const MOCKEXAMS_VERSION = 1;
+  const MOCKEXAMS_STORES = ["mockexams"];
+  const ALL_STORES = STORES.concat(FEEDS_STORES, HEALTH_STORES, STOCKS_STORES, MOCKEXAMS_STORES); // 导入导出覆盖全部业务数据
+  const EXPORT_VERSION = 1;
+
+  const dbCache = {};
+
+  function open(name, version, stores) {
+    if (dbCache[name]) return dbCache[name];
+    dbCache[name] = new Promise((resolve, reject) => {
+      const req = indexedDB.open(name, version);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        stores.forEach((s) => {
+          if (!db.objectStoreNames.contains(s)) {
+            db.createObjectStore(s, { keyPath: s === "settings" ? "key" : "id" });
+          }
+        });
+      };
+      req.onsuccess = () => {
+        const db = req.result;
+        // 其它标签页触发升级时主动让出连接，避免把对方永久阻塞在「加载中」
+        db.onversionchange = () => db.close();
+        resolve(db);
+      };
+      req.onerror = () => reject(req.error);
+      // 升级被其它旧连接阻塞：给出可操作提示，不再无限等待
+      req.onblocked = () =>
+        reject(new Error("数据库升级被占用，请关闭本应用的其它标签页后刷新"));
+    });
+    return dbCache[name];
+  }
+
+  /** 按 store 名解析所属数据库 */
+  function dbForStore(store) {
+    if (FEEDS_STORES.indexOf(store) !== -1) return open(FEEDS_DB, FEEDS_VERSION, FEEDS_STORES);
+    if (HEALTH_STORES.indexOf(store) !== -1) return open(HEALTH_DB, HEALTH_VERSION, HEALTH_STORES);
+    if (STOCKS_STORES.indexOf(store) !== -1) return open(STOCKS_DB, STOCKS_VERSION, STOCKS_STORES);
+    if (MOCKEXAMS_STORES.indexOf(store) !== -1) return open(MOCKEXAMS_DB, MOCKEXAMS_VERSION, MOCKEXAMS_STORES);
+    return open(DB_NAME, DB_VERSION, STORES);
+  }
+
+  /** 在指定 store 上执行事务，返回 Promise<request.result> */
+  function withStore(store, mode, fn) {
+    return dbForStore(store).then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const tx = db.transaction(store, mode);
+          const req = fn(tx.objectStore(store));
+          tx.oncomplete = () => resolve(req ? req.result : undefined);
+          tx.onerror = () => reject(tx.error);
+          tx.onabort = () => reject(tx.error);
+        })
+    );
+  }
+
+  /** IndexedDB 实现：统一 list/get/put/delete/clear 接口 */
+  function idbRepo(store) {
+    return {
+      list: () => withStore(store, "readonly", (os) => os.getAll()),
+      get: (id) => withStore(store, "readonly", (os) => os.get(id)),
+      put: (obj) => withStore(store, "readwrite", (os) => os.put(obj)),
+      delete: (id) => withStore(store, "readwrite", (os) => os.delete(id)),
+      clear: () => withStore(store, "readwrite", (os) => os.clear()),
+      bulkPut: (arr) =>
+        withStore(store, "readwrite", (os) => {
+          arr.forEach((o) => os.put(o));
+        }),
+    };
+  }
+
+  // ---------- ApiRepository（server.py + SQLite）----------
+  /** settings 的主键字段是 key，其余 store 为 id（与 IndexedDB keyPath 一致） */
+  function keyOf(store, obj) {
+    return store === "settings" ? obj.key : obj.id;
+  }
+
+  async function api(method, path, body) {
+    const res = await fetch(API_BASE + path, {
+      method,
+      headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    if (res.status === 401) {
+      on401();
+      throw new Error("未登录或登录已过期");
+    }
+    if (!res.ok) throw new Error("服务器请求失败 HTTP " + res.status);
+    return res.json();
+  }
+
+  /** API 实现：与 idbRepo 接口完全一致，get 未命中同样返回 undefined */
+  function apiRepo(store) {
+    return {
+      list: () => api("GET", store),
+      get: (id) =>
+        api("GET", store + "/" + encodeURIComponent(id)).then((r) => (r === null ? undefined : r)),
+      put: (obj) => api("PUT", store + "/" + encodeURIComponent(keyOf(store, obj)), obj),
+      delete: (id) => api("DELETE", store + "/" + encodeURIComponent(id)),
+      clear: () => api("DELETE", store),
+      bulkPut: (arr) => api("POST", store + "/bulk", arr),
+    };
+  }
+
+  const REPO_METHODS = ["list", "get", "put", "delete", "clear", "bulkPut"];
+
+  /** Repository 工厂：按开关路由到 API 或 IndexedDB，业务模块无感知。
+   *  返回“惰性代理”：每个方法在**调用时**才解析 USE_API 决定走 API 还是
+   *  IndexedDB。这样即便业务模块在文件加载阶段（探测未完成、USE_API===null）
+   *  就 const 缓存了 repo(store) 的返回值，实际读写也永远落到当前正确的存储，
+   *  不会被静态绑定永久锁死在 IndexedDB（否则会出现“各页写本地、首页读服务器”
+   *  的存储割裂）。 */
+  function repo(store) {
+    const proxy = {};
+    REPO_METHODS.forEach((m) => {
+      proxy[m] = (...args) => (USE_API === true ? apiRepo(store) : idbRepo(store))[m](...args);
+    });
+    return proxy;
+  }
+
+  // ---------- settings 便捷读写 ----------
+  // 注意：每次调用重新解析 repo("settings")，避免探测完成前的静态绑定把
+  // settings 永远锁在 IndexedDB。
+  function getSetting(key, def) {
+    return repo("settings").get(key).then((r) => (r === undefined || r === null ? def : r.value));
+  }
+  function setSetting(key, value) {
+    return repo("settings").put({ key, value });
+  }
+
+  // ---------- 全量导出 / 导入 ----------
+  async function exportAll() {
+    const data = {};
+    for (const s of ALL_STORES) data[s] = await repo(s).list();
+    return { app: "workbench", version: EXPORT_VERSION, exportedAt: new Date().toISOString(), data };
+  }
+
+  async function importAll(payload) {
+    if (!payload || payload.app !== "workbench" || !payload.data) {
+      throw new Error("备份文件格式不正确");
+    }
+    for (const s of ALL_STORES) {
+      const r = repo(s);
+      await r.clear();
+      const rows = Array.isArray(payload.data[s]) ? payload.data[s] : [];
+      if (rows.length) await r.bulkPut(rows);
+    }
+  }
+
+  /** 强制从浏览器 IndexedDB 导出（迁移旧数据到服务器专用，不走 API 路由） */
+  async function exportLocal() {
+    const data = {};
+    for (const s of ALL_STORES) data[s] = await idbRepo(s).list();
+    return { app: "workbench", version: EXPORT_VERSION, exportedAt: new Date().toISOString(), data };
+  }
+
+  // ---------- 通用工具 ----------
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+  function dateStr(d) {
+    return (
+      d.getFullYear() +
+      "-" +
+      String(d.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(d.getDate()).padStart(2, "0")
+    );
+  }
+  const todayStr = () => dateStr(new Date());
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(
+      /[&<>"']/g,
+      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+    );
+  }
+
+  const fmtMoney = (n) => Number(n || 0).toLocaleString("zh-CN");
+
+  /** 仅允许 http/https 链接，其余降级为 # 防注入 */
+  function safeUrl(u) {
+    const s = String(u || "").trim();
+    return /^https?:\/\//i.test(s) ? s : "#";
+  }
+
+  /** 逗号/空格分隔的标签输入 → 数组 */
+  function parseTags(input) {
+    return String(input || "")
+      .split(/[,，\s]+/)
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .slice(0, 8);
+  }
+
+  /** 防抖：ms 内无新调用才执行（搜索输入等高频场景） */
+  function debounce(fn, ms) {
+    let timer = null;
+    return function (...args) {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn.apply(this, args), ms);
+    };
+  }
+
+  /** 表单校验反馈：给输入框加红框抖动并聚焦，短暂后自动恢复 */
+  function flashInvalid(input) {
+    if (!input) return;
+    input.classList.remove("invalid");
+    void input.offsetWidth; // 重启动画
+    input.classList.add("invalid");
+    input.focus();
+    setTimeout(() => input.classList.remove("invalid"), 1500);
+  }
+
+  /** 清空全部业务数据（设置页危险操作用） */
+  async function clearAllData() {
+    for (const s of ALL_STORES) await repo(s).clear();
+  }
+
+  // ---------- AI（智谱，经 server.py 代理，前端不接触 key） ----------
+  let aiStatusCache = null; // 会话内只探测一次，配置变更需重启服务本就会刷新页面
+  const ai = {
+    /** 是否已配置 key：{configured, model}；无后端/请求失败视为未配置 */
+    status() {
+      if (!aiStatusCache) {
+        aiStatusCache = fetch("/api/ai/status")
+          .then((r) => (r.ok ? r.json() : { configured: false }))
+          .catch(() => ({ configured: false }));
+      }
+      return aiStatusCache;
+    },
+    /** 单轮对话，返回文本；失败抛 Error（message 为后端 detail，可直接展示） */
+    async chat(system, prompt, temperature) {
+      const res = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ system, prompt, temperature }),
+      });
+      if (res.status === 401) {
+        on401();
+        throw new Error("未登录或登录已过期");
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "AI 请求失败 HTTP " + res.status);
+      return data.text || "";
+    },
+    /** 从模型回复中提 JSON（容忍 ```json 围栏与前后废话），解不出返回 null */
+    parseJson(text) {
+      const s = String(text || "");
+      const m = s.match(/```(?:json)?\s*([\s\S]*?)```/);
+      const cand = m ? m[1] : s;
+      const start = cand.search(/[\[{]/);
+      if (start === -1) return null;
+      try { return JSON.parse(cand.slice(start)); } catch (e) { /* 继续尝试截尾 */ }
+      const end = Math.max(cand.lastIndexOf("}"), cand.lastIndexOf("]"));
+      if (end > start) {
+        try { return JSON.parse(cand.slice(start, end + 1)); } catch (e) { return null; }
+      }
+      return null;
+    },
+  };
+
+  // ---------- 跨模块共享的小工具（原先在各业务模块各自复制一份，统一收口到 WB） ----------
+  /** 读取 CSS 变量当前值（图表取主题色用） */
+  function cssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  /** 两个 yyyy-MM-dd 日期字符串的天数差（b - a） */
+  function daysDiff(a, b) {
+    return Math.round((new Date(b + "T00:00:00") - new Date(a + "T00:00:00")) / 86400000);
+  }
+
+  /** 本周一 ~ 周日的日期字符串区间 */
+  function weekRange() {
+    const d = new Date();
+    const mon = new Date(d);
+    mon.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    const sun = new Date(mon);
+    sun.setDate(mon.getDate() + 6);
+    return [dateStr(mon), dateStr(sun)];
+  }
+
+  /** 习惯连续打卡天数（今天没打卡不清零，从昨天起算也允许） */
+  function streakOf(h) {
+    let c = 0;
+    const d = new Date();
+    const ck = h.checkins || {};
+    if (!ck[dateStr(d)]) d.setDate(d.getDate() - 1);
+    for (let i = 0; i < 3660; i++) {
+      if (ck[dateStr(d)]) { c++; d.setDate(d.getDate() - 1); } else break;
+    }
+    return c;
+  }
+
+  /** 重复任务：完成一期后生成下一期任务对象；非重复任务或无截止日返回 null。
+   *  下一期日期从原截止日按周期步进，且必须晚于今天（逾期多日完成时不会生成过去日期）。 */
+  function repeatNext(t) {
+    if (!t || !t.repeat || !t.dueDate) return null;
+    const today = todayStr();
+    const step = t.repeat === "weekly" ? 7 : 1;
+    const d = new Date(t.dueDate + "T00:00:00");
+    if (isNaN(d.getTime())) return null;
+    do { d.setDate(d.getDate() + step); } while (dateStr(d) <= today);
+    return {
+      id: uid(),
+      title: t.title,
+      note: t.note || "",
+      dueDate: dateStr(d),
+      priority: t.priority || "mid",
+      tags: (t.tags || []).slice(),
+      repeat: t.repeat,
+      done: false,
+      createdAt: new Date().toISOString(),
+    };
+  }
+
+  /** 任务排序：未完成在前 → 截止日近的在前 → 优先级高的在前 */
+  function sortTasks(list) {
+    return list.slice().sort((a, b) => {
+      if (a.done !== b.done) return a.done ? 1 : -1;
+      const da = a.dueDate || "9999-99-99";
+      const db = b.dueDate || "9999-99-99";
+      if (da !== db) return da < db ? -1 : 1;
+      const pi = { high: 0, mid: 1, low: 2 };
+      return (pi[a.priority] ?? 2) - (pi[b.priority] ?? 2);
+    });
+  }
+
+  // ---------- 全局命名空间 ----------
+  window.WB = {
+    routes: {},
+    get USE_API() { return USE_API; },
+    onModeReady,
+    /** 探测后端 + 检查登录态：在线且未登录时弹登录遮罩并挂起启动（登录成功后 reload） */
+    ready: probeBackend().then(async (ok) => {
+      if (ok) {
+        const authed = await checkAuth();
+        if (!authed) {
+          showLogin();
+          return new Promise(() => {}); // 挂起：app.js 的 await 不会继续，遮罩后无需渲染业务页
+        }
+      }
+      fireModeReady(ok);
+      return ok;
+    }),
+    auth,
+    repo,
+    getSetting,
+    setSetting,
+    exportAll,
+    importAll,
+    exportLocal,
+    /** 从服务器全量拉取写入本地 IndexedDB（一键同步：服务器 → 本地） */
+    async pullServerToLocal() {
+      const data = {};
+      for (const s of ALL_STORES) data[s] = await apiRepo(s).list();
+      for (const s of ALL_STORES) {
+        const r = idbRepo(s);
+        await r.clear();
+        if (Array.isArray(data[s]) && data[s].length) await r.bulkPut(data[s]);
+      }
+    },
+    /** 从本地 IndexedDB 全量推送到服务器（一键同步：本地 → 服务器） */
+    async pushLocalToServer() {
+      const payload = await exportLocal();
+      const res = await fetch("/api/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.status === 401) {
+        on401();
+        throw new Error("未登录或登录已过期");
+      }
+      if (!res.ok) throw new Error("HTTP " + res.status);
+    },
+    uid,
+    dateStr,
+    todayStr,
+    esc,
+    fmtMoney,
+    safeUrl,
+    parseTags,
+    cssVar,
+    daysDiff,
+    weekRange,
+    streakOf,
+    sortTasks,
+    repeatNext,
+    debounce,
+    flashInvalid,
+    clearAllData,
+    ai,
+    jump: {}, // 全局搜索 → 目标模块的一次性跳转句柄（如 { taskId, noteId }）
+  };
+})();

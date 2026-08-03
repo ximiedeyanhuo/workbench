@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+
+# 敏感数据：密钥、账号、会话
+zhipu.key
+users.json
+sessions.json
+
+# 数据库与备份
+*.db
+backups/
+
+# 日志
+server.log
+
+# 本地工作记忆
+.workbuddy/
