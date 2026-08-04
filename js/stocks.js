@@ -21,6 +21,7 @@
   let stkSel = null;      // 搜索下拉选中的标的 {code, name}
   let stkTimer = null;    // 30s 自动刷新句柄
   let stkTab = "stock";   // "stock" | "fund"
+  let stkSeq = 0;         // render 代数：防止慢请求/自动刷新回写覆盖用户刚切到的 tab
   const REFRESH_MS = 30 * 1000;
 
   const fmt2 = (n) => Number(n || 0).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -168,6 +169,7 @@
     title: "股票",
     async render(el) {
       if (stkTimer) { clearInterval(stkTimer); stkTimer = null; }
+      const mySeq = ++stkSeq;
       const isFund = stkTab === "fund";
 
       const records = await stocksRepo.list();
@@ -176,7 +178,7 @@
         .sort((a, b) => a.code.localeCompare(b.code) || (a.createdAt || "").localeCompare(b.createdAt || ""));
       const codes = [...new Set(rows.map((r) => r.code).filter(Boolean))];
       const quotes = isFund ? await fetchFundNavs(codes) : await fetchStockQuotes(codes);
-      if (!stillHere()) return; // await 期间用户已切走，放弃渲染避免覆盖其他页
+      if (!stillHere() || mySeq !== stkSeq) return; // await 期间已切走（换页或切 tab），放弃渲染避免覆盖
       rows.forEach((r) => { r.q = quotes ? quotes[r.code] : null; });
 
       const qTime = quotes ? Object.values(quotes).map((q) => q.time).sort().pop() : "";
