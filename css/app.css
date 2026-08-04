@@ -805,77 +805,70 @@ input.invalid, select.invalid, textarea.invalid {
   transform: translateY(-2px);
 }
 
-/* 记账：本月概览 + 本年汇总 */
+/* 记账：总览（累计结余 + 本月/本年指标卡） */
 .tx-summary {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   margin-bottom: 18px;
-  padding: 14px;
+  padding: 16px;
   background: var(--card2);
   border-radius: var(--radius);
 }
-.tx-sum-row {
+/* 累计结余：居中大字 */
+.tx-total {
   display: flex;
-  gap: 10px;
-  align-items: stretch;
-}
-.tx-sum-group {
-  flex: 0 0 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--muted);
-  background: var(--card);
-  border-radius: var(--radius-sm);
-  writing-mode: vertical-lr;
-  letter-spacing: 0.06em;
-}
-.tx-sum-items {
-  flex: 1;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  min-width: 0;
-}
-.tx-sum-row.month .tx-sum-items { grid-template-columns: repeat(2, 1fr); }
-.tx-sum-row.year .tx-sum-items { grid-template-columns: repeat(3, 1fr); }
-/* 累计行：平铺横排，数字突出 */
-.tx-sum-row.total {
-  background: var(--card);
-  padding: 12px;
-  border-radius: var(--radius-sm);
-}
-.tx-sum-row.total .tx-sum-group {
-  background: var(--accent);
-  color: var(--card);
-}
-.tx-sum-row.total .tx-sum-items { grid-template-columns: 1fr; }
-.tx-sum-row.total .tx-sum-item {
-  flex-direction: row;
   align-items: baseline;
-  gap: 12px;
+  justify-content: center;
+  gap: 10px;
 }
-.tx-sum-row.total .tx-sum-lab { font-size: 13px; }
-.tx-sum-row.total .tx-sum-item b {
-  font-size: 26px;
+.tx-total-lab {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.tx-total-val {
+  font-size: 30px;
   font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
 }
-.tx-sum-item {
-  display: flex; flex-direction: column; gap: 4px;
+/* 本月 / 本年指标卡：一行 5 个等宽 */
+.tx-cards {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+.tx-card {
+  background: var(--card);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   min-width: 0;
 }
-.tx-sum-lab {
-  font-size: 11.5px; color: var(--muted);
-  font-weight: 500; letter-spacing: -0.005em;
+.tx-card-lab {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
 }
-.tx-sum-item b {
-  font-size: 17px; font-weight: 700;
-  letter-spacing: -0.02em; line-height: 1.1;
+.tx-card b {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
   font-variant-numeric: tabular-nums;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tx-card-sub {
+  font-size: 10.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
 /* 记账：储蓄目标区 */
@@ -1094,8 +1087,7 @@ input.invalid, select.invalid, textarea.invalid {
   background: var(--card); cursor: pointer;
 }
 
-/* 记账 v3：汇总笔数 / 详细展开 / 筛选汇总条 / 可点金额 / 日期范围 */
-.tx-sum-cnt { font-size: 11px; color: var(--muted); margin-left: 4px; }
+/* 记账 v3：详细展开 / 筛选汇总条 / 可点金额 / 日期范围 */
 .tx-detail {
   list-style: none;
   background: var(--card2); border-radius: var(--radius-xs);
@@ -1163,11 +1155,8 @@ input.invalid, select.invalid, textarea.invalid {
 }
 
 @media (max-width: 640px) {
-  .tx-sum-row { flex-direction: column; }
-  .tx-sum-group { flex: none; writing-mode: horizontal-tb; padding: 4px 8px; align-self: flex-start; }
-  .tx-sum-items, .tx-sum-row.year .tx-sum-items { grid-template-columns: repeat(2, 1fr); }
-  .tx-sum-row.total .tx-sum-items { grid-template-columns: 1fr; }
-  .tx-sum-row.total .tx-sum-item b { font-size: 24px; }
+  .tx-cards { grid-template-columns: repeat(2, 1fr); }
+  .tx-total-val { font-size: 26px; }
   .tx-cat { min-width: 48px; font-size: 12.5px; }
   .tx-note { font-size: 12px; }
   /* 日历格子在窄屏降高，收支小字只留得下的 */

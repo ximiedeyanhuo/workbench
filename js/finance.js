@@ -145,25 +145,34 @@
     const allInc = sumBy(txs, "income"), allExp = sumBy(txs, "expense");
     const allNet = allInc.amt - allExp.amt;
     return `<div class="tx-summary">
-      <div class="tx-sum-row total">
-        <span class="tx-sum-group">累计</span>
-        <div class="tx-sum-items">
-          <div class="tx-sum-item"><span class="tx-sum-lab">累计结余</span><b style="color:${allNet >= 0 ? "var(--ok)" : "var(--danger)"}">${signedYuan(allNet)}</b></div>
-        </div>
+      <div class="tx-total">
+        <span class="tx-total-lab">累计结余</span>
+        <span class="tx-total-val" style="color:${allNet >= 0 ? "var(--ok)" : "var(--danger)"}">${signedYuan(allNet)}</span>
       </div>
-      <div class="tx-sum-row month">
-        <span class="tx-sum-group">本月</span>
-        <div class="tx-sum-items">
-          <div class="tx-sum-item"><span class="tx-sum-lab">本月收入</span><b style="color:var(--ok)">+${fmtYuan(inc.amt)}</b><span class="tx-sum-cnt">${inc.cnt}笔</span></div>
-          <div class="tx-sum-item"><span class="tx-sum-lab">本月支出</span><b style="color:var(--danger)">-${fmtYuan(exp.amt)}</b><span class="tx-sum-cnt">${exp.cnt}笔</span></div>
+      <div class="tx-cards">
+        <div class="tx-card">
+          <span class="tx-card-lab">本月收入</span>
+          <b style="color:var(--ok)">+${fmtYuan(inc.amt)}</b>
+          <span class="tx-card-sub">${inc.cnt} 笔</span>
         </div>
-      </div>
-      <div class="tx-sum-row year">
-        <span class="tx-sum-group">本年</span>
-        <div class="tx-sum-items">
-          <div class="tx-sum-item"><span class="tx-sum-lab">本年收入</span><b style="color:var(--ok)">+${fmtYuan(yinc.amt)}</b><span class="tx-sum-cnt">${yinc.cnt}笔</span></div>
-          <div class="tx-sum-item"><span class="tx-sum-lab">本年支出</span><b style="color:var(--danger)">-${fmtYuan(yexp.amt)}</b><span class="tx-sum-cnt">${yexp.cnt}笔</span></div>
-          <div class="tx-sum-item"><span class="tx-sum-lab">本年结余</span><b style="color:${ynet >= 0 ? "var(--ok)" : "var(--danger)"}">${signedYuan(ynet)}</b></div>
+        <div class="tx-card">
+          <span class="tx-card-lab">本月支出</span>
+          <b style="color:var(--danger)">-${fmtYuan(exp.amt)}</b>
+          <span class="tx-card-sub">${exp.cnt} 笔</span>
+        </div>
+        <div class="tx-card">
+          <span class="tx-card-lab">本年收入</span>
+          <b style="color:var(--ok)">+${fmtYuan(yinc.amt)}</b>
+          <span class="tx-card-sub">${yinc.cnt} 笔</span>
+        </div>
+        <div class="tx-card">
+          <span class="tx-card-lab">本年支出</span>
+          <b style="color:var(--danger)">-${fmtYuan(yexp.amt)}</b>
+          <span class="tx-card-sub">${yexp.cnt} 笔</span>
+        </div>
+        <div class="tx-card">
+          <span class="tx-card-lab">本年结余</span>
+          <b style="color:${ynet >= 0 ? "var(--ok)" : "var(--danger)"}">${signedYuan(ynet)}</b>
         </div>
       </div>
     </div>`;
