@@ -296,11 +296,11 @@
       const saved = finance.filter((r) => !r.type || r.type === "saving").reduce((s, x) => s + Number(x.amount || 0), 0);
       const pct = target > 0 ? Math.min(100, Math.round((saved / target) * 100)) : 0;
 
-      // 本月收支：新记账口径（income / expense）
-      const curMonth = today.slice(0, 7);
-      const monthTx = finance.filter((r) => (r.date || "").slice(0, 7) === curMonth);
-      const mIncome = monthTx.filter((r) => r.type === "income").reduce((s, x) => s + Number(x.amount || 0), 0);
-      const mExpense = monthTx.filter((r) => r.type === "expense").reduce((s, x) => s + Number(x.amount || 0), 0);
+      // 本年收支：新记账口径（income / expense）
+      const curYear = today.slice(0, 4);
+      const yearTx = finance.filter((r) => (r.date || "").slice(0, 4) === curYear);
+      const mIncome = yearTx.filter((r) => r.type === "income").reduce((s, x) => s + Number(x.amount || 0), 0);
+      const mExpense = yearTx.filter((r) => r.type === "expense").reduce((s, x) => s + Number(x.amount || 0), 0);
       const mNet = mIncome - mExpense;
       const netSign = mNet >= 0 ? "+" : "-";
       const netColor = mNet >= 0 ? "var(--ok)" : "var(--danger)";
@@ -414,7 +414,7 @@
           <div class="stat" data-go="#/tasks"><div class="s-lab">今日到期 / 逾期</div><div class="s-val">${dueToday.length} / ${overdue.length}</div><div class="s-sub">共 ${active.length} 项进行中</div></div>
           <div class="stat" data-go="#/tasks"><div class="s-lab">本周待办</div><div class="s-val">${weekCnt}</div><div class="s-sub">${monStr.slice(5)} ~ ${sunStr.slice(5)}</div></div>
           <div class="stat" data-go="#/life"><div class="s-lab">今日打卡</div><div class="s-val">${habitDone} / ${habits.length}</div><div class="s-sub">${habits.length === 0 ? "还没有习惯" : habitDone >= habits.length ? "全部完成" : "继续加油"}</div></div>
-          <div class="stat" data-go="#/finance"><div class="s-lab">本月结余</div><div class="s-val" style="color:${netColor}">${netSign}${fmtMoney(Math.abs(mNet))}</div><div class="s-sub">收入 ${fmtMoney(mIncome)} · 支出 ${fmtMoney(mExpense)}</div></div>
+          <div class="stat" data-go="#/finance"><div class="s-lab">本年结余</div><div class="s-val" style="color:${netColor}">${netSign}${fmtMoney(Math.abs(mNet))}</div><div class="s-sub">收入 ${fmtMoney(mIncome)} · 支出 ${fmtMoney(mExpense)}</div></div>
         </div>
         ${nwHtml}
         <div class="card">
