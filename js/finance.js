@@ -139,8 +139,7 @@
 
   // ---------- HTML 片段 ----------
   function summaryHtml(mtx, ytx, txs) {
-    const inc = sumBy(mtx, "income"), exp = sumBy(mtx, "expense"), sav = sumBy(mtx, "saving");
-    const net = inc.amt - exp.amt;
+    const inc = sumBy(mtx, "income"), exp = sumBy(mtx, "expense");
     const yinc = sumBy(ytx, "income"), yexp = sumBy(ytx, "expense");
     const ynet = yinc.amt - yexp.amt;
     const allInc = sumBy(txs, "income"), allExp = sumBy(txs, "expense");
@@ -157,8 +156,6 @@
         <div class="tx-sum-items">
           <div class="tx-sum-item"><span class="tx-sum-lab">本月收入</span><b style="color:var(--ok)">+${fmtYuan(inc.amt)}</b><span class="tx-sum-cnt">${inc.cnt}笔</span></div>
           <div class="tx-sum-item"><span class="tx-sum-lab">本月支出</span><b style="color:var(--danger)">-${fmtYuan(exp.amt)}</b><span class="tx-sum-cnt">${exp.cnt}笔</span></div>
-          <div class="tx-sum-item"><span class="tx-sum-lab">本月结余</span><b style="color:${net >= 0 ? "var(--ok)" : "var(--danger)"}">${signedYuan(net)}</b></div>
-          <div class="tx-sum-item"><span class="tx-sum-lab">本月储蓄</span><b style="color:var(--accent)">+${fmtYuan(sav.amt)}</b><span class="tx-sum-cnt">${sav.cnt}笔</span></div>
         </div>
       </div>
       <div class="tx-sum-row year">
