@@ -496,6 +496,9 @@ input.invalid, select.invalid, textarea.invalid {
 .b-warn   { color: var(--warn);   background: transparent; border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent); }
 .b-ok     { color: var(--ok);     background: transparent; border: 1px solid color-mix(in srgb, var(--ok) 30%, transparent); }
 .b-primary{ color: var(--accent); background: transparent; border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent); }
+/* 定期账单：模式徽标可点击切换 */
+.badge[data-act] { cursor: pointer; }
+.badge[data-act]:hover { filter: brightness(1.15); }
 .tag {
   font-size: 11px; padding: 2px 8px;
   background: var(--card2); color: var(--muted);

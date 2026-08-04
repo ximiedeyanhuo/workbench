@@ -637,6 +637,11 @@
           btn.textContent = "✨ 生成 AI 点评";
         }
       });
+
+      // 定期账单到期检查：auto 自动记入 / remind 弹框提醒（记账页已处理过则同月不重复）
+      if (window.WB.financeSchedCheck) {
+        window.WB.financeSchedCheck(finance).catch(() => {});
+      }
     },
   };
 

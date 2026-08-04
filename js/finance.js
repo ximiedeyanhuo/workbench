@@ -242,6 +242,40 @@
     </div>`;
   }
 
+  /** 定期账单卡：房贷/房租这类每月固定日期扣款项。auto=到日自动记入；remind=到期宽限 5 天内未记则提醒 */
+  function schedHtml(cats, schedules) {
+    const rows = schedules.length
+      ? schedules
+          .map((s) => {
+            const c = catOf(cats, s.type === "income" ? "income" : "expense", s.category);
+            const modeTxt = s.mode === "auto" ? "每月自动记入" : "到期提醒";
+            return `<li class="item" data-sched="${s.id}">
+              <span class="tx-dot" style="background:${esc(c.color)}"></span>
+              <span class="txt">${esc(s.name)}<div style="font-size:12px;color:var(--muted)">每月 ${s.dueDay} 号 · ${esc(c.name)} · ${fmtYuan(s.amount)} 元</div></span>
+              <span class="badge ${s.mode === "auto" ? "b-ok" : "b-warn"}" data-act="toggle-sched" title="点击切换自动记入/到期提醒">${modeTxt}</span>
+              <button class="icon-btn" data-act="del-sched" title="删除定期账单">${WB.icon("del")}</button>
+            </li>`;
+          })
+          .join("")
+      : '<div class="empty">把房贷、房租这类每月固定日期扣款设成定期账单：到日子自动记入，或到期未记提醒你</div>';
+    const catOpts = (cats.expense || []).map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
+    return `<div class="card" id="finSchedCard">
+      <h2>定期账单<span class="count">${schedules.length} 项</span></h2>
+      <ul class="list">${rows}</ul>
+      <div class="row" style="margin-top:10px">
+        <input id="schedName" placeholder="名称，如：房贷" style="width:90px" maxlength="20" />
+        <select id="schedType"><option value="expense">支出</option><option value="income">收入</option></select>
+        <select id="schedCat">${catOpts}</select>
+        <input type="number" id="schedAmount" placeholder="金额" style="width:80px" min="0.01" step="0.01" />
+        <span class="tx-cat-tip">每月</span>
+        <input type="number" id="schedDay" placeholder="15" style="width:52px" min="1" max="31" />
+        <span class="tx-cat-tip">号</span>
+        <button class="btn sm" id="schedAdd">添加</button>
+      </div>
+      <div class="tx-cat-tip" style="margin-top:6px">到日子自动记一笔（记账页自动）；或设为「到期提醒」——15 号后 5 天内没记会弹框。点徽标切换模式。</div>
+    </div>`;
+  }
+
   function chartCardHtml(mtx) {
     const expRows = mtx.filter((t) => t.type === "expense");
     if (!expRows.length) return "";
@@ -973,16 +1007,83 @@
     return importRows(norm, cats);
   }
 
+  // ---------- 定期账单 ----------
+  /** 本月该规则是否已记（note 含规则名视为已记；income/expense 均可） */
+  function schedRecordedThisMonth(records, s, curMonth) {
+    return records.some((r) => (r.date || "").slice(0, 7) === curMonth && (r.note || "").indexOf(s.name) !== -1);
+  }
+
+  /** 检查定期账单：auto 模式自动记入，remind 模式到期弹框提醒。返回是否新增过记录（调用方可重渲染） */
+  async function checkSchedules(records) {
+    const schedules = await getSetting("finSchedules", []);
+    if (!schedules.length) return false;
+    const today = todayStr();
+    const curMonth = today.slice(0, 7);
+    // 已处理的月份 + 规则名：同月不重复触发；顺带清掉上月及更早的键防无限膨胀
+    const doneKey = (await getSetting("finSchedDone", {})) || {};
+    const curYM = curMonth.replace("-", "");
+    for (const k of Object.keys(doneKey)) {
+      const m = k.slice(0, 6);
+      if (m && m < curYM) delete doneKey[k];
+    }
+    const stamp = nowStamp();
+    let changed = false;
+    for (const s of schedules) {
+      if (!s.enabled && s.enabled !== undefined) continue;
+      const due = Number(s.dueDay || 1);
+      // 本月扣款日还没到 → 不处理
+      const todayD = Number(today.slice(8, 10));
+      if (todayD < due) continue;
+      // 本月已记过这笔 → 跳过
+      if (schedRecordedThisMonth(records, s, curMonth)) continue;
+      const key = curMonth + "|" + s.name;
+      if (doneKey[key]) continue;
+      const type = s.type === "income" ? "income" : "expense";
+      const rec = {
+        id: uid(),
+        type,
+        category: s.category,
+        amount: Number(s.amount || 0),
+        note: s.name,
+        date: today,
+        createdAt: stamp,
+        updatedAt: stamp,
+      };
+      if (s.mode === "auto") {
+        // 自动记入：补记到扣款日当天（若该月扣款日已过则记今天）
+        const dueDate = curMonth + "-" + String(due).padStart(2, "0");
+        rec.date = dueDate <= today ? dueDate : today;
+        await financeRepo.put(rec);
+        doneKey[key] = 1;
+        changed = true;
+      } else {
+        // 到期提醒：dueDay 当天到 dueDay+5 天内弹框（超宽限期不再打扰）
+        const graceEnd = due + 5;
+        if (todayD <= graceEnd) {
+          const ok = confirm(`「${s.name}」本月 ${due} 号该扣 ${fmtYuan(rec.amount)} 元，今天 ${today.slice(5)} 还没记。\n\n现在记一笔吗？`);
+          if (ok) {
+            await financeRepo.put(rec);
+            changed = true;
+          }
+          doneKey[key] = 1; // 无论记不记，本月只提醒一次
+        }
+      }
+    }
+    await setSetting("finSchedDone", doneKey);
+    return changed;
+  }
+
   // ---------- 主渲染 ----------
   routes.finance = {
     title: "记账",
     async render(el) {
-      const [records, target, finCatsCustom, monthBudget, finTemplates] = await Promise.all([
+      const [records, target, finCatsCustom, monthBudget, finTemplates, finSchedules] = await Promise.all([
         financeRepo.list(),
         getSetting("saveTarget", 60000),
         getSetting("finCategories", { income: [], expense: [] }),
         getSetting("monthBudget", 0),
         getSetting("finTemplates", []),
+        getSetting("finSchedules", []),
       ]);
       const cats = mergeCats(finCatsCustom);
       const txs = records.map(normalizeTx);
@@ -1011,6 +1112,7 @@
             ${budgetHtml(mtx, monthBudget)}
             ${goalHtml(saved, target, pct)}
             ${templateHtml(cats, finTemplates)}
+            ${schedHtml(cats, finSchedules)}
             ${chartCardHtml(mtx)}
             ${trendCardHtml(txs)}
           </div>
@@ -1137,6 +1239,41 @@
           rerender();
         }
       });
+
+      // 定期账单：新增 / 删除 / 切换模式
+      on("#schedAdd", "click", async () => {
+        const nameInput = $("#schedName"), amtInput = $("#schedAmount"), dayInput = $("#schedDay");
+        const name = nameInput.value.trim();
+        if (!name) return flashInvalid(nameInput);
+        const amount = parseFloat(amtInput.value);
+        if (!(amount > 0)) return flashInvalid(amtInput);
+        const dueDay = parseInt(dayInput.value, 10);
+        if (!(dueDay >= 1 && dueDay <= 31)) return flashInvalid(dayInput);
+        const type = $("#schedType").value;
+        const list = await getSetting("finSchedules", []);
+        list.push({ id: "s" + uid(), name, type, category: $("#schedCat").value, amount, dueDay, mode: "remind", enabled: true });
+        await setSetting("finSchedules", list);
+        rerender();
+      });
+      on("#finSchedCard", "click", async (e) => {
+        const li = e.target.closest("[data-sched]");
+        if (!li) return;
+        const list = await getSetting("finSchedules", []);
+        const s = list.find((x) => x.id === li.dataset.sched);
+        if (!s) return;
+        if (e.target.closest('[data-act="del-sched"]')) {
+          if (!confirm(`删除定期账单「${s.name}」？`)) return;
+          await setSetting("finSchedules", list.filter((x) => x.id !== s.id));
+          rerender();
+        } else if (e.target.closest('[data-act="toggle-sched"]')) {
+          s.mode = s.mode === "auto" ? "remind" : "auto";
+          await setSetting("finSchedules", list);
+          rerender();
+        }
+      });
+
+      // 到期检查：auto 自动记入 / remind 弹框（页面打开即检查，同月同规则只触发一次）
+      if (await checkSchedules(records)) rerender();
 
       // 筛选（局部刷新列表，避免搜索框失焦）
       const refreshList = () => {
@@ -1364,4 +1501,7 @@
       });
     },
   };
+
+  // 暴露给仪表盘：打开首页时也跑一次到期检查（auto 自动记入 / remind 弹框提醒）
+  window.WB.financeSchedCheck = (records) => checkSchedules(records);
 })();
