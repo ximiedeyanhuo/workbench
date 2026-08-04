@@ -1,13 +1,15 @@
 /**
- * stocks.js — 股票：A 股持仓记录 + 实时行情盈亏
+ * stocks.js — 股票 & 理财：A 股持仓 + 公募基金（理财）记录，实时行情盈亏
  *
  * 功能：
- * - 添加持仓：搜索（代码/名称/拼音，腾讯 smartbox 经后端代理）选中标的，录入数量 + 成本价；
- *   同一标的可多条记录（分批买入不同成本各记一笔）
- * - 持仓表：现价 / 今日涨跌幅 / 市值 / 持仓盈亏（额+比例）/ 今日盈亏，红涨绿跌（A 股惯例）
+ * - 两个 tab：股票 / 理财（基金）。数据同存 stocks store，理财记录带 type:"fund"
+ * - 股票：搜索（代码/名称/拼音，腾讯 smartbox 经后端代理）选中标的，录入数量 + 成本价；
+ *   同一标的可多条记录（分批买入不同成本各记一笔）；行情 qt.gtimg.cn 经 /api/stock/quote 批量代理
+ * - 理财：搜索公募基金（天天基金经后端代理），录入持有份额 + 成本净值（元/份）；
+ *   净值天天基金 /api/fund/nav（东方财富）逐日更新，当日收益 = 净值差 × 份额
+ * - 持仓表：现价(净值) / 今日涨跌 / 市值 / 持仓盈亏（额+比例）/ 今日盈亏，红涨绿跌（A 股惯例）
  * - 顶部汇总：总市值 / 总成本 / 持仓盈亏 / 今日盈亏
- * - 行情来源 qt.gtimg.cn（经 /api/stock/quote 批量代理，一次请求拉全部持仓）；
- *   页面停留时每 30 秒自动刷新（编辑中/离开页面自动暂停）
+ * - 页面停留时每 30 秒自动刷新（编辑中/离开页面自动暂停）
  * - 本地离线模式无行情（代理在服务端），持仓仍可增删改，行情列显示 —
  */
 (function () {
@@ -18,9 +20,11 @@
   let stkEditId = null;   // 行内编辑中的持仓 id
   let stkSel = null;      // 搜索下拉选中的标的 {code, name}
   let stkTimer = null;    // 30s 自动刷新句柄
+  let stkTab = "stock";   // "stock" | "fund"
   const REFRESH_MS = 30 * 1000;
 
   const fmt2 = (n) => Number(n || 0).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmt4 = (n) => Number(n || 0).toLocaleString("zh-CN", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
   const signed2 = (n) => (n > 0.005 ? "+" + fmt2(n) : n < -0.005 ? "-" + fmt2(-n) : "0.00");
   /** A 股惯例：涨红跌绿 */
   const udColor = (n) => (n > 0.005 ? "var(--danger)" : n < -0.005 ? "var(--ok)" : "var(--muted)");
@@ -32,6 +36,7 @@
       name: r.name || r.code || "",
       shares: Number(r.shares || 0),
       cost: Number(r.cost || 0),
+      type: r.type || "stock",
       createdAt: r.createdAt || "",
       updatedAt: r.updatedAt || "",
     };
@@ -49,8 +54,8 @@
     return /^#\/stocks/.test(location.hash || "");
   }
 
-  /** 批量拉行情，失败返回 null（页面降级显示 —） */
-  async function fetchQuotes(codes) {
+  /** 股票批量行情，失败返回 null（页面降级显示 —） */
+  async function fetchStockQuotes(codes) {
     if (!window.WB.USE_API || !codes.length) return null;
     try {
       const res = await fetch("/api/stock/quote?codes=" + encodeURIComponent(codes.join(",")));
@@ -64,13 +69,41 @@
     }
   }
 
-  /** 行情时间 "20260731111447" → "07-31 11:14:47" */
+  /** 基金（理财）批量净值：/api/fund/nav → 归一化成与股票行情同构的 {code,name,price,change,pct,time}
+   *  货币基金（isMoney）口径：净值恒 1，当日收益 = 每万份收益 × 份额 / 10000，
+   *  change 记成「每份当日收益」，市值按份额 × 1 计算；pct 字段改存万份收益供展示 */
+  async function fetchFundNavs(codes) {
+    if (!window.WB.USE_API || !codes.length) return null;
+    try {
+      const res = await fetch("/api/fund/nav?codes=" + encodeURIComponent(codes.join(",")));
+      if (!res.ok) return null;
+      const list = await res.json();
+      const map = {};
+      list.forEach((q) => {
+        map[q.code] = {
+          code: q.code,
+          name: q.name || "",
+          price: q.isMoney ? 1 : q.nav,
+          change: q.isMoney ? q.nav / 10000 : q.nav - q.prevNav,
+          pct: q.isMoney ? q.nav : q.pct,
+          time: q.navDate,
+          isMoney: !!q.isMoney,
+        };
+      });
+      return map;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /** 行情时间 "20260731111447" → "07-31 11:14:47"；净值日期 "2026-08-03" 原样显示 */
   function fmtQuoteTime(t) {
     const s = String(t || "");
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
     return s.length === 14 ? `${s.slice(4, 6)}-${s.slice(6, 8)} ${s.slice(8, 10)}:${s.slice(10, 12)}:${s.slice(12)}` : "";
   }
 
-  function summaryHtml(rows) {
+  function summaryHtml(rows, isFund) {
     let mv = 0, cost = 0, day = 0, quoted = false;
     rows.forEach((r) => {
       cost += r.cost * r.shares;
@@ -89,18 +122,18 @@
       <div class="stat"><div class="s-lab">总市值</div><div class="s-val">${dash(fmt2(mv))}</div><div class="s-sub">共 ${rows.length} 笔持仓</div></div>
       <div class="stat"><div class="s-lab">总成本</div><div class="s-val">${fmt2(cost)}</div><div class="s-sub">买入金额合计</div></div>
       <div class="stat"><div class="s-lab">持仓盈亏</div><div class="s-val" style="color:${quoted ? udColor(pl) : "var(--muted)"}">${dash(signed2(pl))}</div><div class="s-sub">${quoted ? signed2(plPct) + "%" : "行情不可用"}</div></div>
-      <div class="stat"><div class="s-lab">今日盈亏</div><div class="s-val" style="color:${quoted ? udColor(day) : "var(--muted)"}">${dash(signed2(day))}</div><div class="s-sub">按当日涨跌估算</div></div>
+      <div class="stat"><div class="s-lab">${isFund ? "当日收益" : "今日盈亏"}</div><div class="s-val" style="color:${quoted ? udColor(day) : "var(--muted)"}">${dash(signed2(day))}</div><div class="s-sub">${isFund ? "按净值差×份额" : "按当日涨跌估算"}</div></div>
     </div>`;
   }
 
-  function rowHtml(r) {
+  function rowHtml(r, isFund) {
     if (stkEditId === r.id) {
       return `<tr data-id="${r.id}">
         <td>${esc(r.name)}<span class="stk-code">${esc(r.code)}</span></td>
         <td colspan="4">
           <span class="stk-edit-row">
-            数量 <input type="number" class="stk-in" data-f="shares" value="${r.shares}" min="0" step="100" style="width:90px" />
-            成本 <input type="number" class="stk-in" data-f="cost" value="${r.cost}" min="0" step="0.001" style="width:90px" />
+            数量/份额 <input type="number" class="stk-in" data-f="shares" value="${r.shares}" min="0" step="${isFund ? "0.01" : "100"}" style="width:110px" />
+            成本 <input type="number" class="stk-in" data-f="cost" value="${r.cost}" min="0" step="0.0001" style="width:110px" />
           </span>
         </td>
         <td colspan="2"></td>
@@ -115,11 +148,12 @@
     const pl = q ? (q.price - r.cost) * r.shares : 0;
     const plPct = q && r.cost > 0 ? ((q.price - r.cost) / r.cost) * 100 : 0;
     const day = q ? q.change * r.shares : 0;
+    const priceSub = q ? (isFund && q.isMoney ? "万份 " + fmt4(q.pct) : signed2(q.pct) + "%") : "";
     return `<tr data-id="${r.id}">
       <td>${esc(r.name)}<span class="stk-code">${esc(r.code)}</span></td>
-      <td style="color:${q ? udColor(q.change) : "var(--muted)"}">${q ? fmt2(q.price) : "—"}<span class="stk-sub">${q ? signed2(q.pct) + "%" : ""}</span></td>
+      <td style="color:${q ? udColor(q.change) : "var(--muted)"}">${q ? (isFund && q.isMoney ? "1.0000" : isFund ? fmt4(q.price) : fmt2(q.price)) : "—"}<span class="stk-sub">${priceSub}</span></td>
       <td>${r.shares}</td>
-      <td>${fmt2(r.cost)}</td>
+      <td>${isFund ? fmt4(r.cost) : fmt2(r.cost)}</td>
       <td>${q ? fmt2(mv) : "—"}</td>
       <td style="color:${q ? udColor(pl) : "var(--muted)"}">${q ? signed2(pl) : "—"}<span class="stk-sub">${q ? signed2(plPct) + "%" : ""}</span></td>
       <td style="color:${q ? udColor(day) : "var(--muted)"}">${q ? signed2(day) : "—"}</td>
@@ -134,51 +168,78 @@
     title: "股票",
     async render(el) {
       if (stkTimer) { clearInterval(stkTimer); stkTimer = null; }
+      const isFund = stkTab === "fund";
 
       const records = await stocksRepo.list();
-      const rows = records.map(normalizeHolding).sort((a, b) => a.code.localeCompare(b.code) || (a.createdAt || "").localeCompare(b.createdAt || ""));
+      const rows = records.map(normalizeHolding)
+        .filter((r) => isFund ? r.type === "fund" : r.type !== "fund")
+        .sort((a, b) => a.code.localeCompare(b.code) || (a.createdAt || "").localeCompare(b.createdAt || ""));
       const codes = [...new Set(rows.map((r) => r.code).filter(Boolean))];
-      const quotes = await fetchQuotes(codes);
+      const quotes = isFund ? await fetchFundNavs(codes) : await fetchStockQuotes(codes);
       if (!stillHere()) return; // await 期间用户已切走，放弃渲染避免覆盖其他页
       rows.forEach((r) => { r.q = quotes ? quotes[r.code] : null; });
 
       const qTime = quotes ? Object.values(quotes).map((q) => q.time).sort().pop() : "";
+      const searchPh = isFund ? "基金代码 / 名称，如 023636 或 易方达安旭" : "代码 / 名称 / 拼音，如 600519 或 茅台";
+      const tip = isFund
+        ? (window.WB.USE_API ? "公募基金/货币基金均可，净值每交易日 16:00 后更新；同基金可分多笔" : "本地离线模式：无净值与搜索，可先手动记持仓")
+        : (window.WB.USE_API ? "同一股票可分多笔记录不同成本" : "本地离线模式：无行情与搜索，可先手动记持仓");
+      const empty = isFund
+        ? '<div class="empty">还没有理财记录，用上方搜索添加第一笔（支持公募基金 / 货币基金）</div>'
+        : '<div class="empty">还没有持仓记录，用上方搜索添加第一笔（支持股票 / ETF）</div>';
+      const foot = isFund
+        ? "净值来自天天基金（免费接口，交易日 16:00 后更新）· 当日收益 = 今日净值 − 前日净值 × 份额 · 涨红跌绿"
+        : "行情来自腾讯财经（免费接口，盘中约实时；ETF 同样支持）· 涨红跌绿";
 
       el.innerHTML = `
-        ${summaryHtml(rows)}
+        <div class="tabs" id="stkTabbar">
+          <button class="tab ${!isFund ? "on" : ""}" data-tab="stock">股票</button>
+          <button class="tab ${isFund ? "on" : ""}" data-tab="fund">理财 / 基金</button>
+        </div>
+        ${summaryHtml(rows, isFund)}
         <div class="card">
-          <h2>添加持仓</h2>
+          <h2>${isFund ? "添加理财" : "添加持仓"}</h2>
           <div class="row stk-form">
             <span class="stk-search-wrap">
-              <input id="stkSearch" placeholder="代码 / 名称 / 拼音，如 600519 或 茅台" autocomplete="off" style="width:230px" />
+              <input id="stkSearch" placeholder="${searchPh}" autocomplete="off" style="width:250px" />
               <div class="stk-sug" id="stkSug" hidden></div>
             </span>
-            <input type="number" id="stkShares" placeholder="数量(股)" min="0" step="100" style="width:110px" />
-            <input type="number" id="stkCost" placeholder="成本价(元/股)" min="0" step="0.001" style="width:130px" />
+            <input type="number" id="stkShares" placeholder="${isFund ? "持有份额" : "数量(股)"}" min="0" step="${isFund ? "0.01" : "100"}" style="width:110px" />
+            <input type="number" id="stkCost" placeholder="${isFund ? "成本净值(元/份)" : "成本价(元/股)"}" min="0" step="0.0001" style="width:130px" />
             <button class="btn" id="stkAdd">添加</button>
-            <span class="stk-tip">${window.WB.USE_API ? "同一股票可分多笔记录不同成本" : "本地离线模式：无行情与搜索，可先手动记持仓"}</span>
+            <span class="stk-tip">${tip}</span>
           </div>
         </div>
         <div class="card">
           <h2>持仓明细
             <span class="count">
-              ${qTime ? "行情 " + esc(fmtQuoteTime(qTime)) + " · 30 秒自动刷新 · " : window.WB.USE_API && codes.length ? "行情获取失败 · " : ""}
+              ${qTime ? (isFund ? "净值 " : "行情 ") + esc(fmtQuoteTime(qTime)) + " · 30 秒自动刷新 · " : window.WB.USE_API && codes.length ? "行情获取失败 · " : ""}
               <a href="javascript:void(0)" id="stkRefresh" style="color:var(--accent)">手动刷新</a>
             </span>
           </h2>
           ${rows.length ? `<div class="stk-wrap"><table class="stk-table">
             <thead><tr>
-              <th>名称</th><th>现价 / 今日</th><th>数量</th><th>成本价</th><th>市值</th><th>持仓盈亏</th><th>今日盈亏</th><th></th>
+              <th>名称</th><th>${isFund ? "净值 / 今日" : "现价 / 今日"}</th><th>${isFund ? "份额" : "数量"}</th><th>${isFund ? "成本净值" : "成本价"}</th><th>市值</th><th>持仓盈亏</th><th>${isFund ? "当日收益" : "今日盈亏"}</th><th></th>
             </tr></thead>
-            <tbody id="stkBody">${rows.map(rowHtml).join("")}</tbody>
+            <tbody id="stkBody">${rows.map((r) => rowHtml(r, isFund)).join("")}</tbody>
           </table></div>
-          <div class="stk-foot">行情来自腾讯财经（免费接口，盘中约实时；ETF 同样支持）· 涨红跌绿</div>`
-          : '<div class="empty">还没有持仓记录，用上方搜索添加第一笔（支持股票 / ETF）</div>'}
+          <div class="stk-foot">${foot}</div>`
+          : empty}
         </div>`;
 
       const rerender = () => routes.stocks.render(el);
       const $ = (sel) => el.querySelector(sel);
       const on = (sel, ev, fn) => { const n = $(sel); if (n) n.addEventListener(ev, fn); };
+
+      // ---- tab 切换 ----
+      on("#stkTabbar", "click", (e) => {
+        const btn = e.target.closest("[data-tab]");
+        if (!btn) return;
+        stkTab = btn.dataset.tab;
+        stkEditId = null;
+        stkSel = null;
+        rerender();
+      });
 
       // ---- 搜索建议 ----
       const sugEl = $("#stkSug");
@@ -188,11 +249,11 @@
         const q = searchEl.value.trim();
         stkSel = null;
         if (!q || !window.WB.USE_API) return hideSug();
-        // 直接输入完整代码（600519 / sh600519）时无需等搜索也能添加
-        const m = q.toLowerCase().match(/^(sh|sz|bj)?(\d{6})$/);
-        if (m && m[1]) stkSel = { code: m[1] + m[2], name: q };
+        // 直接输入完整代码：股票 sh600519，基金 023636
+        const isCode = isFund ? /^\d{6}$/.test(q) : /^(sh|sz|bj)?\d{6}$/i.test(q);
+        if (isCode) stkSel = { code: isFund ? q : q.toLowerCase(), name: q };
         try {
-          const res = await fetch("/api/stock/search?q=" + encodeURIComponent(q));
+          const res = await fetch("/api/" + (isFund ? "fund" : "stock") + "/search?q=" + encodeURIComponent(q));
           const list = res.ok ? await res.json() : [];
           if (!list.length) return hideSug();
           sugEl.innerHTML = list
@@ -214,13 +275,16 @@
 
       // ---- 添加持仓 ----
       const addStk = async () => {
-        // 未点建议但输入了裸代码：补全市场前缀（6/5/9 沪，0/1/2/3 深，4/8 北）
+        // 未点建议但输入了裸代码：股票补全市场前缀（6/5/9 沪，0/1/2/3 深，4/8 北）；基金直接 6 位
         if (!stkSel) {
           const m = searchEl.value.trim().toLowerCase().match(/^(sh|sz|bj)?(\d{6})$/);
           if (m) {
-            const n = m[2];
-            const mkt = m[1] || (/^[569]/.test(n) ? "sh" : /^[48]/.test(n) ? "bj" : "sz");
-            stkSel = { code: mkt + n, name: n };
+            if (isFund) stkSel = { code: m[2], name: m[2] };
+            else {
+              const n = m[2];
+              const mkt = m[1] || (/^[569]/.test(n) ? "sh" : /^[48]/.test(n) ? "bj" : "sz");
+              stkSel = { code: mkt + n, name: n };
+            }
           }
         }
         if (!stkSel) return flashInvalid(searchEl);
@@ -229,13 +293,20 @@
         const cost = parseFloat(costEl.value);
         if (!(shares > 0)) return flashInvalid(sharesEl);
         if (!(cost >= 0)) return flashInvalid(costEl);
-        // 名称尽量取行情真实名（手输代码时输入框里只有数字）
+        // 名称尽量取真实名（手输代码时输入框里只有数字；基金名用搜索接口补，货基同样适用）
         let name = stkSel.name;
-        const fresh = await fetchQuotes([stkSel.code]);
-        if (fresh && fresh[stkSel.code]) name = fresh[stkSel.code].name;
+        if (isFund && /^\d{6}$/.test(name) && window.WB.USE_API) {
+          try {
+            const res = await fetch("/api/fund/search?q=" + encodeURIComponent(stkSel.code));
+            const list = res.ok ? await res.json() : [];
+            if (list.length) name = list[0].name;
+          } catch (e) { /* 补名失败保持原样 */ }
+        }
+        const fresh = isFund ? await fetchFundNavs([stkSel.code]) : await fetchStockQuotes([stkSel.code]);
+        if (fresh && fresh[stkSel.code]) name = fresh[stkSel.code].name || name;
         else if (window.WB.USE_API && /^\d{6}$/.test(name)) return alert("未查到该代码的行情，请确认代码是否正确");
         const stamp = nowStamp();
-        await stocksRepo.put({ id: uid(), code: stkSel.code, name, shares, cost, createdAt: stamp, updatedAt: stamp });
+        await stocksRepo.put({ id: uid(), code: stkSel.code, name, shares, cost, type: isFund ? "fund" : "stock", createdAt: stamp, updatedAt: stamp });
         stkSel = null;
         rerender();
       };

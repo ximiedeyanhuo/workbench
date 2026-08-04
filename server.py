@@ -757,6 +757,90 @@ def stock_search(q: str):
     return out[:10]
 
 
+# ---------- 基金/理财净值代理 ----------
+# 天天基金（东方财富）免费公开接口，净值每个交易日 16:00 后更新：
+#   搜索: fundsuggest.eastmoney.com（UTF-8 返回）
+#   历史净值: api.fund.eastmoney.com/f10/lsjz（需 Referer，一次返回最近 N 条日净值+日增长率）
+FUND_CODES_RE = re.compile(r"^\d{6}(?:,\d{6}){0,19}$")  # 最多 20 只，防滥用
+
+
+def _fund_fetch(url: str, referer: str) -> str:
+    req = urllib.request.Request(url, headers={"User-Agent": GOV_UA, "Referer": referer})
+    with urllib.request.urlopen(req, timeout=STOCK_TIMEOUT) as res:
+        return res.read(FEED_MAX_BYTES).decode("utf-8", errors="replace")
+
+
+@app.get("/api/fund/search")
+def fund_search(q: str):
+    """基金搜索（代码/名称/拼音）：天天基金 fundsuggest，返回 [{code,name}]"""
+    q = q.strip()
+    if not q or len(q) > 20:
+        return []
+    try:
+        text = _fund_fetch(
+            "https://fundsuggest.eastmoney.com/FundSearch/api/FundSearchAPI.ashx?m=1&key=" + urllib.parse.quote(q),
+            "https://fund.eastmoney.com/",
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"基金搜索失败: {exc}")
+    try:
+        data = json.loads(text)
+        out = [
+            {"code": d.get("CODE") or "", "name": d.get("NAME") or ""}
+            for d in (data.get("Datas") or [])
+            if re.match(r"^\d{6}$", d.get("CODE") or "")
+        ]
+    except (ValueError, AttributeError):
+        out = []
+    return out[:10]
+
+
+@app.get("/api/fund/nav")
+def fund_nav(codes: str):
+    """基金最新净值：codes=023636,000198 → [{code,name,nav,navDate,prevNav,prevDate,pct}]
+    每只基金取最近两条日净值（最新 + 前一日），当日收益由前端按份额计算；
+    名称来自 fundgz 估算接口（jsonp 顺手带出，失败留空前端用记录名）"""
+    codes = codes.strip()
+    if not FUND_CODES_RE.match(codes):
+        raise HTTPException(status_code=400, detail="codes 应为 6 位基金代码，逗号分隔，最多 20 只")
+    out = []
+    for code in codes.split(","):
+        try:
+            text = _fund_fetch(
+                f"https://api.fund.eastmoney.com/f10/lsjz?fundCode={code}&pageIndex=1&pageSize=2",
+                "https://fundf10.eastmoney.com/",
+            )
+            data = json.loads(text)
+            lst = ((data.get("Data") or {}).get("LSJZList") or [])
+            if len(lst) < 2:
+                continue  # 成立首日等无前日净值的情况跳过
+            cur, prev = lst[0], lst[1]
+            # 货币基金（FundType 005）接口口径不同：DWJZ 字段是「每万份收益」，净值恒 1；
+            # 交给前端用 isMoney 区分计算（市值=份额，当日收益=万份收益×份额/10000）
+            is_money = ((data.get("Data") or {}).get("SYType") or "").find("每万份收益") >= 0
+            item = {
+                "code": code,
+                "name": "",
+                "nav": float(cur.get("DWJZ") or 0),
+                "navDate": cur.get("FSRQ") or "",
+                "prevNav": float(prev.get("DWJZ") or 0),
+                "prevDate": prev.get("FSRQ") or "",
+                "pct": float(cur.get("JZZZL") or 0),
+                "isMoney": is_money,
+            }
+            try:  # 名称：fundgz 估值接口 jsonp，拿不到就留空
+                gz = _fund_fetch(f"https://fundgz.1234567.com.cn/js/{code}.js", "https://fund.eastmoney.com/")
+                m = re.search(r'"name":"(.*?)"', gz)
+                if m:
+                    item["name"] = m.group(1)
+            except Exception:
+                pass
+            out.append(item)
+        except Exception:
+            continue  # 单只失败不影响其余
+    return out
+
+
 # ---------- 智谱 AI 代理 ----------
 def zhipu_api_key() -> str:
     """环境变量 ZHIPU_API_KEY 优先；其次项目根 zhipu.key 文件；都没有则返回空串"""

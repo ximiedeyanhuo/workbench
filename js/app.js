@@ -329,17 +329,21 @@
         ? ` · 预算 ${fmtMoney(monthBudget)}${overBudget ? ` <b style="color:var(--danger)">已超支 ${fmtMoney(mExpense - monthBudget)}</b>` : ""}`
         : "";
 
-      // 净资产总览：累计储蓄 + 股票市值；行情异步补齐，先按成本价兜底显示
-      const holdings = stocks.map((r) => ({ code: r.code || "", shares: Number(r.shares || 0), cost: Number(r.cost || 0) }));
+      // 净资产总览：累计储蓄 + 持仓市值（股票行情 / 基金净值异步补齐，先按成本价兜底显示）
+      const stockHoldings = stocks.filter((r) => (r.type || "stock") !== "fund")
+        .map((r) => ({ code: r.code || "", shares: Number(r.shares || 0), cost: Number(r.cost || 0) }));
+      const fundHoldings = stocks.filter((r) => (r.type || "stock") === "fund")
+        .map((r) => ({ code: r.code || "", shares: Number(r.shares || 0), cost: Number(r.cost || 0) }));
+      const holdings = stockHoldings.concat(fundHoldings);
       const stockCostVal = holdings.reduce((s, r) => s + r.cost * r.shares, 0);
       const showNetWorth = saved > 0 || holdings.length > 0;
       const nwHtml = showNetWorth
         ? `<div class="card">
-            <h2>净资产总览<span class="count">储蓄 + 股票</span></h2>
+            <h2>净资产总览<span class="count">储蓄 + 持仓</span></h2>
             <div class="stat-grid">
               <div class="stat" data-go="#/finance"><div class="s-lab">累计储蓄</div><div class="s-val">${fmtMoney(saved)}</div><div class="s-sub">「储蓄」类型合计</div></div>
-              <div class="stat" data-go="#/stocks"><div class="s-lab">股票市值</div><div class="s-val" id="nwStock">${fmtMoney(stockCostVal)}</div><div class="s-sub" id="nwStockSub">${holdings.length ? "行情加载中…" : "暂无持仓"}</div></div>
-              <div class="stat" data-go="#/stocks"><div class="s-lab">今日盈亏</div><div class="s-val" id="nwDay" style="color:var(--muted)">—</div><div class="s-sub">按当日涨跌估算</div></div>
+              <div class="stat" data-go="#/stocks"><div class="s-lab">持仓市值</div><div class="s-val" id="nwStock">${fmtMoney(stockCostVal)}</div><div class="s-sub" id="nwStockSub">${holdings.length ? "行情加载中…" : "暂无持仓"}</div></div>
+              <div class="stat" data-go="#/stocks"><div class="s-lab">今日盈亏</div><div class="s-val" id="nwDay" style="color:var(--muted)">—</div><div class="s-sub">股票涨跌 + 基金净值差</div></div>
               <div class="stat"><div class="s-lab">净资产合计</div><div class="s-val" id="nwTotal">${fmtMoney(saved + stockCostVal)}</div><div class="s-sub">储蓄 + 市值</div></div>
             </div>
           </div>`
@@ -543,15 +547,18 @@
       });
 
       // 净资产：异步拉行情把成本价兜底值替换成实时市值（失败保持兜底显示）
+      // 股票走 /api/stock/quote，基金走 /api/fund/nav（净值），合并计算市值与当日盈亏
       const nwCodes = [...new Set(holdings.map((r) => r.code).filter(Boolean))];
       if (showNetWorth && nwCodes.length && window.WB.USE_API) {
         (async () => {
           try {
-            const res = await fetch("/api/stock/quote?codes=" + encodeURIComponent(nwCodes.join(",")));
-            if (!res.ok) return;
-            const list = await res.json();
+            const [stockRes, fundRes] = await Promise.all([
+              stockHoldings.length ? fetch("/api/stock/quote?codes=" + encodeURIComponent(stockHoldings.map((r) => r.code).join(","))) : Promise.resolve(null),
+              fundHoldings.length ? fetch("/api/fund/nav?codes=" + encodeURIComponent(fundHoldings.map((r) => r.code).join(","))) : Promise.resolve(null),
+            ]);
             const qmap = {};
-            list.forEach((q) => { qmap[q.code] = q; });
+            if (stockRes && stockRes.ok) (await stockRes.json()).forEach((q) => { qmap[q.code] = q; });
+            if (fundRes && fundRes.ok) (await fundRes.json()).forEach((q) => { qmap[q.code] = { price: q.isMoney ? 1 : q.nav, change: q.isMoney ? q.nav / 10000 : q.nav - q.prevNav }; });
             // await 期间可能已切走或重渲染，元素不在了就放弃
             const stockEl = el.querySelector("#nwStock");
             if (currentRoute() !== "dashboard" || !stockEl) return;
@@ -567,7 +574,7 @@
             const col = day > 0.005 ? "var(--danger)" : day < -0.005 ? "var(--ok)" : "var(--muted)";
             stockEl.textContent = fmtMoney(mv);
             const subEl = el.querySelector("#nwStockSub");
-            if (subEl) subEl.textContent = `共 ${holdings.length} 笔持仓 · 实时行情`;
+            if (subEl) subEl.textContent = `共 ${holdings.length} 笔持仓 · ${fundHoldings.length ? "股票 + 理财" : "实时行情"}`;
             const dayEl = el.querySelector("#nwDay");
             if (dayEl) { dayEl.textContent = sgn(day); dayEl.style.color = col; }
             const totalEl = el.querySelector("#nwTotal");
