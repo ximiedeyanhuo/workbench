@@ -127,6 +127,7 @@
   }
 
   function typeLabel(t) {
+    if (t === "all") return "全部";
     return t === "expense" ? "支出" : t === "income" ? "收入" : "储蓄";
   }
 
@@ -348,7 +349,7 @@
   function filteredTabTx(cats, txs) {
     const scope = scopedTx(txs);
     let tabTx = scope
-      .filter((t) => t.type === finTab)
+      .filter((t) => finTab === "all" || t.type === finTab)
       .sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.id || "").localeCompare(a.id || ""));
     if (finFilterCat) tabTx = tabTx.filter((t) => t.category === finFilterCat);
     if (finKeyword) tabTx = tabTx.filter((t) => (t.note || "").toLowerCase().includes(finKeyword.toLowerCase()));
@@ -390,7 +391,8 @@
     const pageTx = tabTx.slice((finPage - 1) * FIN_PAGE_SIZE, finPage * FIN_PAGE_SIZE);
     const empty = finFilterCat || finKeyword || finDateStart || finDateEnd
       ? "没有匹配的记录"
-      : finAllYears ? `还没有${typeLabel(finTab)}记录` : `${finYear}年还没有${typeLabel(finTab)}记录`;
+      : finAllYears ? (finTab === "all" ? "还没有任何记录" : `还没有${typeLabel(finTab)}记录`)
+        : (finTab === "all" ? `${finYear}年还没有记录` : `${finYear}年还没有${typeLabel(finTab)}记录`);
     return sumBar + groupedListHtml(cats, pageTx, empty) + pageBarHtml(total, totalPages);
   }
 
@@ -534,7 +536,7 @@
 
   /** 分类管理面板 */
   function catMgrHtml(cats, custom) {
-    if (finTab === "saving") return "";
+    if (finTab === "saving" || finTab === "all") return "";
     const customIds = new Set(((custom || {})[finTab] || []).map((c) => c.id));
     const chips = (cats[finTab] || [])
       .map((c) => {
@@ -559,6 +561,7 @@
   /** 明细卡片：类型 tab + 记一笔 + 筛选 + 列表 */
   function listCardHtml(cats, custom, mtx, txs) {
     const typeOpts = [
+      { k: "all", label: "全部" },
       { k: "expense", label: "支出" },
       { k: "income", label: "收入" },
       { k: "saving", label: "储蓄" },
@@ -567,12 +570,30 @@
       .map((o) => `<button class="tab ${finTab === o.k ? "on" : ""}" data-tx-tab="${o.k}">${o.label}</button>`)
       .join("");
 
-    const catOpts = (cats[finTab] || [])
-      .map((c) => `<option value="${c.id}">${esc(c.name)}</option>`)
-      .join("");
-    const filterOpts = `<option value="">全部分类</option>` + (cats[finTab] || [])
+    // "全部"模式下分类合并所有类型（去重）；否则取当前类型分类
+    const allCats = (() => {
+      const m = [], seen = new Set();
+      Object.keys(cats).forEach((t) => (cats[t] || []).forEach((c) => {
+        if (!seen.has(c.id)) { seen.add(c.id); m.push(c); }
+      }));
+      return m;
+    })();
+    const tabCats = finTab === "all" ? allCats : (cats[finTab] || []);
+    const catOpts = tabCats.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
+    const filterOpts = `<option value="">全部分类</option>` + tabCats
       .map((c) => `<option value="${c.id}" ${c.id === finFilterCat ? "selected" : ""}>${esc(c.name)}</option>`)
       .join("");
+
+    // "全部"模式不提供记一笔（需要具体类型），给出提示
+    const addFormHtml = finTab === "all"
+      ? `<div class="row tx-form" style="margin-bottom:8px;color:var(--muted);font-size:12.5px">当前为全部类型视图 · 切到上方具体类型标签即可记一笔</div>`
+      : `<div class="row tx-form" style="margin-bottom:8px">
+        <select id="finCategory">${catOpts}</select>
+        <input type="number" id="finAmount" placeholder="金额" style="width:100px" min="0" step="0.01" />
+        <input class="grow" id="finNote" placeholder="备注（可空）" maxlength="40" />
+        <input type="date" id="finDate" value="${finSelDay || todayStr()}" />
+        <button class="btn" id="finAdd">记一笔</button>
+      </div>`;
 
     // 年份选项：数据中实际存在的年份 + 当前年（降序），另含"全部年份"
     const yearSet = new Set([String(now.getFullYear())]);
@@ -591,13 +612,7 @@
         </span>
       </h2>
       <div class="tabs" id="txTabs" style="margin-bottom:12px">${typeToggle}</div>
-      <div class="row tx-form" style="margin-bottom:8px">
-        <select id="finCategory">${catOpts}</select>
-        <input type="number" id="finAmount" placeholder="金额" style="width:100px" min="0" step="0.01" />
-        <input class="grow" id="finNote" placeholder="备注（可空）" maxlength="40" />
-        <input type="date" id="finDate" value="${finSelDay || todayStr()}" />
-        <button class="btn" id="finAdd">记一笔</button>
-      </div>
+      ${addFormHtml}
       <div class="row tx-filter" style="margin-bottom:8px">
         <select id="finFilterCat">${filterOpts}</select>
         <input id="finKeyword" placeholder="搜备注…" value="${esc(finKeyword)}" style="width:110px" />
@@ -605,7 +620,7 @@
         <span class="tx-range-sep">~</span>
         <input type="date" id="finDateEnd" value="${esc(finDateEnd)}" title="交易日期-止" />
         <button class="btn sm ghost" id="finResetFilter" title="清空筛选条件">重置</button>
-        ${finTab !== "saving" ? `<button class="btn sm ghost" id="finCatMgrBtn">${finShowCatMgr ? "收起分类管理" : "分类管理"}</button>` : ""}
+        ${finTab !== "saving" && finTab !== "all" ? `<button class="btn sm ghost" id="finCatMgrBtn">${finShowCatMgr ? "收起分类管理" : "分类管理"}</button>` : ""}
         <button class="btn sm ghost" id="finImport" title="导入流水（支持 CSV / xlsx；本站导出、海豚云记录格式、Excel GBK 文件）">导入 CSV</button>
         <button class="btn sm ghost" id="finExport" title="导出当前筛选结果">导出 CSV</button>
         <input type="file" id="finImportFile" accept=".csv,text/csv,.xlsx,.xlsm" hidden />
@@ -773,7 +788,7 @@
   /** 列表页导出：当前筛选结果（需求 §9.4 导出与页面对齐） */
   function exportList(cats, txs) {
     const scope = scopedTx(txs);
-    let rows = scope.filter((t) => t.type === finTab);
+    let rows = scope.filter((t) => finTab === "all" || t.type === finTab);
     if (finFilterCat) rows = rows.filter((t) => t.category === finFilterCat);
     if (finKeyword) rows = rows.filter((t) => (t.note || "").toLowerCase().includes(finKeyword.toLowerCase()));
     rows = rows.slice().sort((a, b) => (a.date || "").localeCompare(b.date || ""));
