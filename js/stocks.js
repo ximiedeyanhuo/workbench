@@ -132,7 +132,7 @@
         <td>${esc(r.name)}<span class="stk-code">${esc(r.code)}</span></td>
         <td colspan="4">
           <span class="stk-edit-row">
-            数量/份额 <input type="number" class="stk-in" data-f="shares" value="${r.shares}" min="0" step="${isFund ? "0.01" : "100"}" style="width:110px" />
+            ${isFund ? "买入金额" : "数量"} <input type="number" class="stk-in" data-f="shares" value="${isFund ? (r.shares * r.cost).toFixed(2) : r.shares}" min="0" step="${isFund ? "0.01" : "100"}" style="width:110px" />
             成本 <input type="number" class="stk-in" data-f="cost" value="${r.cost}" min="0" step="0.0001" style="width:110px" />
           </span>
         </td>
@@ -152,7 +152,7 @@
     return `<tr data-id="${r.id}">
       <td>${esc(r.name)}<span class="stk-code">${esc(r.code)}</span></td>
       <td style="color:${q ? udColor(q.change) : "var(--muted)"}">${q ? (isFund && q.isMoney ? "1.0000" : isFund ? fmt4(q.price) : fmt2(q.price)) : "—"}<span class="stk-sub">${priceSub}</span></td>
-      <td>${r.shares}</td>
+      <td>${isFund ? fmt2(r.shares * r.cost) : r.shares}</td>
       <td>${isFund ? fmt4(r.cost) : fmt2(r.cost)}</td>
       <td>${q ? fmt2(mv) : "—"}</td>
       <td style="color:${q ? udColor(pl) : "var(--muted)"}">${q ? signed2(pl) : "—"}<span class="stk-sub">${q ? signed2(plPct) + "%" : ""}</span></td>
@@ -182,7 +182,7 @@
       const qTime = quotes ? Object.values(quotes).map((q) => q.time).sort().pop() : "";
       const searchPh = isFund ? "基金代码 / 名称，如 023636 或 易方达安旭" : "代码 / 名称 / 拼音，如 600519 或 茅台";
       const tip = isFund
-        ? (window.WB.USE_API ? "公募基金/货币基金均可，净值每交易日 16:00 后更新；同基金可分多笔" : "本地离线模式：无净值与搜索，可先手动记持仓")
+        ? (window.WB.USE_API ? "录入买入金额即可，份额按成本净值自动换算；成本净值留空自动取最新净值" : "本地离线模式：无净值与搜索，录入买入金额 + 成本净值")
         : (window.WB.USE_API ? "同一股票可分多笔记录不同成本" : "本地离线模式：无行情与搜索，可先手动记持仓");
       const empty = isFund
         ? '<div class="empty">还没有理财记录，用上方搜索添加第一笔（支持公募基金 / 货币基金）</div>'
@@ -204,7 +204,7 @@
               <input id="stkSearch" placeholder="${searchPh}" autocomplete="off" style="width:250px" />
               <div class="stk-sug" id="stkSug" hidden></div>
             </span>
-            <input type="number" id="stkShares" placeholder="${isFund ? "持有份额" : "数量(股)"}" min="0" step="${isFund ? "0.01" : "100"}" style="width:110px" />
+            <input type="number" id="stkShares" placeholder="${isFund ? "买入金额(元)" : "数量(股)"}" min="0" step="${isFund ? "0.01" : "100"}" style="width:120px" />
             <input type="number" id="stkCost" placeholder="${isFund ? "成本净值(元/份)" : "成本价(元/股)"}" min="0" step="0.0001" style="width:130px" />
             <button class="btn" id="stkAdd">添加</button>
             <span class="stk-tip">${tip}</span>
@@ -219,7 +219,7 @@
           </h2>
           ${rows.length ? `<div class="stk-wrap"><table class="stk-table">
             <thead><tr>
-              <th>名称</th><th>${isFund ? "净值 / 今日" : "现价 / 今日"}</th><th>${isFund ? "份额" : "数量"}</th><th>${isFund ? "成本净值" : "成本价"}</th><th>市值</th><th>持仓盈亏</th><th>${isFund ? "当日收益" : "今日盈亏"}</th><th></th>
+              <th>名称</th><th>${isFund ? "净值 / 今日" : "现价 / 今日"}</th><th>${isFund ? "买入金额" : "数量"}</th><th>${isFund ? "成本净值" : "成本价"}</th><th>市值</th><th>持仓盈亏</th><th>${isFund ? "当日收益" : "今日盈亏"}</th><th></th>
             </tr></thead>
             <tbody id="stkBody">${rows.map((r) => rowHtml(r, isFund)).join("")}</tbody>
           </table></div>
@@ -289,10 +289,15 @@
         }
         if (!stkSel) return flashInvalid(searchEl);
         const sharesEl = $("#stkShares"), costEl = $("#stkCost");
-        const shares = parseFloat(sharesEl.value);
-        const cost = parseFloat(costEl.value);
-        if (!(shares > 0)) return flashInvalid(sharesEl);
-        if (!(cost >= 0)) return flashInvalid(costEl);
+        // 理财：输入的是买入金额（元），份额 = 金额 ÷ 成本净值，成本净值留空则自动取最新净值
+        const amount = isFund ? parseFloat(sharesEl.value) : 0;
+        let cost = parseFloat(costEl.value);
+        if (isFund) {
+          if (!(amount > 0)) return flashInvalid(sharesEl);
+        } else {
+          if (!(parseFloat(sharesEl.value) > 0)) return flashInvalid(sharesEl);
+          if (!(cost >= 0)) return flashInvalid(costEl);
+        }
         // 名称尽量取真实名（手输代码时输入框里只有数字；基金名用搜索接口补，货基同样适用）
         let name = stkSel.name;
         if (isFund && /^\d{6}$/.test(name) && window.WB.USE_API) {
@@ -303,8 +308,12 @@
           } catch (e) { /* 补名失败保持原样 */ }
         }
         const fresh = isFund ? await fetchFundNavs([stkSel.code]) : await fetchStockQuotes([stkSel.code]);
-        if (fresh && fresh[stkSel.code]) name = fresh[stkSel.code].name || name;
-        else if (window.WB.USE_API && /^\d{6}$/.test(name)) return alert("未查到该代码的行情，请确认代码是否正确");
+        if (fresh && fresh[stkSel.code]) {
+          name = fresh[stkSel.code].name || name;
+          if (isFund && !(cost > 0)) cost = fresh[stkSel.code].price; // 成本净值留空 → 用最新净值
+        } else if (window.WB.USE_API && /^\d{6}$/.test(name)) return alert("未查到该代码的行情，请确认代码是否正确");
+        if (isFund && !(cost > 0)) return flashInvalid(costEl); // 拿不到净值又没填成本净值
+        const shares = isFund ? amount / cost : parseFloat(sharesEl.value);
         const stamp = nowStamp();
         await stocksRepo.put({ id: uid(), code: stkSel.code, name, shares, cost, type: isFund ? "fund" : "stock", createdAt: stamp, updatedAt: stamp });
         stkSel = null;
@@ -323,11 +332,24 @@
         if (act === "edit") { stkEditId = id; rerender(); }
         else if (act === "cancel") { stkEditId = null; rerender(); }
         else if (act === "save") {
-          const shares = parseFloat(tr.querySelector('[data-f="shares"]').value);
-          const cost = parseFloat(tr.querySelector('[data-f="cost"]').value);
-          if (!(shares > 0) || !(cost >= 0)) return flashInvalid(tr.querySelector('[data-f="shares"]'));
           const rec = await stocksRepo.get(id);
-          if (rec) { rec.shares = shares; rec.cost = cost; rec.updatedAt = nowStamp(); await stocksRepo.put(rec); }
+          if (!rec) return;
+          if (isFund) {
+            // 理财编辑：买入金额 + 成本净值 → 份额 = 金额 ÷ 净值
+            const amount = parseFloat(tr.querySelector('[data-f="shares"]').value);
+            const cost = parseFloat(tr.querySelector('[data-f="cost"]').value);
+            if (!(amount > 0) || !(cost > 0)) return flashInvalid(tr.querySelector('[data-f="shares"]'));
+            rec.shares = amount / cost;
+            rec.cost = cost;
+          } else {
+            const shares = parseFloat(tr.querySelector('[data-f="shares"]').value);
+            const cost = parseFloat(tr.querySelector('[data-f="cost"]').value);
+            if (!(shares > 0) || !(cost >= 0)) return flashInvalid(tr.querySelector('[data-f="shares"]'));
+            rec.shares = shares;
+            rec.cost = cost;
+          }
+          rec.updatedAt = nowStamp();
+          await stocksRepo.put(rec);
           stkEditId = null;
           rerender();
         } else if (act === "del") {
