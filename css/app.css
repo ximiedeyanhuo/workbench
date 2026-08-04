@@ -805,11 +805,11 @@ input.invalid, select.invalid, textarea.invalid {
   transform: translateY(-2px);
 }
 
-/* 记账：本月概览四宫格 + 本年汇总 */
+/* 记账：本月概览 + 本年汇总 */
 .tx-summary {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 18px;
   padding: 14px;
   background: var(--card2);
@@ -840,7 +840,9 @@ input.invalid, select.invalid, textarea.invalid {
   gap: 10px;
   min-width: 0;
 }
+.tx-sum-row.month .tx-sum-items { grid-template-columns: repeat(2, 1fr); }
 .tx-sum-row.year .tx-sum-items { grid-template-columns: repeat(3, 1fr); }
+/* 累计行：平铺横排，数字突出 */
 .tx-sum-row.total {
   background: var(--card);
   padding: 12px;
@@ -852,12 +854,13 @@ input.invalid, select.invalid, textarea.invalid {
 }
 .tx-sum-row.total .tx-sum-items { grid-template-columns: 1fr; }
 .tx-sum-row.total .tx-sum-item {
-  align-items: center;
-  gap: 6px;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 12px;
 }
-.tx-sum-row.total .tx-sum-lab { font-size: 12px; }
+.tx-sum-row.total .tx-sum-lab { font-size: 13px; }
 .tx-sum-row.total .tx-sum-item b {
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 800;
 }
 .tx-sum-item {
