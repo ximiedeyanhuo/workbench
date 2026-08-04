@@ -262,17 +262,20 @@
     return `<div class="card" id="finSchedCard">
       <h2>定期账单<span class="count">${schedules.length} 项</span></h2>
       <ul class="list">${rows}</ul>
-      <div class="row" style="margin-top:10px">
-        <input id="schedName" placeholder="名称，如：房贷" style="width:90px" maxlength="20" />
-        <select id="schedType"><option value="expense">支出</option><option value="income">收入</option></select>
-        <select id="schedCat">${catOpts}</select>
-        <input type="number" id="schedAmount" placeholder="金额" style="width:80px" min="0.01" step="0.01" />
-        <span class="tx-cat-tip">每月</span>
-        <input type="number" id="schedDay" placeholder="15" style="width:52px" min="1" max="31" />
-        <span class="tx-cat-tip">号</span>
-        <button class="btn sm" id="schedAdd">添加</button>
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
+        <div class="row">
+          <input id="schedName" placeholder="名称，如：房贷" style="width:100px" maxlength="20" />
+          <select id="schedType"><option value="expense">支出</option><option value="income">收入</option></select>
+          <select id="schedCat">${catOpts}</select>
+          <input type="number" id="schedAmount" placeholder="金额" style="width:90px" min="0.01" step="0.01" />
+        </div>
+        <div class="row">
+          <span style="font-size:12px;color:var(--muted);white-space:nowrap">每月</span>
+          <input type="number" id="schedDay" placeholder="15" style="width:60px" min="1" max="31" />
+          <span style="font-size:12px;color:var(--muted);white-space:nowrap">号自动记入 / 到期提醒</span>
+          <button class="btn sm" id="schedAdd" style="margin-left:auto">添加</button>
+        </div>
       </div>
-      <div class="tx-cat-tip" style="margin-top:6px">到日子自动记一笔（记账页自动）；或设为「到期提醒」——15 号后 5 天内没记会弹框。点徽标切换模式。</div>
     </div>`;
   }
 
