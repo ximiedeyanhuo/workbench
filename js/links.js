@@ -18,9 +18,9 @@
             .map(
               (l, i) => `<div class="ql-card" data-id="${l.id}">
                 <div class="ql-ops">
-                  ${i > 0 ? `<button class="icon-btn plain" data-act="up" title="上移">↑</button>` : ""}
-                  ${i < links.length - 1 ? `<button class="icon-btn plain" data-act="down" title="下移">↓</button>` : ""}
-                  <button class="icon-btn" data-act="del" title="删除">✕</button>
+                  ${i > 0 ? `<button class="icon-btn plain" data-act="up" title="上移">${WB.icon("up")}</button>` : ""}
+                  ${i < links.length - 1 ? `<button class="icon-btn plain" data-act="down" title="下移">${WB.icon("down")}</button>` : ""}
+                  <button class="icon-btn" data-act="del" title="删除">${WB.icon("del")}</button>
                 </div>
                 <span class="ql-ic" style="background:${esc(l.color || COLORS[0])}">${esc((l.name || "?").slice(0, 1).toUpperCase())}</span>
                 <a class="ql-name" href="${safeUrl(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.name)}</a>
@@ -68,6 +68,8 @@
         const id = actEl.closest("[data-id]").dataset.id;
         const idx = links.findIndex((l) => l.id === id);
         if (actEl.dataset.act === "del") {
+          const l = links[idx];
+          if (!confirm(`删除快捷入口「${(l && l.name) || ""}」？`)) return;
           await qlRepo.delete(id);
         } else if (actEl.dataset.act === "up" && idx > 0) {
           // 与上一个交换 sort 值

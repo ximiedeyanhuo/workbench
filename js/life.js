@@ -49,7 +49,7 @@
                 <span class="name"><span class="pri-dot" style="background:${h.color}"></span>${esc(h.name)}</span>
                 <span class="streak">🔥 连续 ${streakOf(h)} 天</span>
                 <button class="btn sm ${doneToday ? "ghost" : ""}" data-act="check-today" data-hid="${h.id}">${doneToday ? "✓ 今日已打卡" : "今日打卡"}</button>
-                <button class="icon-btn" data-act="del-habit" data-hid="${h.id}" title="删除习惯">✕</button>
+                <button class="icon-btn" data-act="del-habit" data-hid="${h.id}" title="删除习惯">${WB.icon("del")}</button>
               </div>
               <div class="heat-grid">${cells.join("")}</div>
             </div>`;
@@ -60,9 +60,9 @@
     return `<div class="card">
       <h2>习惯打卡
         <span class="count" style="display:flex;gap:6px;align-items:center">
-          <button class="icon-btn plain" id="heatPrev" title="上个月">←</button>
+          <button class="icon-btn plain" id="heatPrev" title="上个月">${WB.icon("prev")}</button>
           ${heatYear}年${heatMonth + 1}月
-          <button class="icon-btn plain" id="heatNext" title="下个月">→</button>
+          <button class="icon-btn plain" id="heatNext" title="下个月">${WB.icon("next")}</button>
         </span>
       </h2>
       <div class="row" style="margin-bottom:6px">
@@ -93,7 +93,7 @@
         return `<li class="item" data-id="${r.id}">
           <span class="txt">${esc(m.label)} <b>${Number(r.value)}</b> ${m.unit}</span>
           <span class="meta">${r.date || ""}</span>
-          <button class="icon-btn" data-act="del-health" title="删除">✕</button>
+          <button class="icon-btn" data-act="del-health" title="删除">${WB.icon("del")}</button>
         </li>`;
       })
       .join("");
@@ -247,6 +247,9 @@
       el.querySelector("#healthList").addEventListener("click", async (e) => {
         const d = e.target.closest('[data-act="del-health"]');
         if (!d) return;
+        const r = health.find((x) => x.id === d.closest("[data-id]").dataset.id);
+        const m = r && (METRICS[r.metric] || { label: r.metric });
+        if (!confirm(`删除这条健康记录${r && m ? `（${m.label} ${Number(r.value)} ${m.unit} · ${r.date || ""}）` : ""}？`)) return;
         await healthRepo.delete(d.closest("[data-id]").dataset.id);
         rerender();
       });

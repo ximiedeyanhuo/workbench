@@ -181,7 +181,7 @@
           <div class="gk-target-name">${esc(tg.name)}<span class="gk-target-type">${esc(tg.type || "考试")}</span></div>
           <div class="gk-target-day">${ended ? "已结束" : diff + "<small>天</small>"}</div>
           ${soon ? `<div class="gk-target-warn">⚠ 还有 ${diff} 天</div>` : `<div class="gk-target-date">${esc(tg.date)}${ended ? "" : "后"}</div>`}
-          <button class="icon-btn" data-act="del-target" data-idx="${idx}" title="删除目标">✕</button>
+          <button class="icon-btn" data-act="del-target" data-idx="${idx}" title="删除目标">${WB.icon("del")}</button>
         </div>`;
       })
       .join("");
@@ -197,7 +197,7 @@
       .map((it) => `<li class="item ${it.done ? "done" : ""}" data-cid="${it.id}">
         <span class="chk" data-act="toggle-check"></span>
         <span class="txt">${esc(it.text)}</span>
-        <button class="icon-btn" data-act="del-check" title="删除">✕</button>
+        <button class="icon-btn" data-act="del-check" title="删除">${WB.icon("del")}</button>
       </li>`)
       .join("");
     return `<ul class="list">${items}</ul>`;
@@ -377,7 +377,7 @@
                     ${e.note ? `<div style="font-size:12px;color:var(--muted)">${esc(e.note)}</div>` : ""}
                   </span>
                   <span class="meta">${esc(e.date || "")}</span>
-                  <button class="icon-btn" data-act="del-exam" title="删除">✕</button>
+                  <button class="icon-btn" data-act="del-exam" title="删除">${WB.icon("del")}</button>
                 </li>`).join("")}</ul>`
               : '<div class="empty">还没有模考记录，录入第一次成绩吧</div>'}
           </div>
@@ -542,6 +542,7 @@
         if (act.dataset.act === "toggle-check") {
           it.done = !it.done;
         } else if (act.dataset.act === "del-check") {
+          if (!confirm(`删除打卡「${it.text || ""}」？`)) return;
           list.splice(list.indexOf(it), 1);
         } else {
           return;

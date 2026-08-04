@@ -124,8 +124,8 @@
       <td style="color:${q ? udColor(pl) : "var(--muted)"}">${q ? signed2(pl) : "—"}<span class="stk-sub">${q ? signed2(plPct) + "%" : ""}</span></td>
       <td style="color:${q ? udColor(day) : "var(--muted)"}">${q ? signed2(day) : "—"}</td>
       <td class="stk-ops">
-        <button class="icon-btn plain" data-act="edit" title="修改数量/成本">✎</button>
-        <button class="icon-btn plain" data-act="del" title="删除该笔持仓">✕</button>
+        <button class="icon-btn plain" data-act="edit" title="修改数量/成本">${WB.icon("edit")}</button>
+        <button class="icon-btn plain" data-act="del" title="删除该笔持仓">${WB.icon("del")}</button>
       </td>
     </tr>`;
   }

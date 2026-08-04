@@ -68,8 +68,8 @@
       ${(t.tags || []).map((tg) => `<span class="tag">${esc(tg)}</span>`).join("")}
       ${t.repeat ? `<span class="tag" title="完成后自动生成下一期">🔁 ${repeatLab(t.repeat)}</span>` : ""}
       ${dueBadge}
-      <button class="icon-btn plain" data-act="edit" title="编辑">✎</button>
-      <button class="icon-btn" data-act="del" title="删除">✕</button>
+      <button class="icon-btn plain" data-act="edit" title="编辑">${WB.icon("edit")}</button>
+      <button class="icon-btn" data-act="del" title="删除">${WB.icon("del")}</button>
     </li>`;
   }
 
@@ -142,9 +142,9 @@
 
     return `
       <div class="cal-head">
-        <button class="btn ghost sm" id="calPrev">←</button>
+        <button class="btn ghost sm" id="calPrev">${WB.icon("prev")}</button>
         <span class="cal-title">${calYear} 年 ${calMonth + 1} 月</span>
-        <button class="btn ghost sm" id="calNext">→</button>
+        <button class="btn ghost sm" id="calNext">${WB.icon("next")}</button>
       </div>
       <div class="cal-grid">${wdHtml}${cellHtml}</div>
       ${dayPanel}`;
@@ -342,6 +342,8 @@
               }
             }
           } else if (actEl.dataset.act === "del") {
+            const t = await tasksRepo.get(id);
+            if (!confirm(`删除任务「${(t && t.title) || ""}」？`)) return;
             await tasksRepo.delete(id);
           } else if (actEl.dataset.act === "edit") {
             editingId = id;

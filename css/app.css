@@ -424,7 +424,9 @@ textarea {
   padding: 8px 16px; font-size: 13px; font-weight: 600;
   cursor: pointer; white-space: nowrap;
   letter-spacing: -0.005em;
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
 }
+.btn svg { width: 14px; height: 14px; display: block; }
 .btn:hover { background: var(--accent-hover); }
 .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
 .btn.ghost:hover { background: var(--card2); }
@@ -435,9 +437,13 @@ textarea {
 .icon-btn {
   border: none; background: transparent; color: var(--muted); cursor: pointer;
   font-size: 15px; padding: 5px 7px; border-radius: var(--radius-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  line-height: 1;
 }
+.icon-btn svg { width: 16px; height: 16px; display: block; }
 .icon-btn:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 6%, transparent); }
 .icon-btn.plain:hover { color: var(--ink); background: var(--card2); }
+.icon-btn.plain:hover svg { color: var(--ink); }
 
 input.invalid, select.invalid, textarea.invalid {
   border-color: var(--danger);
@@ -1072,9 +1078,11 @@ input.invalid, select.invalid, textarea.invalid {
 .tx-cat-chip { display: inline-flex; align-items: center; gap: 6px; }
 .tx-cat-del {
   border: none; background: none; cursor: pointer;
-  color: var(--muted); font-size: 11px; padding: 0 2px;
+  color: var(--muted); padding: 0 2px;
   line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
 }
+.tx-cat-del svg { width: 12px; height: 12px; display: block; }
 .tx-cat-del:hover { color: var(--danger); }
 .tx-cat-tip { font-size: 11px; color: var(--muted); }
 #finNewCatColor {

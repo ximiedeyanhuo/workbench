@@ -258,7 +258,7 @@
               </span>
               ${(m.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join("")}
               <span class="meta">${(m.createdAt || "").slice(0, 10)}</span>
-              <button class="icon-btn" data-act="del-mark" title="删除">✕</button>
+              <button class="icon-btn" data-act="del-mark" title="删除">${WB.icon("del")}</button>
             </li>`
           )
           .join("")
@@ -327,7 +327,10 @@
     el.querySelector("#markList").addEventListener("click", async (e) => {
       const d = e.target.closest('[data-act="del-mark"]');
       if (!d) return;
-      await marksRepo.delete(d.closest("[data-id]").dataset.id);
+      const id = d.closest("[data-id]").dataset.id;
+      const m = await marksRepo.get(id);
+      if (!confirm(`删除书签「${(m && m.title) || ""}」？`)) return;
+      await marksRepo.delete(id);
       rerender();
     });
   }

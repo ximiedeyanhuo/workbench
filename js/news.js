@@ -445,7 +445,7 @@
                       (f) => `<li class="item" data-id="${f.id}">
                         <span class="dot" style="width:9px;height:9px;border-radius:50%;background:${c.color};flex-shrink:0"></span>
                         <span class="txt">${esc(f.name)} <span class="meta">${f.type === "video" ? "视频 · " : ""}${esc(f.url)}</span></span>
-                        <button class="icon-btn" data-act="del" title="删除">✕</button>
+                        <button class="icon-btn" data-act="del" title="删除">${WB.icon("del")}</button>
                       </li>`
                     )
                     .join("")

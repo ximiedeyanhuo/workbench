@@ -218,7 +218,7 @@
               <span class="tx-dot" style="background:${esc(c.color)}"></span>
               <span class="txt">${esc(tp.name)}<div style="font-size:12px;color:var(--muted)">${esc(c.name)} · ${fmtYuan(tp.amount)} 元</div></span>
               <button class="btn sm" data-act="use-tpl" title="按模板记一笔今天的支出">记入</button>
-              <button class="icon-btn" data-act="del-tpl" title="删除模板">✕</button>
+              <button class="icon-btn" data-act="del-tpl" title="删除模板">${WB.icon("del")}</button>
             </li>`;
           })
           .join("")
@@ -281,9 +281,9 @@
       <span class="tx-note">${esc(t.note)}</span>
       <span class="tx-amt" style="color:${color}">${sign}${fmtYuan(t.amount)}</span>
       <span class="tx-acts">
-        <button class="icon-btn plain" data-act="copy-fin" title="复制为新记录">⧉</button>
-        <button class="icon-btn plain" data-act="edit-fin" title="编辑">✎</button>
-        <button class="icon-btn" data-act="del-fin" title="删除">✕</button>
+        <button class="icon-btn plain" data-act="copy-fin" title="复制为新记录">${WB.icon("copy")}</button>
+        <button class="icon-btn plain" data-act="edit-fin" title="编辑">${WB.icon("edit")}</button>
+        <button class="icon-btn" data-act="del-fin" title="删除">${WB.icon("del")}</button>
       </span>
     </li>`;
     if (t.id === finDetailId) {
@@ -460,7 +460,7 @@
         <td style="color:${net >= 0 ? "var(--ok)" : "var(--danger)"}">${signedYuan(net)}</td>
         <td class="tx-yr-cnt">${fmtYuan(exp.amt / 7)}</td>
         <td class="tx-yr-cnt">${inc.cnt + exp.cnt}</td>
-        <td><button class="icon-btn plain pc-only" data-act="exp-range" title="导出该周明细 CSV">⤓</button></td>
+        <td><button class="icon-btn plain pc-only" data-act="exp-range" title="导出该周明细 CSV">${WB.icon("export")}</button></td>
       </tr>`;
     });
     return `<div class="tx-year-wrap" id="finWeekWrap"><table class="tx-year-table">
@@ -489,7 +489,7 @@
         <td style="color:${net >= 0 ? "var(--ok)" : "var(--danger)"}">${hasData ? signedYuan(net) : "—"}</td>
         <td class="tx-yr-cnt">${exp.amt ? fmtYuan(exp.amt / daysInMonth) : "—"}</td>
         <td class="tx-yr-cnt">${inc.cnt + exp.cnt || "—"}</td>
-        <td>${hasData ? `<button class="icon-btn plain pc-only" data-act="exp-range" title="导出该月明细 CSV">⤓</button>` : ""}</td>
+        <td>${hasData ? `<button class="icon-btn plain pc-only" data-act="exp-range" title="导出该月明细 CSV">${WB.icon("export")}</button>` : ""}</td>
       </tr>`);
     }
     const yNet = yIncome - yExpense;
@@ -524,7 +524,7 @@
         <td class="${exp.amt ? "tx-lnk" : ""}" data-jt="expense" style="color:${exp.amt ? "var(--danger)" : "inherit"}">${exp.amt ? "-" + fmtYuan(exp.amt) : "—"}</td>
         <td style="color:${net >= 0 ? "var(--ok)" : "var(--danger)"}">${hasData ? signedYuan(net) : "—"}</td>
         <td class="tx-yr-cnt">${inc.cnt + exp.cnt || "—"}</td>
-        <td>${hasData ? `<button class="icon-btn plain pc-only" data-act="exp-range" title="导出该年明细 CSV">⤓</button>` : ""}</td>
+        <td>${hasData ? `<button class="icon-btn plain pc-only" data-act="exp-range" title="导出该年明细 CSV">${WB.icon("export")}</button>` : ""}</td>
       </tr>`;
     });
     return `<div class="tx-year-wrap" id="finYearWrap"><table class="tx-year-table">
@@ -543,7 +543,7 @@
         const removable = customIds.has(c.id);
         return `<span class="tag tx-cat-chip" style="border-color:${esc(c.color)}">
           <i class="tx-dot" style="background:${esc(c.color)}"></i>${esc(c.name)}
-          ${removable ? `<button class="tx-cat-del" data-del-cat="${esc(c.id)}" title="删除分类">✕</button>` : ""}
+          ${removable ? `<button class="tx-cat-del" data-del-cat="${esc(c.id)}" title="删除分类">${WB.icon("del")}</button>` : ""}
         </span>`;
       })
       .join("");
@@ -656,9 +656,9 @@
     return `<div class="card">
       <h2>统计
         <span class="count" style="display:flex;gap:6px;align-items:center">
-          ${showNav ? `<button class="icon-btn plain" id="statPrev" title="上一${isYearNav ? "年" : "个月"}">←</button>` : ""}
+          ${showNav ? `<button class="icon-btn plain" id="statPrev" title="上一${isYearNav ? "年" : "个月"}">${WB.icon("prev")}</button>` : ""}
           ${navLabel}
-          ${showNav ? `<button class="icon-btn plain" id="statNext" title="下一${isYearNav ? "年" : "个月"}">→</button>` : ""}
+          ${showNav ? `<button class="icon-btn plain" id="statNext" title="下一${isYearNav ? "年" : "个月"}">${WB.icon("next")}</button>` : ""}
         </span>
       </h2>
       <div class="tabs" id="txViews" style="margin-bottom:12px">${viewToggle}</div>
@@ -1207,6 +1207,7 @@
       on("#finCatMgr", "click", async (e) => {
         const del = e.target.closest("[data-del-cat]");
         if (!del) return;
+        if (!confirm(`删除分类「${del.dataset.delCat}」？已有该分类的流水不会被删，只是不再归类。`)) return;
         const custom = await getSetting("finCategories", { income: [], expense: [] });
         custom[finTab] = (custom[finTab] || []).filter((c) => c.id !== del.dataset.delCat);
         await setSetting("finCategories", custom);
@@ -1285,6 +1286,9 @@
         const id = item.dataset.id;
 
         if (e.target.closest('[data-act="del-fin"]')) {
+          const rec = txs.find((t) => t.id === id);
+          const lab = rec ? `${rec.type === "income" ? "收入" : "支出"} ${esc(rec.amount ?? "")} ${esc(rec.category || "")} ${rec.date || ""}`.trim() : "";
+          if (!confirm(`删除这条流水${lab ? `（${lab}）` : ""}？`)) return;
           await financeRepo.delete(id);
           rerender();
           return;
