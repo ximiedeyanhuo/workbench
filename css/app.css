@@ -1,16 +1,16 @@
 /* ============================================================
-   Personal Workbench — 「车站 · 到发时刻」· 亮色年轻化版
+   Personal Workbench — 「车站 · 到发时刻」· 二轮打磨版
    ------------------------------------------------------------
    THESIS: 个人工作台是一座自托管的小站——任务即车次，打卡即检票，
            今日焦点即到发时刻表。拒绝“灰底卡片 + 蓝色 SaaS”仪表盘。
-   OWN-WORLD: 白天是白昼站台（冷白卡面 + 鲜橙信号，干净轻盈），
+   OWN-WORLD: 白天是印刷时刻表（奶油纸 + 石墨墨线 + 深琥珀车票），
            夜晚是候车厅翻牌屏（墨蓝黑板 + 翻牌琥珀数字 + 信号灯）。
-           鲜橙 / 翻牌琥珀 = 唯一系统强调色；正点绿 / 晚点红 / 预警金取自站台信号。
+           琥珀 = 唯一系统强调色；正点绿 / 晚点红 / 预警金取自站台信号。
            数据一律等宽数字。隐喻收敛：撕票虚线只出现在真正“撕票”的地方，
            普通卡片用干净 hairline + 克制的阴影。
    STORY: 每天进站：看一眼时刻表上的今日车次，检票完成事项，
            盖章打卡，正点出发。
-   FIRST VIEWPORT: 白昼站牌侧栏 · 发车广播式欢迎语 · 四张数据窗口统计卡
+   FIRST VIEWPORT: 墨色站牌侧栏 · 发车广播式欢迎语 · 四张车票形统计卡
            （staggered 入场）· 今日焦点 = 到发时刻表。
    FORM: 站台信息系统（assigned direction #7）
    FINISH: unreviewed and undocumented is unfinished; this build ends
@@ -18,54 +18,45 @@
    ============================================================ */
 
 :root {
-  /* ---- 站台双面：light = 白昼站台（冷白卡面 + 鲜橙信号） ----
+  /* ---- 站台双面：light = 印刷时刻表（奶油纸） ----
      对比度基线（正文/占位 ≥ 4.5:1，白字按钮 ≥ 4.5:1）：
-     ink #1d2225 / card #ffffff ≈ 14.9:1
-     muted #5b656b / card        ≈ 5.4:1
-     muted-2 #616d75 / card      ≈ 4.8:1  （占位/禁用）
-     accent #c2410c / card       ≈ 4.9:1  （链接/小标签）
-     白 #fff / accent-strong #b43600 ≈ 6.0:1 （按钮） */
-  --bg:            #f4f6f5;   /* 冷白微青 · 候车厅 */
-  --card:          #ffffff;   /* 洁净卡面 */
-  --card2:         #edf0ee;   /* 内衬区 */
-  --ink:           #1d2225;   /* 冷石墨 */
-  --ink-2:         #3f484d;   /* 次级墨 */
-  --muted:         #5b656b;   /* 说明文字 */
-  --muted-2:       #616d75;   /* 占位/禁用 */
-  --line:          #e2e7e5;   /* hairline */
-  --rule:          #c6cecb;   /* 强调分隔线 */
-  --accent:        #c2410c;   /* 鲜橙（链接/焦点/强调） */
-  --accent-strong: #b43600;   /* 橙深（按钮底） */
-  --accent-hover:  #9a2e00;   /* 橙 hover */
-  --accent-soft:   rgba(194, 65, 12, 0.10);
-  --primary:       #1d2225;
+     ink #201b12 / card #fbf8f0 ≈ 16.3:1
+     muted #5d5443 / card      ≈ 7.3:1
+     muted-2 #6a6050 / card    ≈ 5.9:1  （占位/禁用）
+     accent #a94f08 / card     ≈ 5.4:1  （链接/小标签）
+     白 #fff / accent-strong #8f3e04 ≈ 6.6:1 （按钮） */
+  --bg:            #f3eee2;   /* 候车厅纸面 */
+  --card:          #fbf8f0;   /* 车票纸 */
+  --card2:         #eae3d2;   /* 票根 / 内衬区 */
+  --ink:           #201b12;   /* 石墨墨 */
+  --ink-2:         #453d2e;   /* 次级墨 */
+  --muted:         #5d5443;   /* 说明文字 */
+  --muted-2:       #6a6050;   /* 占位/禁用 */
+  --line:          #ddd4bf;   /* hairline */
+  --rule:          #c2b395;   /* 强调分隔线 */
+  --accent:        #a94f08;   /* 深琥珀（链接/焦点/强调） */
+  --accent-strong: #8f3e04;   /* 琥珀深（按钮底） */
+  --accent-hover:  #7a3303;   /* 琥珀 hover */
+  --accent-soft:   rgba(169, 79, 8, 0.10);
+  --primary:       #201b12;
   --danger:        #b3261e;   /* 晚点红 */
-  --warn:          #9a5b00;   /* 预警金 */
+  --warn:          #8f6400;   /* 预警金 */
   --ok:            #2e7d4f;   /* 正点绿 */
-  --purple:        #7c5cd6;   /* 图表系列色（睡眠等） */
-  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
-  --shadow-md: 0 2px 8px rgba(16, 24, 40, 0.06), 0 14px 30px -16px rgba(16, 24, 40, 0.14);
-  --shadow-lg: 0 4px 12px rgba(16, 24, 40, 0.07), 0 26px 52px -24px rgba(16, 24, 40, 0.22);
-  /* 卡片“受光上沿”：白卡上的高光，让卡面更透亮 */
-  --card-lit:      inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  --grain:         0;         /* 亮色无纸纹噪点（干净表面） */
-  --radius-xs:     8px;
-  --radius-sm:     10px;
-  --radius:        14px;
-  --radius-lg:     20px;
+  --purple:        #7b5ab0;   /* 图表系列色（睡眠等） */
+  --shadow-sm: 0 1px 2px rgba(84, 60, 20, 0.06);
+  --shadow-md: 0 2px 6px rgba(84, 60, 20, 0.07), 0 12px 28px -16px rgba(84, 60, 20, 0.18);
+  --shadow-lg: 0 4px 10px rgba(84, 60, 20, 0.08), 0 24px 48px -22px rgba(84, 60, 20, 0.32);
+  /* 卡片“受光上沿”：暗色下靠它把卡片从黑板里抬起来 */
+  --card-lit:      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --grain:         0.5;       /* 纸纹噪点强度 */
+  --radius-xs:     6px;
+  --radius-sm:     8px;
+  --radius:        12px;
+  --radius-lg:     18px;
   --radius-pill:   999px;
   --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Segoe UI", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
   --serif: Georgia, "Songti SC", "Noto Serif SC", serif;
   --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Sarasa Mono SC", monospace;
-  /* 侧栏：亮色 = 白昼站牌（浅色栏 + 深字），暗色 = 墨蓝站牌 */
-  --sb-bg:         #ffffff;
-  --sb-ink:        #1d2225;
-  --sb-muted:      #5f6a70;
-  --sb-hover:      rgba(29, 34, 37, 0.05);
-  --sb-active:     rgba(194, 65, 12, 0.09);
-  --sb-line:       #e7ebe9;
-  --sb-btn-ink:    #5f6a70;
-  --sb-btn-border: #dfe4e2;
 }
 
 [data-theme="dark"] {
@@ -93,15 +84,6 @@
   --shadow-lg: 0 6px 14px rgba(0, 0, 0, 0.45), 0 30px 60px -24px rgba(0, 0, 0, 0.72);
   --card-lit:      inset 0 1px 0 rgba(255, 255, 255, 0.045);
   --grain:         0.35;
-  /* 侧栏 token（暗色 = 墨蓝站牌，与旧硬编码完全一致） */
-  --sb-bg:         #0e151b;
-  --sb-ink:        #e9e7dc;
-  --sb-muted:      rgba(255, 255, 255, 0.6);
-  --sb-hover:      rgba(255, 255, 255, 0.06);
-  --sb-active:     rgba(255, 180, 84, 0.13);
-  --sb-line:       rgba(255, 255, 255, 0.06);
-  --sb-btn-ink:    rgba(255, 255, 255, 0.72);
-  --sb-btn-border: rgba(255, 255, 255, 0.18);
 }
 
 /* ============ 基础 ============ */
@@ -112,7 +94,7 @@ a, button, input, select, textarea, label, .item, .cal-cell, .heat-cell { touch-
 body {
   font-family: var(--sans);
   background:
-    radial-gradient(1200px 520px at 85% -10%, rgba(194, 65, 12, 0.05), transparent 60%),
+    radial-gradient(1200px 520px at 85% -10%, rgba(169, 79, 8, 0.05), transparent 60%),
     var(--bg);
   color: var(--ink);
   font-size: 14px;
@@ -158,20 +140,21 @@ a:hover { color: var(--accent); }
 /* ============ 布局 ============ */
 .layout { display: flex; min-height: 100vh; position: relative; z-index: 1; }
 
-/* ---------- 侧栏：白昼站牌（亮色浅栏 / 暗色墨蓝站牌） ---------- */
+/* ---------- 侧栏：墨色站牌 ---------- */
 .sidebar {
   width: 236px; flex-shrink: 0; position: sticky; top: 0; height: 100vh;
-  background: var(--sb-bg);
-  color: var(--sb-ink);
-  border-right: 1px solid var(--sb-line);
+  background: var(--ink);
+  color: var(--bg);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
   display: flex; flex-direction: column;
   padding: 22px 14px 18px;
   overflow-y: auto;
 }
+[data-theme="dark"] .sidebar { background: #0e151b; }
 .sidebar::after {
   /* 站牌底部打孔线 */
   content: ""; display: block; flex-shrink: 0;
-  margin: 14px 10px 2px; border-top: 1px dashed color-mix(in srgb, var(--sb-ink) 16%, transparent);
+  margin: 14px 10px 2px; border-top: 1px dashed rgba(255, 255, 255, 0.14);
 }
 .brand {
   display: flex; align-items: center; gap: 10px;
@@ -180,7 +163,7 @@ a:hover { color: var(--accent); }
 }
 .brand-ic {
   width: 34px; height: 34px; border-radius: 10px;
-  background: linear-gradient(135deg, #e8590c, var(--accent-strong));
+  background: linear-gradient(135deg, #c25a0c, var(--accent-strong));
   color: #fff;
   box-shadow: 0 2px 10px -2px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
   display: inline-flex; align-items: center; justify-content: center;
@@ -190,12 +173,12 @@ a:hover { color: var(--accent); }
 .brand-ic svg { width: 18px; height: 18px; }
 .brand-txt {
   font-weight: 800; font-size: 15.5px;
-  letter-spacing: -0.01em; color: var(--sb-ink);
+  letter-spacing: -0.01em; color: var(--bg);
   display: flex; flex-direction: column; line-height: 1.15;
 }
 .brand-txt small {
   font-size: 9px; font-weight: 600; letter-spacing: 0.22em;
-  color: var(--accent); margin-top: 3px;
+  color: rgba(255, 179, 71, 0.85); margin-top: 3px;
   font-family: var(--mono);
 }
 
@@ -204,15 +187,15 @@ a:hover { color: var(--accent); }
   position: relative;
   display: flex; align-items: center; gap: 11px;
   padding: 9px 12px;
-  text-decoration: none; color: var(--sb-muted);
+  text-decoration: none; color: rgba(255, 255, 255, 0.6);
   font-size: 13.5px; font-weight: 500;
   border-radius: var(--radius-sm);
   transition: color .15s, background .15s, box-shadow .15s;
 }
-.nav a:hover { color: var(--sb-ink); background: var(--sb-hover); }
+.nav a:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
 .nav a.active {
-  color: var(--sb-ink); font-weight: 700;
-  background: var(--sb-active);
+  color: #fff; font-weight: 700;
+  background: rgba(255, 255, 255, 0.07);
   box-shadow: inset 3px 0 0 var(--accent);
 }
 [data-theme="dark"] .nav a.active { background: rgba(255, 180, 84, 0.13); box-shadow: inset 3px 0 0 var(--accent), 0 0 22px -10px rgba(255, 180, 84, 0.5); }
@@ -226,7 +209,7 @@ a:hover { color: var(--accent); }
   width: 100%; background: none; border: none; cursor: pointer;
   font-family: inherit; text-align: left;
 }
-.nav-parent:hover { color: var(--sb-ink); background: var(--sb-hover); }
+.nav-parent:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
 .np-label { flex: 1; letter-spacing: -0.01em; }
 .np-chev {
   width: 15px; height: 15px; flex-shrink: 0;
@@ -234,7 +217,7 @@ a:hover { color: var(--accent); }
   stroke-linecap: round; stroke-linejoin: round;
   opacity: .55; transition: transform .2s;
 }
-.nav-group.open > .nav-parent { color: var(--sb-ink); }
+.nav-group.open > .nav-parent { color: #fff; }
 .nav-group.open > .nav-parent .np-chev { transform: rotate(90deg); }
 /* 子菜单：grid 0fr/1fr 高度动画，收起时不占位 */
 .nav-sub { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .22s ease; }
@@ -253,12 +236,12 @@ a:hover { color: var(--accent); }
 
 .theme-btn {
   margin-top: 10px; padding: 9px 12px;
-  border: 1px solid var(--sb-btn-border); background: transparent; color: var(--sb-btn-ink);
+  border: 1px solid rgba(255, 255, 255, 0.18); background: transparent; color: rgba(255, 255, 255, 0.72);
   border-radius: var(--radius-sm); font-size: 12.5px; cursor: pointer;
   display: flex; align-items: center; gap: 8px; justify-content: center;
   font-weight: 500; transition: all .15s;
 }
-.theme-btn:hover { color: var(--sb-ink); border-color: color-mix(in srgb, var(--sb-ink) 30%, transparent); background: var(--sb-hover); }
+.theme-btn:hover { color: #fff; border-color: rgba(255, 255, 255, 0.4); }
 .theme-btn.mini { display: none; padding: 6px 10px; margin-top: 0; border-radius: var(--radius-xs); }
 /* 顶栏 mini 主题钮回到纸面配色 */
 .topbar .theme-btn.mini {
@@ -679,7 +662,7 @@ input.invalid, select.invalid, textarea.invalid {
 .stat:hover {
   border-color: var(--accent);
   box-shadow: var(--shadow-md), var(--card-lit);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 /* 标签：轻 —— 小号 + 琥珀菱形标 */
 .stat .s-lab {
@@ -1397,7 +1380,7 @@ input.invalid, select.invalid, textarea.invalid {
 .ql-card:hover {
   border-color: var(--accent);
   box-shadow: var(--shadow-md), var(--card-lit);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 .ql-ic {
   width: 40px; height: 40px; border-radius: 10px;
@@ -1458,7 +1441,7 @@ input.invalid, select.invalid, textarea.invalid {
 .news-card:hover {
   border-color: var(--accent);
   box-shadow: var(--shadow-md), var(--card-lit);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   text-decoration: none;
 }
 .news-thumb-wrap { position: relative; overflow: hidden; }
@@ -1884,21 +1867,14 @@ mark.news-kw {
   align-items: center;
   justify-content: center;
   background:
-    radial-gradient(900px 500px at 80% -10%, rgba(194, 65, 12, 0.09), transparent 60%),
-    radial-gradient(700px 500px at 10% 110%, rgba(29, 34, 37, 0.04), transparent 60%),
+    radial-gradient(900px 500px at 80% -10%, rgba(255, 180, 84, 0.13), transparent 60%),
+    radial-gradient(700px 500px at 10% 110%, rgba(224, 85, 63, 0.08), transparent 60%),
     var(--bg);
   padding: 20px;
 }
 /* display:flex 会覆盖 UA 样式的 [hidden]，必须显式兜底 */
 .login-mask[hidden] {
   display: none;
-}
-/* 暗色登录遮罩保持候车厅暖光（不改动暗色观感） */
-[data-theme="dark"] .login-mask {
-  background:
-    radial-gradient(900px 500px at 80% -10%, rgba(255, 180, 84, 0.13), transparent 60%),
-    radial-gradient(700px 500px at 10% 110%, rgba(224, 85, 63, 0.08), transparent 60%),
-    var(--bg);
 }
 .login-card {
   width: 100%;
@@ -1924,7 +1900,7 @@ mark.news-kw {
   height: 52px;
   margin: 10px auto 16px;
   border-radius: 13px;
-  background: linear-gradient(135deg, #e8590c, var(--accent-strong));
+  background: linear-gradient(135deg, #c25a0c, var(--accent-strong));
   color: #fff;
   display: flex;
   align-items: center;
@@ -2023,7 +1999,7 @@ mark.news-kw {
 .gk-target:hover {
   border-color: var(--accent);
   box-shadow: var(--shadow-md), var(--card-lit);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 .gk-target.ended {
   opacity: .65;
