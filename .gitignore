@@ -23,3 +23,7 @@ deploy.ps1
 
 # 设计评审工具目录
 .impeccable/
+
+# 本地计划与测试截图
+.zcode/
+e2e-*.png
