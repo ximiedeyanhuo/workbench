@@ -242,7 +242,8 @@
       if (pp)
         pp.addEventListener("click", async () => {
           if (!confirm(`把 ${overdueTasks.length} 项逾期任务的截止日统一顺延到今天？`)) return;
-          await tasksRepo.bulkPut(overdueTasks.map((t) => ({ ...t, dueDate: today })));
+          const needUpdate = overdueTasks.filter((t) => t.dueDate !== today);
+          if (needUpdate.length) await tasksRepo.bulkPut(needUpdate.map((t) => ({ ...t, dueDate: today })));
           rerender();
         });
 
@@ -265,9 +266,9 @@
         aiBtn.title = "离线中，AI 不可用";
       }
       aiBtn.addEventListener("click", async () => {
-        if (!window.WB.USE_API) return alert("离线中，AI 拆解不可用");
+        if (!window.WB.USE_API) return window.WB.showToast("离线中，AI 拆解不可用", "error");
         const st = await WB.ai.status();
-        if (!st.configured) return alert("未配置智谱 API Key：设环境变量 ZHIPU_API_KEY 或在项目根创建 zhipu.key 文件后重启服务");
+        if (!st.configured) return window.WB.showToast("未配置智谱 API Key：设环境变量 ZHIPU_API_KEY 或在项目根创建 zhipu.key 文件后重启服务", "error");
         const titleInput = el.querySelector("#tTitle");
         const title = titleInput.value.trim();
         if (!title) return flashInvalid(titleInput);

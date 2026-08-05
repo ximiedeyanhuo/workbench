@@ -40,13 +40,13 @@
               const future = ds > today;
               cells.push(
                 `<div class="heat-cell ${on ? "on" : ""} ${future ? "future" : ""} ${ds === today ? "today-cell" : ""}"
-                  style="${on ? "background:" + h.color : ""}" data-hid="${h.id}" data-day="${ds}" title="${ds}">${i}</div>`
+                  style="${on ? "background:" + esc(h.color) : ""}" data-hid="${h.id}" data-day="${ds}" title="${ds}">${i}</div>`
               );
             }
             const doneToday = !!ck[today];
             return `<div class="habit-card" data-hid="${h.id}">
               <div class="habit-head">
-                <span class="name"><span class="pri-dot" style="background:${h.color}"></span>${esc(h.name)}</span>
+                <span class="name"><span class="pri-dot" style="background:${esc(h.color)}"></span>${esc(h.name)}</span>
                 <span class="streak">🔥 连续 ${streakOf(h)} 天</span>
                 <button class="btn sm ${doneToday ? "ghost" : ""}" data-act="check-today" data-hid="${h.id}">${doneToday ? "✓ 今日已打卡" : "今日打卡"}</button>
                 <button class="icon-btn" data-act="del-habit" data-hid="${h.id}" title="删除习惯">${WB.icon("del")}</button>
@@ -194,7 +194,7 @@
         const MILESTONES = [7, 30, 100, 365];
         const cheer = (h) => {
           const s = streakOf(h);
-          if (MILESTONES.includes(s)) alert(`🎉 里程碑达成！「${h.name}」已连续打卡 ${s} 天，继续保持！`);
+          if (MILESTONES.includes(s)) window.WB.showToast(`🎉 里程碑达成！「${h.name}」已连续打卡 ${s} 天，继续保持！`, "success");
         };
         const cell = e.target.closest(".heat-cell");
         if (cell && !cell.classList.contains("future")) {

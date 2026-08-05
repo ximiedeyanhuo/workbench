@@ -15,6 +15,11 @@
   let previewing = false;
   let curFolder = ""; // "" = 全部，"__unfiled__" = 未分类，其余为文件夹名
 
+  // 脏检查：记录编辑器最后保存内容，切换路由/关闭页面前提示未保存修改
+  let savedContent = "";
+  let dirtyLock = false;
+  let lastHash = location.hash;
+
   const fmtTime = (iso) => (iso ? iso.slice(0, 16).replace("T", " ") : "");
 
   // ---------- 笔记 ----------
@@ -102,6 +107,9 @@
   }
 
   function bindNotes(el, rerender) {
+    // 编辑器加载完成即视为已保存状态（脏检查基线）
+    const ta0 = el.querySelector("#nContent");
+    if (ta0) savedContent = ta0.value;
     const search = el.querySelector("#noteSearch");
     // 防抖：连续输入时只在停顿后过滤一次
     search.addEventListener("input", debounce(() => { noteQ = search.value; refreshListOnly(el); }, 200));
@@ -137,6 +145,7 @@
         if (ta) cur.content = ta.value;
         cur.updatedAt = new Date().toISOString();
         await notesRepo.put(cur);
+        savedContent = cur.content;
         rerender();
       };
       saveBtn.addEventListener("click", saveNote);
@@ -145,7 +154,7 @@
         const ta = el.querySelector("#nContent");
         if (ta) {
           const cur = await notesRepo.get(currentId);
-          if (cur) { cur.content = ta.value; cur.updatedAt = new Date().toISOString(); await notesRepo.put(cur); }
+          if (cur) { cur.content = ta.value; cur.updatedAt = new Date().toISOString(); await notesRepo.put(cur); savedContent = ta.value; }
         }
         previewing = !previewing;
         rerender();
@@ -166,13 +175,13 @@
         aiBtn.title = "离线中，AI 不可用";
       }
       aiBtn.addEventListener("click", async () => {
-        if (!window.WB.USE_API) return alert("离线中，AI 摘要不可用");
+        if (!window.WB.USE_API) { WB.showToast("离线中，AI 摘要不可用", "info"); return; }
         const st = await WB.ai.status();
-        if (!st.configured) return alert("未配置智谱 API Key：设环境变量 ZHIPU_API_KEY 或在项目根创建 zhipu.key 文件后重启服务");
+        if (!st.configured) { WB.showToast("未配置智谱 API Key：设环境变量 ZHIPU_API_KEY 或在项目根创建 zhipu.key 文件后重启服务", "error"); return; }
         const ta = el.querySelector("#nContent");
         const cur = await notesRepo.get(currentId);
         const content = (ta ? ta.value : (cur && cur.content) || "").trim();
-        if (content.length < 20) return alert("正文太短（不足 20 字），不需要 AI 摘要");
+        if (content.length < 20) { WB.showToast("正文太短（不足 20 字），不需要 AI 摘要", "info"); return; }
         const panel = el.querySelector("#nAiPanel");
         aiBtn.disabled = true;
         aiBtn.textContent = "✨ 生成中…";
@@ -203,6 +212,7 @@
             n.tags = Array.from(new Set((n.tags || []).concat(tags))).slice(0, 8);
             n.updatedAt = new Date().toISOString();
             await notesRepo.put(n);
+            savedContent = n.content;
             rerender();
           });
         } catch (err) {
@@ -219,7 +229,7 @@
   async function refreshListOnly(el) {
     const notes = await notesRepo.list();
     const list = filterNotes(notes);
-    const box = el.querySelector("#noteSearch").closest(".card").children[1];
+    const box = el.querySelector("#noteSearch").closest(".card").children[2];
     box.innerHTML = list.length
       ? list
           .map(
@@ -371,4 +381,26 @@
       }
     },
   };
+
+  // ---------- 脏检查：离开页面前提示未保存修改 ----------
+  function notesDirty() {
+    if (subtab !== "notes" || !currentId) return false;
+    const ta = document.getElementById("nContent");
+    return !!(ta && ta.value !== savedContent);
+  }
+  // 路由切换：未保存时确认；取消则回退 hash（用 lock 防循环）
+  window.addEventListener("hashchange", () => {
+    if (dirtyLock || !notesDirty()) { lastHash = location.hash; return; }
+    if (!confirm("笔记有未保存的修改，确定离开吗？")) {
+      dirtyLock = true;
+      location.hash = lastHash;
+      setTimeout(() => { dirtyLock = false; }, 50);
+    } else {
+      lastHash = location.hash;
+    }
+  });
+  // 关闭/刷新页面：浏览器原生确认
+  window.addEventListener("beforeunload", (e) => {
+    if (notesDirty()) { e.preventDefault(); e.returnValue = ""; }
+  });
 })();

@@ -59,6 +59,21 @@ AI_TIMEOUT = 60  # 大模型接口响应较慢，超时给足
 # Swagger 文档开在 /api/docs，避免被根路径静态托管遮挡；仅本机监听，无泄露风险
 app = FastAPI(title="workbench", docs_url="/api/docs", redoc_url=None, openapi_url="/api/openapi.json")
 
+# ---------- 静态资源白名单 ----------
+# 只放行前端所需的公开资源，防止敏感文件（sessions.json/users.json/zhipu.key/*.db/server.py 等）匿名下载
+ALLOWED_STATIC = {"", "index.html", "sw.js", "manifest.json", "HELP.md", "icon-192.png", "icon-512.png", "css", "js", "lib"}
+
+
+@app.middleware("http")
+async def static_whitelist(request: Request, call_next):
+    """非 /api 路径仅放行白名单中的第一段路径，其余全部 404"""
+    path = request.url.path
+    if not path.startswith("/api/"):
+        first_segment = path.lstrip("/").split("/")[0]
+        if first_segment not in ALLOWED_STATIC:
+            return Response(status_code=404)
+    return await call_next(request)
+
 
 @app.middleware("http")
 async def no_cache_static(request: Request, call_next):
@@ -75,6 +90,7 @@ async def no_cache_static(request: Request, call_next):
 # 数据隔离：admin 用历史 workbench.db，其他用户各自 workbench_<用户名>.db。
 USERS_FILE = BASE_DIR / "users.json"
 SESSIONS_FILE = BASE_DIR / "sessions.json"
+LOGIN_FAILS_FILE = BASE_DIR / "login_fails.json"
 SESSION_TTL = 30 * 24 * 3600  # 会话 30 天过期
 PBKDF2_ITERS = 120_000
 ADMIN_USER = "admin"
@@ -92,8 +108,7 @@ OPEN_API_PATHS = {"/api/ping", "/api/auth/login"}
 # Starlette 把同步端点扔进线程池时会复制 contextvars，线程内读得到。
 CURRENT_USER: contextvars.ContextVar = contextvars.ContextVar("wb_user", default=None)
 
-_auth_lock = threading.Lock()  # users/sessions 文件读写互斥
-_login_fails: dict = {}  # username -> {"count": int, "lock_until": ts}
+_auth_lock = threading.Lock()  # users/sessions/login_fails 文件读写互斥
 
 
 def _load_json_file(path: Path, default):
@@ -111,6 +126,12 @@ def _save_json_file(path: Path, obj) -> None:
 
 USERS: dict = _load_json_file(USERS_FILE, {})
 SESSIONS: dict = _load_json_file(SESSIONS_FILE, {})
+_login_fails: dict = _load_json_file(LOGIN_FAILS_FILE, {})  # username -> {"count": int, "lock_until": ts}
+
+
+def _save_login_fails() -> None:
+    with _auth_lock:
+        _save_json_file(LOGIN_FAILS_FILE, _login_fails)
 
 
 def hash_password(password: str, salt_hex: str = None) -> tuple:
@@ -277,8 +298,10 @@ async def auth_login(request: Request):
         if rec["count"] >= LOGIN_FAIL_MAX:
             rec["count"] = 0
             rec["lock_until"] = time.time() + LOGIN_LOCK_SECONDS
+        _save_login_fails()  # 持久化失败计数
         raise HTTPException(status_code=401, detail="用户名或密码错误")
     _login_fails.pop(username, None)
+    _save_login_fails()  # 持久化清除计数
     token = secrets.token_urlsafe(32)
     SESSIONS[token] = {"user": username, "created": time.time()}
     save_sessions()
@@ -495,14 +518,45 @@ def assert_public_http_url(url: str) -> None:
             raise HTTPException(status_code=400, detail="不允许访问内网地址")
 
 
+class _RedirectHandled(Exception):
+    """自定义异常：捕获重定向目标 URL，供 safe_fetch 手动跟随"""
+    def __init__(self, new_url: str):
+        self.new_url = new_url
+
+
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """不自动跟随重定向；当遇到 301/302/303/307/308 时抛出 _RedirectHandled 异常"""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise _RedirectHandled(newurl)
+
+
+def safe_fetch(url: str, headers: dict, timeout: int, max_bytes: int) -> tuple:
+    """带 SSRF 防护的 HTTP GET 请求，手动跟随重定向（最多 3 跳），每跳重新校验目标地址。
+    返回 (raw_bytes, charset_from_header)"""
+    current_url = url
+    for _ in range(4):  # 原请求 + 最多 3 次重定向跟随
+        assert_public_http_url(current_url)
+        req = urllib.request.Request(current_url, headers=headers)
+        try:
+            opener = urllib.request.build_opener(_NoRedirectHandler)
+            with opener.open(req, timeout=timeout) as res:
+                raw = res.read(max_bytes)
+                charset = res.headers.get_content_charset() or ""
+                return raw, charset
+        except _RedirectHandled as e:
+            current_url = urllib.parse.urljoin(current_url, e.new_url)
+            continue
+    raise HTTPException(status_code=502, detail="重定向次数过多（超过 3 次）")
+
+
 @app.get("/api/feed")
 def feed_proxy(url: str):
-    assert_public_http_url(url)
-    req = urllib.request.Request(url, headers={"User-Agent": FEED_UA, "Accept": "*/*"})
     try:
-        with urllib.request.urlopen(req, timeout=FEED_TIMEOUT) as res:
-            raw = res.read(FEED_MAX_BYTES)
-            charset = res.headers.get_content_charset() or "utf-8"
+        raw, charset = safe_fetch(url, {"User-Agent": FEED_UA, "Accept": "*/*"}, FEED_TIMEOUT, FEED_MAX_BYTES)
+        if not charset:
+            charset = "utf-8"
+    except HTTPException:
+        raise
     except Exception as exc:  # 统一转为 502，前端据此降级为「直达源站」
         raise HTTPException(status_code=502, detail=f"源站抓取失败: {exc}")
     return PlainTextResponse(content=raw.decode(charset, errors="replace"), media_type="application/xml; charset=utf-8")
@@ -649,14 +703,11 @@ META_CHARSET_RE = re.compile(rb"charset\s*=\s*[\"']?([\w-]+)", re.I)
 
 @app.get("/api/fetch-title")
 def fetch_title(url: str):
-    """抓网页标题：{ok, title}；只允许 http(s)，失败返 502。"""
-    if not re.match(r"^https?://", url or "", re.I):
-        raise HTTPException(status_code=400, detail="仅支持 http(s) 地址")
+    """抓网页标题：{ok, title}；只允许公网 http(s)，失败返 502。"""
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": GOV_UA, "Accept-Language": "zh-CN,zh;q=0.9"})
-        with urllib.request.urlopen(req, timeout=FEED_TIMEOUT) as res:
-            raw = res.read(FEED_MAX_BYTES)
-            charset = res.headers.get_content_charset() or ""
+        raw, charset = safe_fetch(url, {"User-Agent": GOV_UA, "Accept-Language": "zh-CN,zh;q=0.9"}, FEED_TIMEOUT, FEED_MAX_BYTES)
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"抓取失败: {exc}")
     m = TITLE_RE.search(raw)

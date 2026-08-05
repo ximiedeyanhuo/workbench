@@ -9,8 +9,24 @@
  */
 (function () {
   "use strict";
-  const { routes, repo, esc, uid, safeUrl, todayStr } = window.WB;
+  const { routes, repo, esc, uid, safeUrl, todayStr, getSetting, setSetting } = window.WB;
   const feedRepo = repo("feeds");
+
+  // settings 兼容读取：旧版本把数据平铺在行上（如 {key, urls}），现统一为 {key, value}。
+  // 读到旧形状时提取旧字段并顺手迁移成新形状，避免用户数据（已读表/删除记录）丢失。
+  async function getSettingCompat(key, fromLegacy, def) {
+    const rec = await repo("settings").get(key);
+    if (rec === undefined || rec === null) return def;
+    if (rec.value !== undefined) return rec.value;
+    const v = fromLegacy(rec);
+    if (v === undefined) return def;
+    try {
+      await setSetting(key, v);
+    } catch (e) {
+      /* 迁移失败不阻塞渲染 */
+    }
+    return v;
+  }
 
   const CATS = [
     { k: "finance", label: "财经", icon: "📈", color: "#FF5A36" },
@@ -230,7 +246,7 @@
       keys.slice(0, keys.length - 500).forEach((k) => delete readMap[k]);
     }
     try {
-      await repo("settings").put({ key: "newsRead", urls: readMap });
+      await setSetting("newsRead", readMap);
     } catch (err) {
       console.error("已读状态保存失败:", err);
     }
@@ -319,11 +335,13 @@
     async render(el) {
       const all = await feedRepo.list();
       // 已读表与收藏集：驱动卡片灰化、分类未读数、星标状态
-      const readRec = await repo("settings").get("newsRead");
-      readMap = (readRec && readRec.urls) || {};
-      const kwRec = await repo("settings").get("newsKeywords");
-      keywords = (kwRec && kwRec.words) || [];
-      digestData = (await repo("settings").get("newsDigest")) || null;
+      readMap = await getSettingCompat("newsRead", (r) => r.urls, {});
+      keywords = await getSettingCompat("newsKeywords", (r) => r.words, []);
+      digestData = await getSettingCompat(
+        "newsDigest",
+        (r) => (r.day !== undefined || r.items !== undefined ? { day: r.day, items: r.items } : undefined),
+        null
+      );
       try {
         const marks = await repo("bookmarks").list();
         savedSet = new Set(marks.map((m) => m.url));
@@ -333,7 +351,7 @@
       // 一次性迁移：上一版给公考类塞了错误的 rsshub 路由和临时的官方 URL 占位，
       // 直接清掉再让下面的补种逻辑写入正确的解析器版本。用 settings 里的版本 flag 保证只在需要时跑。
       const MIG_VER = 2;
-      const migRec = (await repo("settings").get("newsGovMigrated")) || { key: "newsGovMigrated", ver: 0 };
+      const migRec = await getSettingCompat("newsGovMigrated", (r) => ({ ver: r.ver }), { ver: 0 });
       if ((migRec.ver || 0) < MIG_VER) {
         const badGovUrls = [
           "https://rsshub.app/gov/scs/zw",
@@ -351,17 +369,19 @@
             await feedRepo.delete(f.id);
           }
         }
-        const removedRec = (await repo("settings").get("newsRemovedUrls")) || { key: "newsRemovedUrls", urls: [] };
-        removedRec.urls = (removedRec.urls || []).filter((u) => badGovUrls.indexOf(u) === -1);
-        await repo("settings").put(removedRec);
-        await repo("settings").put({ key: "newsGovMigrated", ver: MIG_VER });
+        const removedUrls = await getSettingCompat("newsRemovedUrls", (r) => r.urls, []);
+        const filtered = removedUrls.filter((u) => badGovUrls.indexOf(u) === -1);
+        if (filtered.length !== removedUrls.length) {
+          await setSetting("newsRemovedUrls", filtered);
+        }
+        await setSetting("newsGovMigrated", { ver: MIG_VER });
         return routes.news.render(el);
       }
 
       // 预置源增量补种：按 URL 去重，新增预置源（如新分类）对存量用户也能自动生效；用户删过的不会重复加回（记在 settings）
       const seenUrls = new Set(all.map((f) => f.url));
-      const removed = (await repo("settings").get("newsRemovedUrls")) || { key: "newsRemovedUrls", urls: [] };
-      const missing = DEFAULTS.filter((d) => !seenUrls.has(d.url) && removed.urls.indexOf(d.url) === -1);
+      const removed = await getSettingCompat("newsRemovedUrls", (r) => r.urls, []);
+      const missing = DEFAULTS.filter((d) => !seenUrls.has(d.url) && removed.indexOf(d.url) === -1);
       if (missing.length) {
         let i = all.length;
         for (const d of missing) {
@@ -530,8 +550,8 @@
       .slice(0, 10)
       .map((x) => ({ title: x.pick.title, link: x.pick.link, src: x.pick.cat + " · " + x.pick.src, reason: x.reason }));
     if (!items.length) throw new Error("模型未返回有效序号，请重试");
-    digestData = { key: "newsDigest", day: todayStr(), items };
-    await repo("settings").put(digestData);
+    digestData = { day: todayStr(), items };
+    await setSetting("newsDigest", digestData);
   }
 
   function bindShell(el) {
@@ -556,7 +576,7 @@
     if (kwInput)
       kwInput.addEventListener("change", async () => {
         keywords = kwInput.value.split(/[,，]/).map((s) => s.trim()).filter(Boolean).slice(0, 10);
-        await repo("settings").put({ key: "newsKeywords", words: keywords });
+        await setSetting("newsKeywords", keywords);
         routes.news.render(el);
       });
 
@@ -598,11 +618,11 @@
     const dg = el.querySelector("#digestBtn");
     if (dg)
       dg.addEventListener("click", async () => {
-        if (!window.WB.USE_API) return alert("离线中，AI 精选不可用");
+        if (!window.WB.USE_API) { WB.showToast("离线中，AI 精选不可用", "info"); return; }
         if (digestOpen) { digestOpen = false; return routes.news.render(el); }
         if (digestData && digestData.day === todayStr()) { digestOpen = true; return routes.news.render(el); }
         const st = await WB.ai.status();
-        if (!st.configured) return alert("未配置智谱 API Key：设环境变量 ZHIPU_API_KEY 或在项目根创建 zhipu.key 文件后重启服务");
+        if (!st.configured) { WB.showToast("未配置智谱 API Key：设环境变量 ZHIPU_API_KEY 或在项目根创建 zhipu.key 文件后重启服务", "error"); return; }
         dg.disabled = true;
         dg.textContent = "✨ 挑选中…";
         try {
@@ -613,7 +633,7 @@
         } catch (err) {
           dg.disabled = false;
           dg.textContent = "✨ 今日精选";
-          alert("今日精选生成失败：" + err.message);
+          WB.showToast("今日精选生成失败：" + err.message, "error");
         }
       });
 
@@ -631,7 +651,7 @@
         } catch (err) {
           b.disabled = false;
           b.textContent = "🔄 重新生成";
-          alert("今日精选生成失败：" + err.message);
+          WB.showToast("今日精选生成失败：" + err.message, "error");
         }
       });
       dp.addEventListener("click", (e) => {
@@ -643,7 +663,7 @@
     const rf = el.querySelector("#refreshBtn");
     if (rf)
       rf.addEventListener("click", async () => {
-        if (!window.WB.USE_API) return alert("离线中，无法从服务器抓取资讯");
+        if (!window.WB.USE_API) { WB.showToast("离线中，无法从服务器抓取资讯", "info"); return; }
         rf.disabled = true;
         rf.textContent = "刷新中…";
         const all = await feedRepo.list();
@@ -658,8 +678,8 @@
       add.addEventListener("click", async () => {
         const name = el.querySelector("#fName").value.trim();
         const url = el.querySelector("#fUrl").value.trim();
-        if (!name || !url) return alert("名称和地址都要填写");
-        if (!/^https?:\/\//i.test(url)) return alert("地址需以 http:// 或 https:// 开头");
+        if (!name || !url) { WB.showToast("名称和地址都要填写", "error"); return; }
+        if (!/^https?:\/\//i.test(url)) { WB.showToast("地址需以 http:// 或 https:// 开头", "error"); return; }
         const all = await feedRepo.list();
         const maxSort = all.reduce((m, f) => Math.max(m, f.sort || 0), 0);
         await feedRepo.put({
@@ -674,7 +694,7 @@
         routes.news.render(el);
       });
 
-    const delList = el.querySelector(".list");
+    const delList = el;
     if (delList)
       delList.addEventListener("click", async (e) => {
         const b = e.target.closest('[data-act="del"]');
@@ -684,9 +704,11 @@
         // 若删的是预置源，记入 settings 防止增量补种时被加回
         const f = await feedRepo.get(id);
         if (f && DEFAULTS.some((d) => d.url === f.url)) {
-          const removed = (await repo("settings").get("newsRemovedUrls")) || { key: "newsRemovedUrls", urls: [] };
-          if (removed.urls.indexOf(f.url) === -1) removed.urls.push(f.url);
-          await repo("settings").put(removed);
+          const removedUrls = await getSettingCompat("newsRemovedUrls", (r) => r.urls, []);
+          if (removedUrls.indexOf(f.url) === -1) {
+            removedUrls.push(f.url);
+            await setSetting("newsRemovedUrls", removedUrls);
+          }
         }
         await feedRepo.delete(id);
         routes.news.render(el);

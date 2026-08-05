@@ -72,13 +72,13 @@
           if (!confirm(`删除快捷入口「${(l && l.name) || ""}」？`)) return;
           await qlRepo.delete(id);
         } else if (actEl.dataset.act === "up" && idx > 0) {
-          // 与上一个交换 sort 值
+          // 与上一个交换 sort 值（undefined 视为 0 避免污染）
           const a = links[idx], b = links[idx - 1];
-          [a.sort, b.sort] = [b.sort, a.sort];
+          [a.sort, b.sort] = [b.sort || 0, a.sort || 0];
           await qlRepo.put(a); await qlRepo.put(b);
         } else if (actEl.dataset.act === "down" && idx < links.length - 1) {
           const a = links[idx], b = links[idx + 1];
-          [a.sort, b.sort] = [b.sort, a.sort];
+          [a.sort, b.sort] = [b.sort || 0, a.sort || 0];
           await qlRepo.put(a); await qlRepo.put(b);
         } else return;
         rerender();

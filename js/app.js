@@ -91,9 +91,11 @@
     const name = m ? m[1] : "dashboard";
     return routes[name] ? name : "dashboard";
   }
+  let navSeq = 0; // 渲染代数锁：防止慢路由回调覆盖已切走的页面
   async function navigate() {
     const name = currentRoute();
     const route = routes[name];
+    const token = ++navSeq;
     document.getElementById("pageTitle").textContent = route.title;
     document.title = route.title + " · 个人工作台";
     document.querySelectorAll("[data-route]").forEach((a) => {
@@ -119,7 +121,9 @@
     view.innerHTML = '<div class="empty">加载中…</div>';
     try {
       await route.render(view);
+      if (token !== navSeq) return; // 渲染期间已切走：丢弃本次结果，避免污染新页面
     } catch (err) {
+      if (token !== navSeq) return;
       view.innerHTML = '<div class="card"><div class="empty">页面加载失败：' + esc(err && err.message) + "</div></div>";
     }
   }
@@ -196,6 +200,7 @@
 
   // ================= 仪表盘 =================
   let dashCharts = []; // 重渲染前销毁旧实例，避免 Chart.js 残留引用
+  let dashArchiveOpen = false; // 归档区（数据概览）展开状态：重渲染后保留用户选择
 
   function renderCharts(el, tasks, habits, finance) {
     if (typeof Chart === "undefined") return; // chart.umd.min.js 未加载时静默降级
@@ -283,6 +288,38 @@
       const overdue = active.filter((t) => t.dueDate && t.dueDate < today);
       const dueToday = active.filter((t) => t.dueDate === today);
       const focus = overdue.concat(dueToday);
+      // 今日已检票：勾选后重新渲染会出现在「已检票」区（撕票虚线分隔）
+      const doneToday = tasks.filter((t) => t.done && t.doneAt === today);
+      // 时间轴刻度：带时刻的 dueDate 用具体时段；纯日期任务按优先级分上/下午/晚上，逾期走「逾期」刻度
+      const tlSlot = (t) => {
+        const d = t.dueDate || "";
+        if (d.length > 10) {
+          const h = parseInt(d.slice(11, 13), 10);
+          if (!isNaN(h)) return (h < 12 ? "上午" : h < 18 ? "下午" : "晚上") + " " + (d.slice(11, 16) || "");
+        }
+        if (t.dueDate < today) return "逾期";
+        if (t.priority === "high") return "上午";
+        if (t.priority === "mid") return "下午";
+        return "晚上";
+      };
+      const slotRank = { 逾期: 0, 上午: 1, 下午: 2, 晚上: 3 };
+      const focusSorted = focus.slice().sort((a, b) => {
+        const ra = slotRank[tlSlot(a)] !== undefined ? slotRank[tlSlot(a)] : 9;
+        const rb = slotRank[tlSlot(b)] !== undefined ? slotRank[tlSlot(b)] : 9;
+        return ra - rb || (a.dueDate || "").localeCompare(b.dueDate || "");
+      });
+      const tlRow = (t, done) => `
+        <div class="item tl-item ${done ? "done" : ""}" data-id="${t.id}">
+          <span class="tl-slot ${done ? "ok" : t.dueDate < today ? "late" : ""}">${done ? "正点" : tlSlot(t)}</span>
+          <span class="tl-main">
+            ${done ? '<span class="chk"></span>' : '<span class="chk" data-act="toggle"></span>'}
+            <span class="txt">${esc(t.title)}</span>
+            ${t.priority ? `<span class="badge ${priCls[t.priority] || "b-primary"}">${priLab[t.priority] || ""}优先</span>` : ""}
+            ${done
+              ? '<span class="badge b-ok">已检票</span>'
+              : `<span class="badge ${t.dueDate < today ? "b-danger" : "b-warn"}">${t.dueDate < today ? "已逾期 " + t.dueDate.slice(5) : "今天到期"}</span>`}
+          </span>
+        </div>`;
 
       // 本周（周一~周日）待办
       const mon = new Date(now);
@@ -420,25 +457,12 @@
           <div class="stat" data-go="#/life"><div class="s-lab">今日打卡</div><div class="s-val">${habitDone} / ${habits.length}</div><div class="s-sub">${habits.length === 0 ? "还没有习惯" : habitDone >= habits.length ? "全部完成" : "继续加油"}</div></div>
           <div class="stat" data-go="#/finance"><div class="s-lab">本年结余</div><div class="s-val" style="color:${netColor}">${netSign}${fmtMoney(Math.abs(mNet))}</div><div class="s-sub">收入 ${fmtMoney(mIncome)} · 支出 ${fmtMoney(mExpense)}</div></div>
         </div>
-        ${nwHtml}
         <div class="card">
           <h2>今日焦点<span class="count">${focus.length} 项</span></h2>
-          <ul class="list" id="focusList">
-            ${
-              focus.length === 0
-                ? '<div class="empty">今天没有到期或逾期的任务，去 <a href="#/tasks">事务</a> 里安排一下？</div>'
-                : focus
-                    .map(
-                      (t) => `<li class="item" data-id="${t.id}">
-                        <span class="chk" data-act="toggle"></span>
-                        <span class="txt">${esc(t.title)}</span>
-                        ${t.priority ? `<span class="badge ${priCls[t.priority] || "b-primary"}">${priLab[t.priority] || ""}优先</span>` : ""}
-                        <span class="badge ${t.dueDate < today ? "b-danger" : "b-warn"}">${t.dueDate < today ? "已逾期 " + t.dueDate.slice(5) : "今天到期"}</span>
-                      </li>`
-                    )
-                    .join("")
-            }
-          </ul>
+          <div class="focus-tl" id="focusList">
+            ${focus.length === 0 ? '<div class="empty">今天没有到期或逾期的任务，去 <a href="#/tasks">事务</a> 里安排一下？</div>' : focusSorted.map((t) => tlRow(t, false)).join("")}
+            ${doneToday.length ? '<div class="tl-sep"><span>已检票 · 今日完成</span></div>' + doneToday.slice(0, 8).map((t) => tlRow(t, true)).join("") : ""}
+          </div>
         </div>
         <div class="dash-actions">
           <div class="card">
@@ -472,26 +496,45 @@
             </div>
           </div>
         </div>
-        <div class="card">
-          <h2>数据趋势</h2>
-          <div class="chart-grid">
-            <div class="chart-box"><div class="chart-tt">近 6 月支出（元）</div><canvas id="chartFin" height="150"></canvas></div>
-            <div class="chart-box"><div class="chart-tt">近 14 天打卡数</div><canvas id="chartHabit" height="150"></canvas></div>
-            <div class="chart-box"><div class="chart-tt">近 14 天任务完成数</div><canvas id="chartTask" height="150"></canvas></div>
+        <details class="archive" id="dashArchive" ${dashArchiveOpen ? "open" : ""}>
+          <summary>
+            <span class="ar-title"><span class="ar-diamond"></span>数据概览与每周回顾</span>
+            <span class="ar-hint">净资产 · 图表 · AI 点评</span>
+          </summary>
+          <div class="archive-in">
+            ${nwHtml}
+            <div class="card">
+              <h2>数据趋势</h2>
+              <div class="chart-grid">
+                <div class="chart-box"><div class="chart-tt">近 6 月支出（元）</div><canvas id="chartFin" height="150"></canvas></div>
+                <div class="chart-box"><div class="chart-tt">近 14 天打卡数</div><canvas id="chartHabit" height="150"></canvas></div>
+                <div class="chart-box"><div class="chart-tt">近 14 天任务完成数</div><canvas id="chartTask" height="150"></canvas></div>
+              </div>
+            </div>
+            <div class="card">
+              <h2>每周回顾<span class="count">${monStr.slice(5)} ~ ${today.slice(5)}</span></h2>
+              <div class="wr-stats">${wrStats.map((s) => `<div>${s}</div>`).join("")}</div>
+              <div id="wrAi">${wrCached ? '<div class="ai-panel">' + MD.render(wrCached.text) + "</div>" : ""}</div>
+              <div class="row" style="margin-top:10px">
+                <button class="btn sm" id="wrGen">✨ ${wrCached ? "重新生成 AI 点评" : "生成 AI 点评"}</button>
+                ${wrCached ? `<span style="align-self:center;font-size:12px;color:var(--muted)">生成于 ${esc(wrCached.at || "")}</span>` : ""}
+              </div>
+            </div>
           </div>
-        </div>
-        <div class="card">
-          <h2>每周回顾<span class="count">${monStr.slice(5)} ~ ${today.slice(5)}</span></h2>
-          <div class="wr-stats">${wrStats.map((s) => `<div>${s}</div>`).join("")}</div>
-          <div id="wrAi">${wrCached ? '<div class="ai-panel">' + MD.render(wrCached.text) + "</div>" : ""}</div>
-          <div class="row" style="margin-top:10px">
-            <button class="btn sm" id="wrGen">✨ ${wrCached ? "重新生成 AI 点评" : "生成 AI 点评"}</button>
-            ${wrCached ? `<span style="align-self:center;font-size:12px;color:var(--muted)">生成于 ${esc(wrCached.at || "")}</span>` : ""}
-          </div>
-        </div>
+        </details>
         <div class="footnote">数据保存在服务器 SQLite（workbench.db） · 建议定期到「设置」导出 JSON 备份</div>`;
 
-      renderCharts(el, tasks, habits, finance);
+      // 图表位于折叠归档区：折叠时 canvas 无尺寸，展开时才（重新）渲染
+      const archiveEl = el.querySelector("#dashArchive");
+      if (archiveEl) {
+        archiveEl.addEventListener("toggle", () => {
+          dashArchiveOpen = archiveEl.open;
+          if (archiveEl.open) renderCharts(el, tasks, habits, finance);
+        });
+        if (archiveEl.open) renderCharts(el, tasks, habits, finance);
+      } else {
+        renderCharts(el, tasks, habits, finance);
+      }
 
       el.querySelectorAll("[data-go]").forEach((s) => s.addEventListener("click", () => (location.hash = s.dataset.go)));
       el.querySelector("#focusList").addEventListener("click", async (e) => {
@@ -614,15 +657,15 @@
           try { localStorage.setItem(NOTIFY_KEY, today); } catch (e) { /* ignore */ }
           sendDueNotice();
         } else if (perm === "denied") {
-          alert("已拒绝通知权限，如需开启请到浏览器的网站设置里允许通知");
+          showToast("已拒绝通知权限，如需开启请到浏览器的网站设置里允许通知", "error");
         }
       });
 
       // 每周回顾：AI 点评按周缓存（settings.weeklyReview），重新生成会覆盖
       el.querySelector("#wrGen").addEventListener("click", async () => {
-        if (!window.WB.USE_API) return alert("离线中，AI 点评不可用");
+        if (!window.WB.USE_API) return showToast("离线中，AI 点评不可用", "error");
         const st = await WB.ai.status();
-        if (!st.configured) return alert("未配置智谱 API Key：设环境变量 ZHIPU_API_KEY 或在项目根创建 zhipu.key 文件后重启服务");
+        if (!st.configured) return showToast("未配置智谱 API Key：设环境变量 ZHIPU_API_KEY 或在项目根创建 zhipu.key 文件后重启服务", "error");
         const btn = el.querySelector("#wrGen");
         const box = el.querySelector("#wrAi");
         btn.disabled = true;
@@ -645,9 +688,17 @@
         }
       });
 
-      // 定期账单到期检查：auto 自动记入 / remind 弹框提醒（记账页已处理过则同月不重复）
-      if (window.WB.financeSchedCheck) {
-        window.WB.financeSchedCheck(finance).catch(() => {});
+      // 定期账单到期检查：auto 自动记入 / remind 弹框提醒（记账页已处理过则同月不重复）。
+      // 防双入口重复触发：finance.js 内部已有 finSchedDone / 按 note 查重双保险，
+      // 这里再加「按账号隔离」的同月节流标记兜底（仪表盘每次渲染都会走到这里）。
+      const schedKey = "wb2_schedCheckMonth_" + ((window.WB.auth && window.WB.auth.user) || "local");
+      let lastSchedMonth = "";
+      try { lastSchedMonth = localStorage.getItem(schedKey) || ""; } catch (e) { /* 隐私模式忽略 */ }
+      const curMonth = today.slice(0, 7);
+      if (window.WB.financeSchedCheck && lastSchedMonth !== curMonth) {
+        window.WB.financeSchedCheck(finance).catch(() => {}).finally(() => {
+          try { localStorage.setItem(schedKey, curMonth); } catch (e) { /* 隐私模式忽略 */ }
+        });
       }
     },
   };
@@ -821,7 +872,7 @@
       if (pwdSaveBtn) pwdSaveBtn.addEventListener("click", async () => {
         const oldPwd = el.querySelector("#pwdOld").value;
         const newPwd = el.querySelector("#pwdNew").value;
-        if (!oldPwd || newPwd.length < 6) return alert("请填写原密码，新密码至少 6 位");
+        if (!oldPwd || newPwd.length < 6) return showToast("请填写原密码，新密码至少 6 位", "error");
         try {
           const res = await fetch("/api/auth/password", {
             method: "POST",
@@ -832,9 +883,9 @@
           if (!res.ok) throw new Error(data.detail || "HTTP " + res.status);
           el.querySelector("#pwdOld").value = "";
           el.querySelector("#pwdNew").value = "";
-          alert("密码已修改，下次登录请用新密码");
+          showToast("密码已修改，下次登录请用新密码", "success");
         } catch (err) {
-          alert("修改失败：" + (err && err.message));
+          showToast("修改失败：" + (err && err.message), "error");
         }
       });
 
@@ -874,9 +925,9 @@
                 });
                 const d = await r.json().catch(() => ({}));
                 if (!r.ok) throw new Error(d.detail || "HTTP " + r.status);
-                alert("已重置");
+                showToast("已重置", "success");
               } catch (err) {
-                alert("重置失败：" + (err && err.message));
+                showToast("重置失败：" + (err && err.message), "error");
               }
             })
           );
@@ -890,7 +941,7 @@
                 if (!r.ok) throw new Error(d.detail || "HTTP " + r.status);
                 loadUsers();
               } catch (err) {
-                alert("删除失败：" + (err && err.message));
+                showToast("删除失败：" + (err && err.message), "error");
               }
             })
           );
@@ -904,7 +955,7 @@
         nuAddBtn.addEventListener("click", async () => {
           const name = el.querySelector("#nuName").value.trim();
           const pwd = el.querySelector("#nuPwd").value;
-          if (!name || pwd.length < 6) return alert("请填写用户名，密码至少 6 位");
+          if (!name || pwd.length < 6) return showToast("请填写用户名，密码至少 6 位", "error");
           try {
             const res = await fetch("/api/auth/users", {
               method: "POST",
@@ -917,16 +968,16 @@
             el.querySelector("#nuPwd").value = "";
             loadUsers();
           } catch (err) {
-            alert("创建失败：" + (err && err.message));
+            showToast("创建失败：" + (err && err.message), "error");
           }
         });
       }
 
       el.querySelector("#nickSave").addEventListener("click", async () => {
         const v = el.querySelector("#nickInput").value.trim();
-        if (!v) return alert("昵称不能为空");
+        if (!v) return showToast("昵称不能为空", "error");
         await setSetting("nickname", v);
-        alert("已保存");
+        showToast("已保存", "success");
       });
 
       el.querySelector("#exportBtn").addEventListener("click", async () => {
@@ -940,29 +991,29 @@
       });
 
       el.querySelector("#migrateBtn").addEventListener("click", async () => {
-        if (!window.WB.USE_API) return alert("当前为本地模式，服务器不在线，无法迁移");
+        if (!window.WB.USE_API) return showToast("当前为本地模式，服务器不在线，无法迁移", "error");
         if (!confirm("将用本机浏览器数据覆盖服务器现有数据，确定继续？")) return;
         try {
           await window.WB.pushLocalToServer();
-          alert("迁移成功，即将刷新页面");
+          showToast("迁移成功，即将刷新页面", "success");
           location.reload();
         } catch (err) {
-          alert("迁移失败：" + (err && err.message));
+          showToast("迁移失败：" + (err && err.message), "error");
         }
       });
 
       // 同步：服务器 → 本地（把服务器最新数据拉进浏览器 IndexedDB，离线时可用）
       const pullBtn = el.querySelector("#pullBtn");
       if (pullBtn) pullBtn.addEventListener("click", async () => {
-        if (!window.WB.USE_API) return alert("服务器不在线，无法拉取");
+        if (!window.WB.USE_API) return showToast("服务器不在线，无法拉取", "error");
         if (!confirm("将用服务器最新数据覆盖本机浏览器缓存，本机未同步的改动会丢失，继续？")) return;
         pullBtn.disabled = true;
         pullBtn.textContent = "同步中…";
         try {
           await window.WB.pullServerToLocal();
-          alert("已拉取到本地。手机端下次离线打开工作台时数据即为此刻的服务器版本。");
+          showToast("已拉取到本地。手机端下次离线打开工作台时数据即为此刻的服务器版本。", "success");
         } catch (err) {
-          alert("拉取失败：" + (err && err.message));
+          showToast("拉取失败：" + (err && err.message), "error");
         } finally {
           pullBtn.disabled = false;
           pullBtn.textContent = "服务器 → 本地";
@@ -972,15 +1023,15 @@
       // 同步：本地 → 服务器（把手机上离线记的内容推回服务器）
       const pushBtn = el.querySelector("#pushBtn");
       if (pushBtn) pushBtn.addEventListener("click", async () => {
-        if (!window.WB.USE_API) return alert("服务器不在线，无法推送");
+        if (!window.WB.USE_API) return showToast("服务器不在线，无法推送", "error");
         if (!confirm("将用本机浏览器数据覆盖服务器现有数据，服务器上未拉到本机的改动会丢失，继续？")) return;
         pushBtn.disabled = true;
         pushBtn.textContent = "同步中…";
         try {
           await window.WB.pushLocalToServer();
-          alert("已推送到服务器。");
+          showToast("已推送到服务器。", "success");
         } catch (err) {
-          alert("推送失败：" + (err && err.message));
+          showToast("推送失败：" + (err && err.message), "error");
         } finally {
           pushBtn.disabled = false;
           pushBtn.textContent = "本地 → 服务器";
@@ -992,25 +1043,25 @@
         if (!confirm("再次确认：真的要删除所有任务、笔记、习惯、财务等数据吗？建议先导出备份！")) return;
         try {
           await clearAllData();
-          alert("已清空全部数据，即将刷新页面");
+          showToast("已清空全部数据，即将刷新页面", "success");
           location.reload();
         } catch (err) {
-          alert("清除失败：" + (err && err.message));
+          showToast("清除失败：" + (err && err.message), "error");
         }
       });
 
       el.querySelector("#importBtn").addEventListener("click", () => {
         const file = el.querySelector("#importFile").files[0];
-        if (!file) return alert("请先选择备份文件");
+        if (!file) return showToast("请先选择备份文件", "error");
         if (!confirm("导入将清空当前全部数据并用备份覆盖，确定继续？")) return;
         const reader = new FileReader();
         reader.onload = async () => {
           try {
             await importAll(JSON.parse(reader.result));
-            alert("导入成功，即将刷新页面");
+            showToast("导入成功，即将刷新页面", "success");
             location.reload();
           } catch (err) {
-            alert("导入失败：" + (err && err.message));
+            showToast("导入失败：" + (err && err.message), "error");
           }
         };
         reader.readAsText(file);

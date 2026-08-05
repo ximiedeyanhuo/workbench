@@ -7,7 +7,7 @@
  * - 离线时：展示缓存的页面，API 部分降级提示
  */
 
-const CACHE = "workbench-v55";
+const CACHE = "workbench-v56";
 const STATIC = [
   "/",
   "/index.html",
@@ -34,7 +34,9 @@ const STATIC = [
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(STATIC))
+    caches.open(CACHE).then((cache) =>
+      Promise.all(STATIC.map((url) => cache.add(url).catch(() => {})))
+    )
   );
   self.skipWaiting();
 });
@@ -51,11 +53,9 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
 
-  // API 请求：网络优先，失败时尝试缓存（离线降级）
+  // API 请求：网络优先，失败直接 propagate（API 响应从不写入缓存，回退无意义）
   if (url.pathname.startsWith("/api/")) {
-    e.respondWith(
-      fetch(e.request).catch(() => caches.match(e.request))
-    );
+    e.respondWith(fetch(e.request));
     return;
   }
 

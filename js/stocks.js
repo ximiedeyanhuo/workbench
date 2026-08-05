@@ -22,6 +22,7 @@
   let stkTimer = null;    // 30s 自动刷新句柄
   let stkTab = "stock";   // "stock" | "fund"
   let stkSeq = 0;         // render 代数：防止慢请求/自动刷新回写覆盖用户刚切到的 tab
+  let stkDocHandler = null; // 文档点击隐藏搜索建议的处理器，避免重复绑定
   const REFRESH_MS = 30 * 1000;
 
   const fmt2 = (n) => Number(n || 0).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -273,7 +274,9 @@
         searchEl.value = `${item.dataset.name}（${item.dataset.code}）`;
         hideSug();
       });
-      document.addEventListener("click", (e) => { if (!e.target.closest(".stk-search-wrap")) hideSug(); }, { once: true });
+      if (stkDocHandler) document.removeEventListener("click", stkDocHandler);
+      stkDocHandler = (e) => { if (!e.target.closest(".stk-search-wrap")) hideSug(); };
+      document.addEventListener("click", stkDocHandler);
 
       // ---- 添加持仓 ----
       const addStk = async () => {
@@ -313,7 +316,7 @@
         if (fresh && fresh[stkSel.code]) {
           name = fresh[stkSel.code].name || name;
           if (isFund && !(cost > 0)) cost = fresh[stkSel.code].price; // 成本净值留空 → 用最新净值
-        } else if (window.WB.USE_API && /^\d{6}$/.test(name)) return alert("未查到该代码的行情，请确认代码是否正确");
+        } else if (window.WB.USE_API && /^\d{6}$/.test(name)) return window.WB.showToast("未查到该代码的行情，请确认代码是否正确", "error");
         if (isFund && !(cost > 0)) return flashInvalid(costEl); // 拿不到净值又没填成本净值
         const shares = isFund ? amount / cost : parseFloat(sharesEl.value);
         const stamp = nowStamp();

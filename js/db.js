@@ -269,7 +269,12 @@
   // 注意：每次调用重新解析 repo("settings")，避免探测完成前的静态绑定把
   // settings 永远锁在 IndexedDB。
   function getSetting(key, def) {
-    return repo("settings").get(key).then((r) => (r === undefined || r === null ? def : r.value));
+    return repo("settings").get(key).then((r) => {
+      if (r === undefined || r === null) return def;
+      // 兼容旧版行形状 {key, urls}（无 value 包装层）：读不到 value 时回退默认值，
+      // 避免返回 undefined 导致调用方 (如 newsRemovedUrls.filter) 崩溃
+      return r.value === undefined ? def : r.value;
+    });
   }
   function setSetting(key, value) {
     return repo("settings").put({ key, value });
@@ -286,11 +291,39 @@
     if (!payload || payload.app !== "workbench" || !payload.data) {
       throw new Error("备份文件格式不正确");
     }
+    // 服务器模式：走后端单事务接口，全量覆盖
+    if (USE_API === true) {
+      const res = await fetch("/api/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.status === 401) { on401(); throw new Error("未登录或登录已过期"); }
+      if (!res.ok) throw new Error("导入失败 HTTP " + res.status);
+      return;
+    }
+    // 本地模式：先快照全部数据，失败时回滚
+    const snapshots = {};
     for (const s of ALL_STORES) {
-      const r = repo(s);
-      await r.clear();
-      const rows = Array.isArray(payload.data[s]) ? payload.data[s] : [];
-      if (rows.length) await r.bulkPut(rows);
+      try { snapshots[s] = await repo(s).list(); } catch (e) { snapshots[s] = []; }
+    }
+    try {
+      for (const s of ALL_STORES) {
+        const r = repo(s);
+        await r.clear();
+        const rows = Array.isArray(payload.data[s]) ? payload.data[s] : [];
+        if (rows.length) await r.bulkPut(rows);
+      }
+    } catch (e) {
+      // 回滚：逐个恢复快照数据
+      for (const s of ALL_STORES) {
+        try {
+          const r = repo(s);
+          await r.clear();
+          if (snapshots[s] && snapshots[s].length) await r.bulkPut(snapshots[s]);
+        } catch (rollbackErr) { /* 尽力回滚，不抛 */ }
+      }
+      throw new Error("导入失败，已回滚至导入前状态");
     }
   }
 
@@ -324,10 +357,11 @@
 
   const fmtMoney = (n) => Number(n || 0).toLocaleString("zh-CN");
 
-  /** 仅允许 http/https 链接，其余降级为 # 防注入 */
+  /** 仅允许 http/https 链接，其余降级为 # 防注入；返回前做 HTML 转义防 XSS */
   function safeUrl(u) {
     const s = String(u || "").trim();
-    return /^https?:\/\//i.test(s) ? s : "#";
+    if (!/^https?:\/\//i.test(s)) return "#";
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
   /** 逗号/空格分隔的标签输入 → 数组 */

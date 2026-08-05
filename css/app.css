@@ -43,7 +43,7 @@
   --warn:          #8f6400;   /* 预警金 */
   --ok:            #2e7d4f;   /* 正点绿 */
   --purple:        #7b5ab0;   /* 图表系列色（睡眠等） */
-  --shadow-sm: 0 1px 2px rgba(84, 60, 20, 0.06);
+  --shadow-sm: 0 1px 3px rgba(84, 60, 20, 0.09);
   --shadow-md: 0 2px 6px rgba(84, 60, 20, 0.07), 0 12px 28px -16px rgba(84, 60, 20, 0.18);
   --shadow-lg: 0 4px 10px rgba(84, 60, 20, 0.08), 0 24px 48px -22px rgba(84, 60, 20, 0.32);
   /* 卡片“受光上沿”：暗色下靠它把卡片从黑板里抬起来 */
@@ -88,6 +88,8 @@
 
 /* ============ 基础 ============ */
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+/* 全局兜底：作者样式可能覆盖 UA 的 [hidden]，强制显式隐藏（AGENTS.md 已知坑） */
+[hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 /* 触控元素禁用双击缩放，点击响应更快 */
 a, button, input, select, textarea, label, .item, .cal-cell, .heat-cell { touch-action: manipulation; }
@@ -712,6 +714,19 @@ input.invalid, select.invalid, textarea.invalid {
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
+/* hover 引导：右下角琥珀箭头提示可点击查看（仅带 data-go 的跳转卡） */
+.stat[data-go]::after {
+  content: "→";
+  position: absolute; right: 12px; bottom: 10px;
+  font-size: 14px; font-weight: 700; color: var(--accent);
+  opacity: 0; transform: translateX(-5px);
+  transition: opacity .18s, transform .18s;
+  pointer-events: none;
+}
+.stat[data-go]:hover::after {
+  opacity: 1; transform: translateX(0);
+}
+
 .chart-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .chart-grid-2 { grid-template-columns: repeat(2, 1fr); }
 .chart-box { min-width: 0; }
@@ -724,6 +739,35 @@ input.invalid, select.invalid, textarea.invalid {
 
 .dash-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
 .dash-col { display: flex; flex-direction: column; gap: 16px; }
+
+/* 归档区：数据概览与每周回顾（<details> 渐进披露） */
+.archive { margin: 0 0 16px; }
+.archive summary {
+  list-style: none; cursor: pointer; user-select: none;
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 18px;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm), var(--card-lit);
+  font-weight: 700; font-size: 13.5px; color: var(--ink);
+  transition: border-color .18s, box-shadow .18s;
+}
+.archive summary::-webkit-details-marker { display: none; }
+.archive summary:hover { border-color: var(--accent); box-shadow: var(--shadow-md), var(--card-lit); }
+.archive summary::after {
+  content: "▾"; margin-left: auto; color: var(--muted);
+  font-size: 12px; transition: transform .2s;
+}
+.archive[open] summary::after { transform: rotate(180deg); }
+.ar-diamond {
+  width: 8px; height: 8px; border-radius: 2px;
+  background: var(--accent); transform: rotate(45deg);
+  display: inline-block; margin-right: 8px; flex-shrink: 0;
+}
+.ar-hint { font-size: 11px; font-weight: 500; color: var(--muted); }
+.archive-in { display: flex; flex-direction: column; gap: 16px; padding: 16px 0 4px; }
+.archive-in .card + .card { margin-top: 0; }
+
 .mini-bar {
   height: 6px; border-radius: var(--radius-pill);
   background: var(--card2); border: 1px solid var(--line);
@@ -772,6 +816,52 @@ input.invalid, select.invalid, textarea.invalid {
   color: var(--muted); text-decoration: line-through;
   text-decoration-thickness: 1.5px; text-decoration-color: var(--muted-2);
 }
+
+/* ============ 仪表盘 · 今日焦点 = 到发时刻时间轴 ============ */
+/* 结构：左侧时间刻度列（时段 chip）+ 撕票虚线脊柱 + 右侧「车次行」（检票 + 标题 + 徽标） */
+.focus-tl { position: relative; padding: 4px 2px; }
+.focus-tl::before {
+  content: ""; position: absolute; left: 60px; top: 12px; bottom: 12px;
+  border-left: 1.5px dashed var(--rule); opacity: .8;
+}
+.tl-item {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 12px; align-items: center;
+  padding-left: 6px;
+}
+.tl-slot {
+  justify-self: start;
+  font-size: 10.5px; font-family: var(--mono); font-weight: 600;
+  color: var(--muted);
+  background: var(--card2); border: 1px solid var(--line);
+  border-radius: var(--radius-xs); padding: 2px 6px;
+  white-space: nowrap; letter-spacing: 0.02em;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+}
+/* 逾期 = 晚点红 */
+.tl-slot.late {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
+  background: color-mix(in srgb, var(--danger) 8%, var(--card));
+}
+/* 已检票 = 正点绿 */
+.tl-slot.ok {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 45%, var(--line));
+  background: color-mix(in srgb, var(--ok) 8%, var(--card));
+}
+.tl-main { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
+/* 「已检票」区：撕票虚线分隔 */
+.tl-sep {
+  display: flex; align-items: center; gap: 10px;
+  margin: 14px 0 6px; color: var(--muted-2);
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em;
+}
+.tl-sep::before, .tl-sep::after {
+  content: ""; flex: 1; border-top: 1px dashed var(--rule);
+}
+
 .pri-dot { width: 7px; height: 7px; border-radius: 2px; transform: rotate(45deg); flex-shrink: 0; }
 
 .item.editing { display: block; background: var(--card2); padding: 14px; border: 1px dashed var(--rule); }
@@ -1607,6 +1697,11 @@ mark.news-kw {
   .tabbar a, .tab-more { font-size: 9.5px; }
   .news-grid { grid-template-columns: 1fr; }
   .dash-actions { grid-template-columns: 1fr; }
+  /* 时间轴：窄屏收窄时间刻度列与脊柱位置 */
+  .focus-tl::before { left: 48px; }
+  .tl-item { grid-template-columns: 44px minmax(0, 1fr); gap: 10px; padding-left: 4px; }
+  .tl-slot { font-size: 10px; padding: 2px 4px; max-width: 44px; }
+  .tl-main { gap: 8px; }
   .card { padding: 16px 14px; border-radius: var(--radius); }
   .topbar { margin-bottom: 18px; gap: 10px; }
 

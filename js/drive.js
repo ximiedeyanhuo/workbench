@@ -5,7 +5,7 @@
   "use strict";
 
   // 从 WB 命名空间解构需要的工具函数
-  const { routes, repo, esc } = window.WB;
+  const { routes, repo, esc, debounce } = window.WB;
 
   // 当前路径历史
   const pathHistory = ["0"];
@@ -63,6 +63,17 @@
 
   function getFileIcon(name) {
     const ext = name.split(".").pop().toLowerCase();
+
+  // 根据文件扩展名返回类型（用于预览判断）
+  function getFileType(name) {
+    const ext = name.split(".").pop().toLowerCase();
+    if (["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"].indexOf(ext) >= 0) return "image";
+    if (["mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "m4v"].indexOf(ext) >= 0) return "video";
+    if (["mp3", "wav", "flac", "aac", "ogg", "m4a"].indexOf(ext) >= 0) return "audio";
+    if (["pdf"].indexOf(ext) >= 0) return "pdf";
+    return "unknown";
+  }
+
     if (["jpg", "jpeg", "png", "gif", "webp", "bmp"].indexOf(ext) >= 0) return "🖼️";
     if (["mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "m4v"].indexOf(ext) >= 0) return "🎬";
     if (["mp3", "wav", "flac", "aac", "ogg", "m4a"].indexOf(ext) >= 0) return "🎵";
@@ -97,7 +108,9 @@
     }
     // 文件夹在前，按名称排序
     const sorted = items.slice().sort(function (a, b) {
-      if (a.is_dir !== b.is_dir) return b.is_dir - a.is_dir ? 1 : -1;
+      // 目录优先于文件
+      if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
+      // 同级按名称排序
       return a.name.localeCompare(b.name, "zh-CN");
     });
 
@@ -119,9 +132,9 @@
       const item = sorted[i];
       html += `
       <div class="file-item ${item.is_dir ? "dir" : "file"}"
-           data-fid="${item.fid}"
+           data-fid="${esc(item.fid)}"
            data-is-dir="${item.is_dir}"
-           onclick="window.WB.drive.openItem('${drive}', '${item.fid}', ${item.is_dir})">
+           onclick="window.WB.drive.openItem('${drive}', '${esc(item.fid)}', ${item.is_dir})">
         <div class="file-icon">${item.is_dir ? "📁" : getFileIcon(item.name)}</div>
         <div class="file-info">
           <div class="file-name">${esc(item.name)}</div>
@@ -169,7 +182,7 @@
       if (content) content.innerHTML = renderFileList(data.items, driveKey);
       if (pathEl) pathEl.innerHTML = renderBreadcrumb(driveKey);
     } catch (e) {
-      alert("跳转失败：" + e.message);
+      window.WB.showToast("跳转失败：" + e.message, "error");
     }
   }
 
@@ -389,7 +402,7 @@
       } else if (fileType === "pdf") {
         contentHtml = `<iframe src="${data.download_url}" style="width:100%;height:85vh;border:none;"></iframe>`;
       } else {
-        alert("该文件类型暂不支持预览");
+        window.WB.showToast("该文件类型暂不支持预览", "info");
         return;
       }
 
@@ -413,7 +426,7 @@
         }
       });
     } catch (e) {
-      alert("预览失败：" + e.message);
+      window.WB.showToast("预览失败：" + e.message, "error");
     }
   }
 
@@ -427,7 +440,7 @@
   async function download(driveKey, fid, fileName) {
     // 直接在新标签页打开夸克的预览/下载页，由夸克处理所有鉴权逻辑
     // 注意：这里需要用户在浏览器里已经登录了夸克网盘
-    alert("即将跳转到夸克网盘预览页\n\n如果提示需要登录，请用浏览器先登录 pan.quark.cn");
+    window.WB.showToast("即将跳转到夸克网盘预览页，如果提示需要登录，请用浏览器先登录 pan.quark.cn", "info");
     window.open(`https://pan.quark.cn/s/${fid}`, "_blank", "noopener");
   }
 
@@ -438,7 +451,18 @@
 
   // ========== 返回网盘列表
   function backToList() {
-    location.hash = "#/drive";
+    // 重置浏览器状态
+    pathHistory.length = 0;
+    pathHistory.push("0");
+    currentPathIndex = 0;
+    window.WB.drive._currentItems = [];
+    // 如果 hash 已经是 #/drive，直接调 render 强制刷新
+    if (location.hash === "#/drive") {
+      const el = document.getElementById("view");
+      if (el && routes.drive) routes.drive.render(el);
+    } else {
+      location.hash = "#/drive";
+    }
   }
 
   // ========== 设置页表单渲染
@@ -519,6 +543,7 @@
         const cfg = await repo("settings").get("drive_quark_config");
         if (cfg && cfg.cookie) {
           input.value = cfg.cookie;
+          window.WB.showToast("Cookie 为明文凭据，请勿分享给他人", "warn");
           const status = await Drive.quark.status();
           if (statusText) {
             if (status.valid) {

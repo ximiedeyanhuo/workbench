@@ -300,8 +300,8 @@
       const d = new Date(finYear, finMonth - i, 1);
       months.push(monthKey(d.getFullYear(), d.getMonth()));
     }
-    const incTotal = months.reduce((sum, m) => sum + txs.filter((t) => t.type === "income" && t.date.slice(0, 7) === m).reduce((s, t) => s + t.amount, 0), 0);
-    const expTotal = months.reduce((sum, m) => sum + txs.filter((t) => t.type === "expense" && t.date.slice(0, 7) === m).reduce((s, t) => s + t.amount, 0), 0);
+    const incTotal = months.reduce((sum, m) => sum + txs.filter((t) => t.type === "income" && (t.date || "").slice(0, 7) === m).reduce((s, t) => s + t.amount, 0), 0);
+    const expTotal = months.reduce((sum, m) => sum + txs.filter((t) => t.type === "expense" && (t.date || "").slice(0, 7) === m).reduce((s, t) => s + t.amount, 0), 0);
     const hasData = incTotal || expTotal;
     return `<div class="card">
       <h2>近 6 月收支</h2>
@@ -519,18 +519,20 @@
     let yIncome = 0, yExpense = 0, yInCnt = 0, yExCnt = 0;
     for (let m = 0; m < 12; m++) {
       const mk = monthKey(finYear, m);
-      const list = txs.filter((t) => t.date.slice(0, 7) === mk);
+      const list = txs.filter((t) => (t.date || "").slice(0, 7) === mk);
       const inc = sumBy(list, "income"), exp = sumBy(list, "expense");
       yIncome += inc.amt; yExpense += exp.amt; yInCnt += inc.cnt; yExCnt += exp.cnt;
       const net = inc.amt - exp.amt;
       const hasData = inc.amt || exp.amt;
       const daysInMonth = new Date(finYear, m + 1, 0).getDate();
+      // 当月日均按已过天数算，过往月份按整月天数算
+      const daysForAvg = (finYear === now.getFullYear() && m === now.getMonth()) ? Math.max(1, now.getDate()) : daysInMonth;
       rows.push(`<tr class="${hasData ? "tx-yr-row" : "tx-yr-row dim"}" data-month="${m}">
         <td>${m + 1}月</td>
         <td class="${inc.amt ? "tx-lnk" : ""}" data-jt="income" style="color:${inc.amt ? "var(--ok)" : "inherit"}">${inc.amt ? "+" + fmtYuan(inc.amt) : "—"}</td>
         <td class="${exp.amt ? "tx-lnk" : ""}" data-jt="expense" style="color:${exp.amt ? "var(--danger)" : "inherit"}">${exp.amt ? "-" + fmtYuan(exp.amt) : "—"}</td>
         <td style="color:${net >= 0 ? "var(--ok)" : "var(--danger)"}">${hasData ? signedYuan(net) : "—"}</td>
-        <td class="tx-yr-cnt">${exp.amt ? fmtYuan(exp.amt / daysInMonth) : "—"}</td>
+        <td class="tx-yr-cnt">${exp.amt ? fmtYuan(exp.amt / daysForAvg) : "—"}</td>
         <td class="tx-yr-cnt">${inc.cnt + exp.cnt || "—"}</td>
         <td>${hasData ? `<button class="icon-btn plain pc-only" data-act="exp-range" title="导出该月明细 CSV">${WB.icon("export")}</button>` : ""}</td>
       </tr>`);
@@ -557,7 +559,7 @@
     const years = new Set([String(now.getFullYear())]);
     txs.forEach((t) => { if (t.date) years.add(t.date.slice(0, 4)); });
     const rows = [...years].sort((a, b) => b.localeCompare(a)).map((y) => {
-      const list = txs.filter((t) => t.date.slice(0, 4) === y);
+      const list = txs.filter((t) => (t.date || "").slice(0, 4) === y);
       const inc = sumBy(list, "income"), exp = sumBy(list, "expense");
       const net = inc.amt - exp.amt;
       const hasData = inc.amt || exp.amt;
@@ -743,7 +745,7 @@
     });
     const entries = Object.entries(map).sort((a, b) => b[1] - a[1]);
     if (!entries.length) return;
-    const labels = entries.map((e) => catOf(cats, "expense", e[0]).name);
+    const labels = entries.map((e) => esc(catOf(cats, "expense", e[0]).name));
     const colors = entries.map((e) => catOf(cats, "expense", e[0]).color);
     const data = entries.map((e) => e[1]);
     const total = data.reduce((a, b) => a + b, 0);
@@ -777,8 +779,8 @@
       const d = new Date(finYear, finMonth - i, 1);
       months.push(monthKey(d.getFullYear(), d.getMonth()));
     }
-    const incomeArr = months.map((m) => txs.filter((t) => t.type === "income" && t.date.slice(0, 7) === m).reduce((s, t) => s + t.amount, 0));
-    const expenseArr = months.map((m) => txs.filter((t) => t.type === "expense" && t.date.slice(0, 7) === m).reduce((s, t) => s + t.amount, 0));
+    const incomeArr = months.map((m) => txs.filter((t) => t.type === "income" && (t.date || "").slice(0, 7) === m).reduce((s, t) => s + t.amount, 0));
+    const expenseArr = months.map((m) => txs.filter((t) => t.type === "expense" && (t.date || "").slice(0, 7) === m).reduce((s, t) => s + t.amount, 0));
     const muted = cssVar("--muted"), line = cssVar("--line"), ok = cssVar("--ok"), danger = cssVar("--danger");
     finCharts.push(new Chart(cv, {
       type: "bar",
@@ -814,11 +816,16 @@
   /** 通用 CSV 下载（\uFEFF BOM：让 Excel 正确识别 UTF-8 中文） */
   function downloadCsv(filename, rows, cats) {
     const head = "日期,类型,分类,金额,备注";
+    // 防 CSV 公式注入：以 = + - @ 或制表符开头的单元格前加单引号
+    const safeCsv = (v) => {
+      const s = String(v == null ? "" : v);
+      return /^[=+\-@\t]/.test(s) ? "'" + s : s;
+    };
     const lines = rows.map((t) => {
       const c = catOf(cats, t.type, t.category);
       // CSV 转义：字段含逗号/引号/换行时用双引号包裹
       const note = /[",\n]/.test(t.note) ? `"${t.note.replace(/"/g, '""')}"` : t.note;
-      return [t.date, typeLabel(t.type), c.name, t.amount, note].join(",");
+      return [safeCsv(t.date), safeCsv(typeLabel(t.type)), safeCsv(c.name), safeCsv(t.amount), note].join(",");
     });
     const blob = new Blob(["\uFEFF" + head + "\n" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
@@ -971,9 +978,19 @@
     }
     if (!records.length) return { err: `没有可导入的有效行（跳过 ${skipped} 行）` };
 
+    // 按 id 去重：已有记录跳过，避免重复导入
+    const existing = await financeRepo.list();
+    const existingIds = new Set(existing.map((r) => r.id));
+    const before = records.length;
+    records = records.filter((r) => !existingIds.has(r.id));
+    const deduped = before - records.length;
+    if (!records.length) return { err: `所有 ${before} 条记录均已存在，无需导入` };
+    skipped += deduped;
+
     const newCats = catAdd.income.concat(catAdd.expense).map((c) => c.name);
     let msg = `解析到 ${rows.length - 1} 行，可导入 ${records.length} 条`;
-    if (skipped) msg += `，跳过无效 ${skipped} 行`;
+    if (deduped) msg += `，已存在跳过 ${deduped} 条`;
+    if (skipped) msg += `，无效跳过 ${skipped} 行`;
     if (newCats.length) msg += `\n将自动新建分类：${newCats.join("、")}`;
     if (!window.confirm(msg + "\n\n确认导入？")) return { cancelled: true };
 
@@ -1033,7 +1050,7 @@
     let changed = false;
     for (const s of schedules) {
       if (!s.enabled && s.enabled !== undefined) continue;
-      const due = Number(s.dueDay || 1);
+      const due = Math.min(Number(s.dueDay || 1), new Date(today.slice(0, 4), Number(today.slice(5, 7)), 0).getDate());
       // 本月扣款日还没到 → 不处理
       const todayD = Number(today.slice(8, 10));
       if (todayD < due) continue;
@@ -1097,8 +1114,8 @@
 
       // 本月概览
       const mk = monthKey(finYear, finMonth);
-      const mtx = txs.filter((t) => t.date.slice(0, 7) === mk);
-      const ytx = txs.filter((t) => t.date.slice(0, 4) === String(finYear));
+      const mtx = txs.filter((t) => (t.date || "").slice(0, 7) === mk);
+      const ytx = txs.filter((t) => (t.date || "").slice(0, 4) === String(finYear));
 
       // 销毁旧图表
       finCharts.forEach((c) => c.destroy());
@@ -1294,7 +1311,7 @@
       });
 
       // 导出：当前筛选结果
-      on("#finExport", "click", () => exportList(cats, mtx, txs));
+      on("#finExport", "click", () => exportList(cats, txs));
 
       // 导入 CSV / xlsx（移动端同样展示入口）
       on("#finImport", "click", () => { const f = $("#finImportFile"); if (f) f.click(); });
@@ -1308,14 +1325,14 @@
           if (name.endsWith(".xlsx") || name.endsWith(".xlsm")) {
             res = await importXlsxFile(file, cats);
           } else if (name.endsWith(".xls")) {
-            alert("暂不支持 .xls 旧格式，请在 Excel 中另存为 .xlsx 或 CSV 后再导入");
+            window.WB.showToast("暂不支持 .xls 旧格式，请在 Excel 中另存为 .xlsx 或 CSV 后再导入", "error");
             return;
           } else {
             res = await importCsvText(await decodeCsvFile(file), cats);
           }
-          if (res.err) { alert("导入失败：" + res.err); return; }
+          if (res.err) { window.WB.showToast("导入失败：" + res.err, "error"); return; }
           if (res.cancelled) return;
-          alert(`导入完成：新增 ${res.added} 条${res.skipped ? `，跳过无效 ${res.skipped} 行` : ""}${res.newCats.length ? `，自动新建分类：${res.newCats.join("、")}` : ""}`);
+          window.WB.showToast(`导入完成：新增 ${res.added} 条${res.skipped ? `，跳过无效 ${res.skipped} 行` : ""}${res.newCats.length ? `，自动新建分类：${res.newCats.join("、")}` : ""}`, "success");
           // 跳转到最新一条导入记录所在月份并清空筛选，确保导入结果可见
           // （模板/历史文件里的日期常不在当前月，原逻辑导入后列表无变化，易误以为没导进去）
           const dates = res.addedDates || [];
@@ -1332,7 +1349,7 @@
           if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
         } catch (err) {
           // bulkPut / 设置写入抛错时给出明确提示（原实现无 try/catch，出错即静默无反馈）
-          alert("导入出错：" + ((err && err.message) || err));
+          window.WB.showToast("导入出错：" + ((err && err.message) || err), "error");
         }
       });
 
