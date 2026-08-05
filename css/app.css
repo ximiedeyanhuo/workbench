@@ -669,8 +669,9 @@ input.invalid, select.invalid, textarea.invalid {
 }
 [data-theme="dark"] .stat::before {
   background:
-    repeating-linear-gradient(90deg, transparent 0 9px, rgba(255, 255, 255, 0.02) 9px 18px),
-    var(--card2);
+    repeating-linear-gradient(90deg, transparent 0 9px, rgba(255, 255, 255, 0.04) 9px 18px),
+    #25323c;
+  border-bottom: 1px dashed rgba(255, 180, 84, 0.25);
 }
 /* 检票打孔：半透明冲孔，内嵌阴影模拟穿透（嵌套卡片下也不露馅） */
 .stat::after {
@@ -679,6 +680,11 @@ input.invalid, select.invalid, textarea.invalid {
   background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.55), rgba(0, 0, 0, 0.06) 65%);
   border: 1px solid var(--rule);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.22);
+}
+[data-theme="dark"] .stat::after {
+  background: radial-gradient(circle at 35% 30%, rgba(255, 180, 84, 0.35), rgba(255, 255, 255, 0.08) 65%);
+  border: 1px solid rgba(255, 180, 84, 0.3);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 4px rgba(255, 180, 84, 0.15);
 }
 .stat .s-lab {
   font-size: 11px; color: var(--muted);
@@ -702,6 +708,14 @@ input.invalid, select.invalid, textarea.invalid {
 .stat .s-sub {
   font-size: 11.5px; color: var(--muted); margin-top: 6px;
   font-family: var(--mono);
+}
+/* 暗色主题 stat 卡加强：边框提亮、受光沿加宽，让车票层次可见 */
+[data-theme="dark"] .stat {
+  border-color: #2e3f4a;
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+[data-theme="dark"] .stat:hover {
+  border-color: rgba(255, 180, 84, 0.3);
 }
 /* 首张车票：琥珀标（首班车） */
 .stat:first-child .s-lab { color: var(--accent); font-weight: 700; }
