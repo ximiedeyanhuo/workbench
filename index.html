@@ -5,15 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>个人工作台</title>
 <link rel="manifest" href="/manifest.json" />
-<meta name="theme-color" content="#a3540a" />
+<meta name="theme-color" content="#a94f08" />
 <link rel="stylesheet" href="css/app.css" />
 </head>
 <body>
-<!-- 设计契约 · 「车站 · 到发时刻」
+<!-- 设计契约 · 「车站 · 到发时刻」· 二轮打磨
 THESIS: 个人工作台是一座自托管的小站——任务即车次，打卡即检票，今日焦点即到发时刻表。拒绝“灰底卡片+蓝色 SaaS”仪表盘。
-OWN-WORLD: 白天是印刷时刻表（纸面+墨线+车票），夜晚是候车厅翻牌屏（墨黑板+琥珀数字+信号灯）。琥珀=唯一系统强调色；正点绿/晚点红/预警金取自站台信号。数据一律等宽数字。
+OWN-WORLD: 白天是印刷时刻表（奶油纸+石墨墨线+深琥珀车票），夜晚是候车厅翻牌屏（墨蓝黑板+翻牌琥珀数字+信号灯）。琥珀=唯一系统强调色；正点绿/晚点红/预警金取自站台信号。数据一律等宽数字。隐喻收敛：撕票虚线只出现在真正“撕票”的地方。
 STORY: 每天进站：看一眼时刻表上的今日车次，检票完成事项，盖章打卡，正点出发。
-FIRST VIEWPORT: 墨色站牌侧栏 · 发车广播式欢迎语 · 四张车票形统计卡 · 今日焦点=到发时刻表。
+FIRST VIEWPORT: 墨色站牌侧栏 · 发车广播式欢迎语 · 四张车票形统计卡（staggered 入场）· 今日焦点=到发时刻表。
 FORM: 站台信息系统（assigned direction #7）
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md -->
 
@@ -47,6 +47,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
     </div>
     <h2>登录工作台</h2>
     <p class="login-sub" id="loginSub">请使用已分配的账号登录</p>
+    <div class="login-board" aria-hidden="true">
+      <div class="lb-line"><span>进站口</span><b>PLATFORM · 01</b></div>
+      <div class="lb-line"><span>检票状态</span><b class="lb-ok">正点 · 候检</b></div>
+    </div>
     <form id="loginForm" autocomplete="on">
       <input id="loginUser" name="username" placeholder="用户名" autocomplete="username" maxlength="20" />
       <input id="loginPwd" name="password" type="password" placeholder="密码" autocomplete="current-password" />
