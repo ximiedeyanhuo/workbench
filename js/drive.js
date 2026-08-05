@@ -1,5 +1,5 @@
 /**
- * drive.js — 网盘聚合：夸克网盘等统一浏览
+ * drive.js — 网盘聚合：夸克/百度网盘统一浏览
  */
 (function () {
   "use strict";
@@ -13,6 +13,7 @@
 
   // ========== 夸克网盘 API 封装
   const Drive = {};
+  let currentDrive = "quark";
   Drive.quark = {
     async status() {
       const res = await fetch("/api/drive/quark/status");
@@ -38,6 +39,40 @@
     },
     async saveConfig(cookie) {
       const res = await fetch("/api/drive/quark/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cookie: cookie }),
+      });
+      return res.json();
+    },
+  };
+
+  // ========== 百度网盘 API 封装
+  Drive.baidu = {
+    async status() {
+      const res = await fetch("/api/drive/baidu/status");
+      return res.json();
+    },
+    async list(dir = "/") {
+      const res = await fetch("/api/drive/baidu/list", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dir: dir }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    async getDownloadUrl(fsId) {
+      const res = await fetch("/api/drive/baidu/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fs_id: fsId }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    async saveConfig(cookie) {
+      const res = await fetch("/api/drive/baidu/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cookie: cookie }),
@@ -172,7 +207,7 @@
   // ========== 跳转到指定层级
   async function jumpToPath(index) {
     if (index < 0 || index >= currentPathIndex) return;
-    const driveKey = "quark";
+    const driveKey = currentDrive;
     try {
       currentPathIndex = index;
       const fid = pathHistory[index];
@@ -193,9 +228,13 @@
 
     const hideLoading = window.WB.showLoading("正在连接网盘...");
     try {
-      const quarkStatus = await Drive.quark.status();
+      const [quarkStatus, baiduStatus] = await Promise.all([
+        Drive.quark.status(),
+        Drive.baidu.status(),
+      ]);
       const drives = [
         { key: "quark", name: "夸克网盘", icon: "🟡", status: quarkStatus },
+        { key: "baidu", name: "百度网盘", icon: "🔵", status: baiduStatus },
       ];
       let html = "";
       for (let i = 0; i < drives.length; i++) {
@@ -210,7 +249,7 @@
     }
   }
 
-  // ========== 路由注册
+// ========== 路由注册
   routes.drive = {
     title: "网盘",
     async render(el) {
@@ -256,7 +295,7 @@
 
     if (!keyword) {
       // 清空搜索，显示全部
-      content.innerHTML = renderFileList(items, "quark");
+      content.innerHTML = renderFileList(items, currentDrive);
       return;
     }
 
@@ -268,12 +307,13 @@
     if (filtered.length === 0) {
       content.innerHTML = `<div class="empty">未找到包含 "${esc(keyword)}" 的文件</div>`;
     } else {
-      content.innerHTML = renderFileList(filtered, "quark");
+      content.innerHTML = renderFileList(filtered, currentDrive);
     }
   }
 
   // ========== 进入指定网盘浏览
   async function enterDrive(driveKey) {
+    currentDrive = driveKey;
     const el = document.getElementById("view");
     if (!el) return;
 
@@ -293,7 +333,7 @@
       <div class="drive-browser">
         <div class="browser-header">
           <button class="btn sm back-btn" onclick="window.WB.drive.backToList()">← 返回网盘列表</button>
-          <h2>${driveKey === "quark" ? "🟡 夸克网盘" : driveKey}</h2>
+          <h2>${({quark: "🟡 夸克网盘", baidu: "🔵 百度网盘"})[driveKey] || driveKey}</h2>
           <input type="text" id="driveFileSearch" placeholder="搜索当前目录..." style="margin-left: auto; width: 200px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); font-size: 13px; background: var(--card); color: var(--ink);" />
         </div>
         <div class="browser-path">
@@ -333,7 +373,10 @@
   async function openItem(driveKey, fid, isDir) {
     if (!isDir) {
       // 文件：暂时直接提示去网页版打开
-      window.WB.showToast("请在夸克网盘网页版查看下载", "info");
+      const msg = driveKey === "baidu"
+        ? "请在百度网盘网页版查看下载"
+        : "请在夸克网盘网页版查看下载";
+      window.WB.showToast(msg, "info");
       return;
     }
     const hideLoading = window.WB.showLoading("正在打开文件夹...");
@@ -371,7 +414,7 @@
     if (currentPathIndex <= 0) return;
     currentPathIndex--;
     const fid = pathHistory[currentPathIndex];
-    const driveKey = "quark";
+    const driveKey = currentDrive;
     const hideLoading = window.WB.showLoading("正在返回...");
     try {
       const data = await Drive[driveKey].list(fid);
@@ -485,6 +528,24 @@
         <span class="s-name">连接状态</span>
         <span class="s-desc" id="quarkStatusText">未检测</span>
       </div>
+    </div>
+    <div class="set-group">
+      <h3>🔵 百度网盘</h3>
+      <div class="set-row">
+        <span class="s-name">Cookie 配置</span>
+        <div style="flex:1;display:flex;gap:8px;align-items:center">
+          <input type="text" class="input" id="baiduCookieInput" placeholder="粘贴 Cookie 到此处" style="flex:1" />
+          <button class="btn sm" id="baiduSaveBtn">保存</button>
+          <button class="btn sm" id="baiduTestBtn">测试</button>
+        </div>
+        <span class="s-desc">
+          获取方式：浏览器打开 pan.baidu.com 登录 → 按 F12 → Application → Cookies → 复制 BDUSS 与 STOKEN 两个 Cookie 的完整字符串（格式：BDUSS=xxx; STOKEN=xxx）
+        </span>
+      </div>
+      <div class="set-row">
+        <span class="s-name">连接状态</span>
+        <span class="s-desc" id="baiduStatusText">未检测</span>
+      </div>
     </div>`;
   }
 
@@ -552,6 +613,77 @@
             } else {
               statusText.textContent = "✗ 连接失效，请重新获取 Cookie";
               statusText.style.color = "var(--danger)";
+            }
+          }
+        }
+      } catch (e) {
+        // 忽略未配置
+      }
+    })();
+
+    // ========== 百度网盘设置事件
+    const baiduSaveBtn = document.getElementById("baiduSaveBtn");
+    const baiduTestBtn = document.getElementById("baiduTestBtn");
+    const baiduStatusText = document.getElementById("baiduStatusText");
+    const baiduInput = document.getElementById("baiduCookieInput");
+
+    if (baiduSaveBtn) {
+      baiduSaveBtn.addEventListener("click", async function () {
+        const cookie = baiduInput.value.trim();
+        if (!cookie) return window.WB.showToast("Cookie 不能为空", "warning");
+        const hideLoading = window.WB.showLoading("正在保存...");
+        try {
+          await Drive.baidu.saveConfig(cookie);
+          hideLoading();
+          window.WB.showToast("保存成功", "success");
+        } catch (e) {
+          hideLoading();
+          window.WB.showToast("保存失败：" + e.message, "error");
+        }
+      });
+    }
+
+    if (baiduTestBtn) {
+      baiduTestBtn.addEventListener("click", async function () {
+        baiduStatusText.textContent = "测试中…";
+        const hideLoading = window.WB.showLoading("正在测试连接...");
+        try {
+          const status = await Drive.baidu.status();
+          hideLoading();
+          if (status.valid) {
+            baiduStatusText.textContent = "✓ 连接成功 (" + (status.nickname || "用户") + ")";
+            baiduStatusText.style.color = "var(--ok)";
+            window.WB.showToast("网盘连接成功", "success");
+          } else {
+            baiduStatusText.textContent = "✗ 连接失败：" + (status.msg || "Cookie 无效");
+            baiduStatusText.style.color = "var(--danger)";
+            window.WB.showToast("Cookie 无效，请重新获取", "error");
+          }
+        } catch (e) {
+          hideLoading();
+          baiduStatusText.textContent = "✗ 测试失败：" + e.message;
+          baiduStatusText.style.color = "var(--danger)";
+          window.WB.showToast("连接失败：" + e.message, "error");
+        }
+      });
+    }
+
+    // 页面加载时读取已保存的配置并回显
+    (async function () {
+      if (!baiduInput) return;
+      try {
+        const cfg = await repo("settings").get("drive_baidu_config");
+        if (cfg && cfg.cookie) {
+          baiduInput.value = cfg.cookie;
+          window.WB.showToast("Cookie 为明文凭据，请勿分享给他人", "warn");
+          const status = await Drive.baidu.status();
+          if (baiduStatusText) {
+            if (status.valid) {
+              baiduStatusText.textContent = "✓ 已连接 (" + (status.nickname || "用户") + ")";
+              baiduStatusText.style.color = "var(--ok)";
+            } else {
+              baiduStatusText.textContent = "✗ 连接失效，请重新获取 Cookie";
+              baiduStatusText.style.color = "var(--danger)";
             }
           }
         }

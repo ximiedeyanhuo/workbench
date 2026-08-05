@@ -12,6 +12,7 @@ server.py — 个人工作台后端（FastAPI + SQLite）
 数据：同目录 workbench.db 单文件，备份 = 复制该文件。
 """
 
+import base64
 import contextvars
 import hashlib
 import ipaddress
@@ -1099,6 +1100,240 @@ async def quark_config_save(request: Request):
     payload = await request.json()
     cookie = payload.get("cookie", "").strip()
     save_drive_config("quark", {"cookie": cookie})
+    return {"ok": True}
+
+
+# ========== 百度网盘 ==========
+
+def format_size(size: int) -> str:
+    """格式化文件大小，与前端 drive.js formatSize 一致"""
+    if not size or size == 0:
+        return "-"
+    if size < 1024:
+        return f"{size} B"
+    if size < 1024 * 1024:
+        return f"{size / 1024:.1f} KB"
+    if size < 1024 * 1024 * 1024:
+        return f"{size / 1024 / 1024:.1f} MB"
+    return f"{size / 1024 / 1024 / 1024:.1f} GB"
+
+
+def baidu_headers(cookie: str) -> dict:
+    """百度网盘 API 通用请求头"""
+    return {
+        "User-Agent": DRIVE_UA,
+        "Cookie": cookie,
+        "Referer": "https://pan.baidu.com/disk/home?",
+    }
+
+
+def baidu_sign(sign1: str, sign3: str) -> str:
+    """百度网盘 sign 算法：类 RC4，用 sign3 作密钥对 sign1 加密后 base64"""
+    # KSA —— 用 sign3 初始化 S-box
+    key = [ord(sign3[i % len(sign3)]) for i in range(256)]
+    S = list(range(256))
+    j = 0
+    for i in range(256):
+        j = (j + S[i] + key[i]) % 256
+        S[i], S[j] = S[j], S[i]
+    # PRGA —— 加密 sign1
+    i = j = 0
+    result = []
+    sign1_bytes = sign1.encode("utf-8")
+    for byte in sign1_bytes:
+        i = (i + 1) % 256
+        j = (j + S[i]) % 256
+        S[i], S[j] = S[j], S[i]
+        k = S[(S[i] + S[j]) % 256]
+        result.append(byte ^ k)
+    return base64.b64encode(bytes(result)).decode("utf-8")
+
+
+@app.get("/api/drive/baidu/status")
+def baidu_status():
+    """检查百度网盘是否已配置且有效"""
+    cfg = get_drive_config("baidu")
+    cookie = cfg.get("cookie", "")
+    if not cookie:
+        return {"configured": False, "valid": False, "msg": "未配置 Cookie"}
+    try:
+        req = urllib.request.Request(
+            "https://pan.baidu.com/api/quota?app_id=250528&channel=chunlei&clienttype=0&web=1&checkexpire=1&checkfree=1",
+            headers=baidu_headers(cookie),
+        )
+        with urllib.request.urlopen(req, timeout=DRIVE_TIMEOUT) as res:
+            data = json.loads(res.read().decode("utf-8"))
+        if data.get("errno") == 0:
+            # 获取用户昵称
+            try:
+                req2 = urllib.request.Request(
+                    "https://pan.baidu.com/api/user/getinfo?need_selfinfo=1",
+                    headers=baidu_headers(cookie),
+                )
+                with urllib.request.urlopen(req2, timeout=DRIVE_TIMEOUT) as res2:
+                    user_data = json.loads(res2.read().decode("utf-8"))
+                records = user_data.get("records", [])
+                nickname = records[0].get("netdisk_name") or records[0].get("baidu_name", "用户") if records else "用户"
+            except Exception:
+                nickname = "用户"
+            return {"configured": True, "valid": True, "nickname": nickname}
+        errno = data.get("errno")
+        if errno == -6:
+            return {"configured": True, "valid": False, "msg": "Cookie 已过期，请重新获取"}
+        return {"configured": True, "valid": False, "msg": data.get("message", f"errno={errno}")}
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            return {"configured": True, "valid": False, "msg": "Cookie 已过期，请重新获取"}
+        # 百度对无效 cookie 常直接回 HTTP 400，body 里可能带 errno，尝试解析出更明确的错误
+        try:
+            body = json.loads(e.read().decode("utf-8", "ignore"))
+            if body.get("errno") == -6:
+                return {"configured": True, "valid": False, "msg": "Cookie 已过期，请重新获取"}
+        except Exception:
+            pass
+        return {"configured": True, "valid": False, "msg": f"HTTP {e.code}"}
+    except Exception as e:
+        return {"configured": True, "valid": False, "msg": str(e)[:80]}
+
+
+@app.post("/api/drive/baidu/list")
+async def baidu_list(request: Request):
+    """列出百度网盘指定目录下的文件"""
+    cfg = get_drive_config("baidu")
+    cookie = cfg.get("cookie", "")
+    if not cookie:
+        raise HTTPException(status_code=400, detail="请先在设置页配置百度网盘 Cookie")
+    payload = await request.json()
+    dir_path = payload.get("dir", "/")
+    if not dir_path or dir_path == "0":
+        dir_path = "/"
+    try:
+        params = {
+            "dir": dir_path,
+            "order": "name",
+            "desc": "0",
+            "num": "100",
+            "page": "1",
+            "web": "1",
+            "app_id": "250528",
+            "clienttype": "0",
+            "channel": "chunlei",
+            "showempty": "0",
+            "t": str(int(time.time() * 1000)),
+        }
+        req = urllib.request.Request(
+            f"https://pan.baidu.com/api/list?{urllib.parse.urlencode(params)}",
+            headers=baidu_headers(cookie),
+        )
+        with urllib.request.urlopen(req, timeout=DRIVE_TIMEOUT) as res:
+            data = json.loads(res.read().decode("utf-8"))
+        if data.get("errno") != 0:
+            errno = data.get("errno")
+            if errno == -6:
+                raise HTTPException(status_code=401, detail="Cookie 已过期，请重新获取")
+            raise HTTPException(status_code=502, detail=data.get("message", f"errno={errno}"))
+        items = []
+        for item in data.get("list", []):
+            items.append({
+                "fid": item.get("path") if item.get("isdir") == 1 else str(item.get("fs_id", "")),
+                "name": item.get("server_filename", ""),
+                "is_dir": item.get("isdir") == 1,
+                "size": item.get("size", 0),
+                "size_str": format_size(item.get("size", 0)),
+                "modified": item.get("server_mtime", 0),
+                "parent_dir": dir_path,
+            })
+        return {"items": items, "current_path": dir_path, "total": len(items)}
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            raise HTTPException(status_code=401, detail="Cookie 已过期，请重新获取")
+        raise HTTPException(status_code=502, detail=f"HTTP {e.code}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
+@app.post("/api/drive/baidu/download")
+async def baidu_download(request: Request):
+    """获取百度网盘文件下载链接
+
+    ⚠️ 该签名流程为逆向实现，未经真实 cookie 验证，可能随百度改版失效
+    """
+    cfg = get_drive_config("baidu")
+    cookie = cfg.get("cookie", "")
+    if not cookie:
+        raise HTTPException(status_code=400, detail="请先配置 Cookie")
+    payload = await request.json()
+    fs_id = payload.get("fs_id", "")
+    if not fs_id:
+        raise HTTPException(status_code=400, detail="fs_id 不能为空")
+    try:
+        # Step 1: 获取 sign1, sign3, timestamp
+        req1 = urllib.request.Request(
+            "https://pan.baidu.com/api/gettemplatevariable?app_id=250528&channel=chunlei&clienttype=0&fields=%5B%22sign1%22%2C%22sign3%22%2C%22timestamp%22%5D&web=1",
+            headers=baidu_headers(cookie),
+        )
+        with urllib.request.urlopen(req1, timeout=DRIVE_TIMEOUT) as res1:
+            tmpl = json.loads(res1.read().decode("utf-8"))
+        if tmpl.get("errno") != 0:
+            raise HTTPException(status_code=502, detail=tmpl.get("message", "获取签名参数失败"))
+        result = tmpl.get("result", {})
+        sign1 = result.get("sign1", "")
+        sign3 = result.get("sign3", "")
+        timestamp = result.get("timestamp", "")
+        if not sign1 or not sign3:
+            raise HTTPException(status_code=502, detail="获取签名参数不完整")
+
+        # Step 2: 计算 sign
+        sign = baidu_sign(sign1, sign3)
+
+        # Step 3: 获取 dlink
+        req2 = urllib.request.Request(
+            f"https://pan.baidu.com/api/download?type=dlink&sign={sign}&timestamp={timestamp}&fidlist=%5B{fs_id}%5D&app_id=250528&channel=chunlei&clienttype=0&web=1",
+            headers=baidu_headers(cookie),
+        )
+        with urllib.request.urlopen(req2, timeout=DRIVE_TIMEOUT) as res2:
+            dl_data = json.loads(res2.read().decode("utf-8"))
+        if dl_data.get("errno") != 0:
+            raise HTTPException(status_code=502, detail=dl_data.get("message", "获取下载链接失败"))
+        dlink_list = dl_data.get("dlink", [])
+        if not dlink_list or not dlink_list[0].get("dlink"):
+            raise HTTPException(status_code=502, detail="下载链接为空")
+        dlink_url = dlink_list[0].get("dlink")
+
+        # Step 4: 跟随重定向（不自动跳转）获取真实下载地址
+        class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, req, fp, code, msg, headers, newurl):
+                return None
+        opener = urllib.request.build_opener(NoRedirectHandler)
+        req3 = urllib.request.Request(
+            dlink_url,
+            headers={"User-Agent": "LogStatistic", "Cookie": cookie},
+        )
+        with opener.open(req3, timeout=DRIVE_TIMEOUT) as res3:
+            real_url = res3.headers.get("Location", dlink_url)
+
+        return {
+            "download_url": real_url,
+            "file_name": dlink_list[0].get("server_filename", ""),
+        }
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            raise HTTPException(status_code=401, detail="Cookie 已过期，请重新获取")
+        raise HTTPException(status_code=502, detail=f"HTTP {e.code}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
+@app.post("/api/drive/baidu/config")
+async def baidu_config_save(request: Request):
+    """保存百度网盘配置"""
+    payload = await request.json()
+    cookie = payload.get("cookie", "").strip()
+    save_drive_config("baidu", {"cookie": cookie})
     return {"ok": True}
 
 

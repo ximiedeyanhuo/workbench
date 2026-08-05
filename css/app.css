@@ -1493,6 +1493,50 @@ input.invalid, select.invalid, textarea.invalid {
 }
 .ql-card:hover .ql-ops { opacity: 1; }
 .ql-ops .icon-btn { background: var(--card); border: 1px solid var(--line); }
+.ql-card { cursor: pointer; }
+.ql-cred {
+  position: absolute; top: 8px; left: 8px;
+  font-size: 13px; opacity: 0; transition: opacity .15s;
+}
+.ql-card:hover .ql-cred { opacity: 1; }
+
+/* 凭据浮层 */
+.cred-add { margin-top: 10px; }
+.cred-add input { flex: 1; min-width: 140px; }
+.cred-hint { font-size: 12px; color: var(--muted); flex: 1 1 100%; }
+.cred-modal {
+  position: fixed; inset: 0; z-index: 10000;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.cred-box {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow-lg);
+  padding: 22px; width: 100%; max-width: 380px;
+  position: relative;
+}
+.cred-close {
+  position: absolute; top: 6px; right: 10px;
+  background: none; border: none; font-size: 26px; line-height: 1;
+  color: var(--muted); cursor: pointer;
+}
+.cred-close:hover { color: var(--ink); }
+.cred-title { font-weight: 800; font-size: 16px; margin-bottom: 2px; }
+.cred-url {
+  font-size: 12px; color: var(--muted); word-break: break-all;
+  margin-bottom: 16px;
+}
+.cred-row {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+}
+.cred-label { flex-shrink: 0; width: 44px; font-size: 13px; color: var(--muted); }
+.cred-value {
+  flex: 1; min-width: 0;
+  padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-xs);
+  background: var(--card2); color: var(--ink); font-size: 13px;
+}
+.cred-copy { flex-shrink: 0; padding: 7px 12px; font-size: 12px; }
+.cred-tip { font-size: 12px; color: var(--muted); margin-top: 14px; line-height: 1.6; }
 
 /* ============ 资讯 ============ */
 .news-note {
