@@ -709,13 +709,14 @@ input.invalid, select.invalid, textarea.invalid {
   font-size: 11.5px; color: var(--muted); margin-top: 6px;
   font-family: var(--mono);
 }
-/* 暗色主题 stat 卡加强：边框提亮、受光沿加宽，让车票层次可见 */
+/* 暗色主题 stat 卡加强：边框提亮、浮起投影匹配粗体文字重量 */
 [data-theme="dark"] .stat {
   border-color: #2e3f4a;
-  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45), 0 10px 24px -12px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 [data-theme="dark"] .stat:hover {
   border-color: rgba(255, 180, 84, 0.3);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), 0 16px 32px -14px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 /* 首张车票：琥珀标（首班车） */
 .stat:first-child .s-lab { color: var(--accent); font-weight: 700; }
