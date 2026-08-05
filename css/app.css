@@ -661,7 +661,7 @@ input.invalid, select.invalid, textarea.invalid {
 }
 /* 票头：上部票根条 + 印刷横纹 + 撕票虚线 */
 .stat::before {
-  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 26px;
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 32px;
   background:
     repeating-linear-gradient(90deg, transparent 0 9px, rgba(0, 0, 0, 0.025) 9px 18px),
     var(--card2);
