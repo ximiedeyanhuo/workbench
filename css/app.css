@@ -632,18 +632,23 @@ input.invalid, select.invalid, textarea.invalid {
 /* 仪表盘·每周回顾：本周关键数据逐行展示 */
 .wr-stats { display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; line-height: 1.7; color: var(--ink); }
 
-/* Stat 卡：车票形统计卡（票头 + 检票孔 + 大字） */
+/* ============ 仪表盘 · 统计卡（数据窗口） ============ */
+/* 视觉语言：四张并列的核心数字卡 = 到发屏上的数据窗口。
+   层次由卡片本体承载（亮色纸片 / 暗色黑板浮起），数字是唯一主角，
+   标签轻、数字重、副注更轻；装饰只剩标签前的琥珀菱形标
+   （与 page-title / chart-tt / month-sub 同一套菱形语言）。 */
 .stat-grid {
   display: grid; grid-template-columns: repeat(4, 1fr);
   gap: 14px; margin-bottom: 24px;
 }
 .stat {
-  background: var(--card); border: 1px solid var(--line);
-  border-radius: var(--radius); padding: 14px 18px 18px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 18px;
   cursor: pointer; position: relative;
   box-shadow: var(--shadow-sm), var(--card-lit);
-  overflow: hidden;
-  transition: box-shadow .2s, transform .15s, border-color .2s;
+  transition: border-color .18s, box-shadow .18s, transform .15s;
   animation: statIn .45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 .stat:nth-child(1) { animation-delay: .04s; }
@@ -655,73 +660,57 @@ input.invalid, select.invalid, textarea.invalid {
   to { opacity: 1; transform: translateY(0); }
 }
 .stat:hover {
-  border-color: var(--rule);
+  border-color: var(--accent);
   box-shadow: var(--shadow-md), var(--card-lit);
   transform: translateY(-1px);
 }
-/* 票头：上部票根条 + 印刷横纹 + 撕票虚线 */
-.stat::before {
-  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 32px;
-  background:
-    repeating-linear-gradient(90deg, transparent 0 9px, rgba(0, 0, 0, 0.025) 9px 18px),
-    var(--card2);
-  border-bottom: 1px dashed var(--rule);
-}
-[data-theme="dark"] .stat::before {
-  background:
-    repeating-linear-gradient(90deg, transparent 0 9px, rgba(255, 255, 255, 0.04) 9px 18px),
-    #25323c;
-  border-bottom: 1px dashed rgba(255, 180, 84, 0.25);
-}
-/* 检票打孔：半透明冲孔，内嵌阴影模拟穿透（嵌套卡片下也不露馅） */
-.stat::after {
-  content: ""; position: absolute; top: 13px; right: 14px;
-  width: 12px; height: 12px; border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.55), rgba(0, 0, 0, 0.06) 65%);
-  border: 1px solid var(--rule);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.22);
-}
-[data-theme="dark"] .stat::after {
-  background: radial-gradient(circle at 35% 30%, rgba(255, 180, 84, 0.35), rgba(255, 255, 255, 0.08) 65%);
-  border: 1px solid rgba(255, 180, 84, 0.3);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 4px rgba(255, 180, 84, 0.15);
-}
+/* 标签：轻 —— 小号 + 琥珀菱形标 */
 .stat .s-lab {
   font-size: 11px; color: var(--muted);
-  font-weight: 600; letter-spacing: 0.03em;
-  margin-bottom: 14px;
-  position: relative;
-  z-index: 1;
+  font-weight: 600; letter-spacing: 0.02em;
+  margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px;
 }
 .stat .s-lab::before {
-  /* 信号短线（替代三角号） */
-  content: ""; display: inline-block; vertical-align: 2px;
-  width: 6px; height: 2px; background: var(--accent);
-  margin-right: 6px; border-radius: 1px;
+  content: ""; flex-shrink: 0;
+  width: 6px; height: 6px; border-radius: 2px;
+  background: var(--accent); transform: rotate(45deg);
 }
+/* 数字：重 —— 等宽粗体 */
 .stat .s-val {
-  font-size: 30px; font-weight: 800;
-  letter-spacing: -0.03em; line-height: 1.05;
+  font-size: 28px; font-weight: 800;
+  letter-spacing: -0.03em; line-height: 1.12;
   color: var(--ink);
   font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
 }
+/* 副注：更轻 */
 .stat .s-sub {
-  font-size: 11.5px; color: var(--muted); margin-top: 6px;
+  font-size: 11px; color: var(--muted); margin-top: 7px;
   font-family: var(--mono);
+  letter-spacing: 0.01em;
 }
-/* 暗色主题 stat 卡加强：边框提亮、浮起投影匹配粗体文字重量 */
-[data-theme="dark"] .stat {
-  border-color: #2e3f4a;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45), 0 10px 24px -12px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-[data-theme="dark"] .stat:hover {
-  border-color: rgba(255, 180, 84, 0.3);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), 0 16px 32px -14px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-/* 首张车票：琥珀标（首班车） */
+/* 首张：琥珀主标（今日焦点 = 首班车） */
 .stat:first-child .s-lab { color: var(--accent); font-weight: 700; }
 .stat:first-child .s-val { color: var(--accent-strong); }
 [data-theme="dark"] .stat:first-child .s-val { color: var(--accent); }
+
+/* 暗色：卡片从黑板干净浮起 —— 提亮描边 + 上沿受光 + 加长悬浮投影
+   （投影必须与 28px 粗体数字的重量匹配，1px 微影在深底上不可见） */
+[data-theme="dark"] .stat {
+  border-color: #2a3944;
+  box-shadow:
+    0 3px 8px rgba(0, 0, 0, 0.5),
+    0 16px 34px -16px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+[data-theme="dark"] .stat:hover {
+  border-color: rgba(255, 180, 84, 0.45);
+  box-shadow:
+    0 5px 12px rgba(0, 0, 0, 0.55),
+    0 22px 44px -18px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
 
 .chart-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .chart-grid-2 { grid-template-columns: repeat(2, 1fr); }
@@ -1610,11 +1599,9 @@ mark.news-kw {
   .gk-exam-form input { width: auto !important; }
   .gk-exam-form .grow, .gk-exam-form button { grid-column: 1 / -1; }
   .stat-grid { gap: 10px; }
-  .stat { padding: 12px 14px 16px; }
+  .stat { padding: 13px 14px; }
   .stat .s-val { font-size: 24px; }
-  .stat .s-lab { font-size: 10.5px; margin-bottom: 12px; }
-  .stat::before { height: 24px; }
-  .stat::after { top: 12px; right: 13px; width: 11px; height: 11px; }
+  .stat .s-lab { font-size: 10.5px; margin-bottom: 6px; }
   .cal-cell { min-height: 50px; padding: 5px 6px; }
   .cal-title { font-size: 17px; }
   .tabbar a, .tab-more { font-size: 9.5px; }
