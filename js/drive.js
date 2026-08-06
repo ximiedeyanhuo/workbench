@@ -453,7 +453,7 @@
           <button onclick="window.WB.drive.closePreview()" style="position:absolute;top:15px;right:20px;background:none;border:none;color:white;font-size:40px;cursor:pointer;line-height:1;">&times;</button>
           <div style="max-width:95%;max-height:95%;overflow:auto;">
             <div style="color:white;margin-bottom:10px;text-align:center;">${esc(fileName)}</div>
-            <img src="/api/drive/baidu/thumbnail?path=${encodeURIComponent(filePath)}" style="max-width:100%;max-height:85vh;display:block;margin:0 auto;" />
+            <img src="/api/drive/baidu/thumbnail?path=${encodeURIComponent(filePath)}" style="max-width:100%;max-height:85vh;display:block;margin:0 auto;" onerror="setTimeout(()=>{window.WB.drive.closePreview();window.WB.showToast('缩略图加载失败，请在百度网盘网页版查看','info')},100)" />
           </div>
         </div>`;
         document.body.insertAdjacentHTML("beforeend", modalHtml);

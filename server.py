@@ -1371,20 +1371,29 @@ async def baidu_thumbnail(path: str = ""):
         with urllib.request.urlopen(req, timeout=DRIVE_TIMEOUT) as res:
             data = json.loads(res.read().decode("utf-8"))
         if data.get("errno") != 0:
-            raise HTTPException(status_code=502, detail=f"errno={data.get('errno')}")
+            print(f"[baidu_thumbnail] {path}: errno={data.get('errno')}")
+            _placeholder_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='60'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%23888' font-size='14'%3E缩略图不可用%3C/text%3E%3C/svg%3E"
+            return RedirectResponse(_placeholder_svg, status_code=302)
         thumbs = (data.get("info") or [{}])[0].get("thumbs") or {}
         thumb_url = thumbs.get("url3") or thumbs.get("url2") or thumbs.get("url1") or thumbs.get("icon")
         if not thumb_url:
-            raise HTTPException(status_code=502, detail="无缩略图")
+            print(f"[baidu_thumbnail] {path}: 无缩略图")
+            _placeholder_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='60'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%23888' font-size='14'%3E缩略图不可用%3C/text%3E%3C/svg%3E"
+            return RedirectResponse(_placeholder_svg, status_code=302)
         return RedirectResponse(thumb_url, status_code=302)
     except urllib.error.HTTPError as e:
+        err_msg = f"HTTP {e.code}"
         if e.code in (401, 403):
-            raise HTTPException(status_code=401, detail="Cookie 已过期，请重新获取")
-        raise HTTPException(status_code=502, detail=f"HTTP {e.code}")
+            err_msg = "Cookie 已过期"
+        print(f"[baidu_thumbnail] {path}: {err_msg}")
+        _placeholder_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='60'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%23888' font-size='14'%3E缩略图不可用%3C/text%3E%3C/svg%3E"
+        return RedirectResponse(_placeholder_svg, status_code=302)
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=502, detail=str(e))
+        print(f"[baidu_thumbnail] {path}: {e}")
+        _placeholder_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='60'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%23888' font-size='14'%3E缩略图不可用%3C/text%3E%3C/svg%3E"
+        return RedirectResponse(_placeholder_svg, status_code=302)
 
 
 @app.post("/api/drive/baidu/config")
