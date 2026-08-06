@@ -471,6 +471,13 @@
       }
     }
 
+    // 夸克网盘：CDN防盗链导致所有直链/代理方案都412，跳转网页版
+    if (driveKey === "quark") {
+      window.WB.showToast("正在打开夸克网盘网页版...", "info");
+      window.open("https://pan.quark.cn", "_blank", "noopener");
+      return;
+    }
+
     try {
       const data = await Drive[driveKey].getDownloadUrl(fid);
       if (!data.download_url) throw new Error("获取下载链接失败");
@@ -478,32 +485,15 @@
       const fileType = getFileType(fileName);
       let contentHtml = "";
 
-      if (driveKey === "quark") {
-        // 夸克走后端代理（CDN 防盗链导致 img/video 412）
-        const proxyUrl = `/api/drive/quark/proxy?fid=${encodeURIComponent(fid)}`;
-        if (fileType === "image") {
-          contentHtml = `<img src="${proxyUrl}" style="max-width:100%;max-height:85vh;display:block;margin:0 auto;" />`;
-        } else if (fileType === "video") {
-          contentHtml = `<video src="${proxyUrl}" controls autoplay style="max-width:100%;max-height:85vh;display:block;margin:0 auto;">您的浏览器不支持视频播放</video>`;
-        } else if (fileType === "pdf") {
-          contentHtml = `<iframe src="${proxyUrl}" style="width:100%;height:85vh;border:none;"></iframe>`;
-        } else {
-          window.WB.showToast("该文件类型暂不支持预览", "info");
-          return;
-        }
+      if (fileType === "image") {
+        contentHtml = `<img src="${data.download_url}" style="max-width:100%;max-height:85vh;display:block;margin:0 auto;" />`;
+      } else if (fileType === "video") {
+        contentHtml = `<video src="${data.download_url}" controls autoplay style="max-width:100%;max-height:85vh;display:block;margin:0 auto;">您的浏览器不支持视频播放</video>`;
+      } else if (fileType === "pdf") {
+        contentHtml = `<iframe src="${data.download_url}" style="width:100%;height:85vh;border:none;"></iframe>`;
       } else {
-        // 非夸克走原有逻辑（displayUrl）
-        let displayUrl = data.download_url;
-        if (fileType === "image") {
-          contentHtml = `<img src="${displayUrl}" style="max-width:100%;max-height:85vh;display:block;margin:0 auto;" />`;
-        } else if (fileType === "video") {
-          contentHtml = `<video src="${displayUrl}" controls autoplay style="max-width:100%;max-height:85vh;display:block;margin:0 auto;">您的浏览器不支持视频播放</video>`;
-        } else if (fileType === "pdf") {
-          contentHtml = `<iframe src="${displayUrl}" style="width:100%;height:85vh;border:none;"></iframe>`;
-        } else {
-          window.WB.showToast("该文件类型暂不支持预览", "info");
-          return;
-        }
+        window.WB.showToast("该文件类型暂不支持预览", "info");
+        return;
       }
 
       // 创建弹窗
