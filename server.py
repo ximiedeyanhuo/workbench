@@ -33,7 +33,7 @@ from pathlib import Path
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
+from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -1112,6 +1112,45 @@ async def quark_download(request: Request):
             "preview_url": first.get("preview_url", ""),
             "file_name": first.get("file_name", "")
         }
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
+@app.get("/api/drive/quark/proxy")
+async def quark_proxy(fid: str = ""):
+    """代理夸克文件流：绕过 CDN 防盗链"""
+    cfg = get_drive_config("quark")
+    cookie = cfg.get("cookie", "")
+    if not cookie:
+        raise HTTPException(status_code=400, detail="请先配置 Cookie")
+    if not fid:
+        raise HTTPException(status_code=400, detail="fid 不能为空")
+    try:
+        data = quark_api("file/download", None, cookie, method="POST", body={"fids": [fid]}, quiet=True)
+        if data.get("code") == 23018:
+            data = quark_api("file/download", None, cookie, method="POST", body={"fids": [fid]}, ua=QUARK_UA_ELECTRON)
+        if data.get("code") != 0:
+            raise HTTPException(status_code=502, detail=data.get("message", "获取下载链接失败"))
+        dl = data.get("data") or []
+        first = dl[0] if dl else {}
+        download_url = first.get("download_url")
+        if not download_url:
+            raise HTTPException(status_code=502, detail="下载链接为空")
+        # Follow redirect and stream bytes
+        req = urllib.request.Request(download_url, headers={"User-Agent": QUARK_UA})
+        with urllib.request.urlopen(req, timeout=DRIVE_TIMEOUT) as upstream:
+            ct = upstream.headers.get("Content-Type", "application/octet-stream")
+
+            def stream():
+                while True:
+                    chunk = upstream.read(65536)
+                    if not chunk:
+                        break
+                    yield chunk
+
+            return StreamingResponse(stream(), media_type=ct)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
 
