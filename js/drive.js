@@ -96,9 +96,6 @@
     return d.toLocaleDateString("zh-CN");
   }
 
-  function getFileIcon(name) {
-    const ext = name.split(".").pop().toLowerCase();
-
   // 根据文件扩展名返回类型（用于预览判断）
   function getFileType(name) {
     const ext = name.split(".").pop().toLowerCase();
@@ -108,6 +105,9 @@
     if (["pdf"].indexOf(ext) >= 0) return "pdf";
     return "unknown";
   }
+
+  function getFileIcon(name) {
+    const ext = name.split(".").pop().toLowerCase();
 
     if (["jpg", "jpeg", "png", "gif", "webp", "bmp"].indexOf(ext) >= 0) return "🖼️";
     if (["mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "m4v"].indexOf(ext) >= 0) return "🎬";
@@ -165,11 +165,14 @@
 
     for (let i = 0; i < sorted.length; i++) {
       const item = sorted[i];
+      // 可预览的文件类型（图片/视频/PDF）单独提供预览按钮
+      const ft = item.is_dir ? "" : getFileType(item.name);
+      const previewable = ft === "image" || ft === "video" || ft === "pdf";
       html += `
       <div class="file-item ${item.is_dir ? "dir" : "file"}"
            data-fid="${esc(item.fid)}"
            data-is-dir="${item.is_dir}"
-           onclick="window.WB.drive.openItem('${drive}', '${esc(item.fid)}', ${item.is_dir})">
+           onclick="window.WB.drive.openItem('${drive}', '${esc(item.fid)}', ${item.is_dir}, '${esc(item.name)}')">
         <div class="file-icon">${item.is_dir ? "📁" : getFileIcon(item.name)}</div>
         <div class="file-info">
           <div class="file-name">${esc(item.name)}</div>
@@ -178,6 +181,7 @@
             <span class="file-date">${formatDate(item.modified)}</span>
           </div>
         </div>
+        ${previewable ? `<button class="file-preview-btn" title="预览" onclick="event.stopPropagation(); window.WB.drive.preview('${drive}', '${esc(item.fid)}', '${esc(item.name)}')">👁 预览</button>` : ""}
       </div>`;
     }
     html += "</div>";
@@ -370,13 +374,18 @@
   }
 
   // ========== 打开文件/文件夹
-  async function openItem(driveKey, fid, isDir) {
+  async function openItem(driveKey, fid, isDir, fileName) {
     if (!isDir) {
-      // 文件：暂时直接提示去网页版打开
-      const msg = driveKey === "baidu"
-        ? "请在百度网盘网页版查看下载"
-        : "请在夸克网盘网页版查看下载";
-      window.WB.showToast(msg, "info");
+      // 文件：图片/视频/PDF 直接预览，其余提示去网页版
+      const ft = getFileType(fileName || "");
+      if (ft === "image" || ft === "video" || ft === "pdf") {
+        await preview(driveKey, fid, fileName);
+      } else {
+        const msg = driveKey === "baidu"
+          ? "请在百度网盘网页版查看下载"
+          : "请在夸克网盘网页版查看下载";
+        window.WB.showToast(msg, "info");
+      }
       return;
     }
     const hideLoading = window.WB.showLoading("正在打开文件夹...");
@@ -702,6 +711,8 @@
     searchFiles: searchFiles,
     refreshAll: refreshAll,
     backToList: backToList,
+    preview: preview,
+    closePreview: closePreview,
     renderSettingsForm: renderSettingsForm,
     bindSettingsEvents: bindSettingsEvents,
     _currentItems: [],

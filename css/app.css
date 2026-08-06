@@ -1988,6 +1988,22 @@ mark.news-kw {
 .file-date {
   opacity: 0.7;
 }
+.file-preview-btn {
+  flex-shrink: 0;
+  font-size: 12px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+  transition: all .15s;
+}
+.file-preview-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--card2);
+}
 .set-group {
   margin-bottom: 24px;
 }
