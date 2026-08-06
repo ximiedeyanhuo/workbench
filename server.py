@@ -1137,7 +1137,16 @@ async def quark_proxy(fid: str = ""):
         if not download_url:
             raise HTTPException(status_code=502, detail="下载链接为空")
         # Follow redirect and stream bytes
-        req = urllib.request.Request(download_url, headers={"User-Agent": QUARK_UA})
+        # 关键：夸克 CDN（阿里云 OSS）要求 Referer + Cookie + UA 三件套，缺任一带 412
+        # （Alist quark driver 的 Link 正是附带这三个头）；不能带 Content-Type（OSS 签名校验会失败）
+        req = urllib.request.Request(
+            download_url,
+            headers={
+                "User-Agent": QUARK_UA,
+                "Cookie": cookie,
+                "Referer": "https://pan.quark.cn/",
+            },
+        )
         with urllib.request.urlopen(req, timeout=DRIVE_TIMEOUT) as upstream:
             ct = upstream.headers.get("Content-Type", "application/octet-stream")
 
