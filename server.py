@@ -33,7 +33,7 @@ from pathlib import Path
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import JSONResponse, PlainTextResponse, Response
+from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -979,12 +979,14 @@ def save_drive_config(drive: str, config: dict) -> None:
 # ========== 夸克网盘 ==========
 # 用真实 Chrome 浏览器 UA，减少被拦截概率
 QUARK_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0"
+# 大文件下载限流（code=23018）时需切换 Electron 客户端 UA 重试
+QUARK_UA_ELECTRON = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) quark-cloud-drive/2.5.56 Chrome/100.0.4896.160 Electron/18.3.5.12-a038f7b798 Safari/537.36 Channel/pckk_other_ch"
 
-def quark_api(endpoint: str, params=None, cookie=None, method="GET", body=None):
+def quark_api(endpoint: str, params=None, cookie=None, method="GET", body=None, ua=None, quiet=False):
     """调用夸克网盘内部接口（默认 GET，下载链接接口用 POST）"""
     url = f"https://drive-pc.quark.cn/1/clouddrive/{endpoint.lstrip('/')}"
     headers = {
-        "User-Agent": QUARK_UA,
+        "User-Agent": ua or QUARK_UA,
         "Accept": "application/json, text/plain, */*",
         "Accept-Language": "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7,en-GB;q=0.6",
         "Referer": "https://pan.quark.cn/",
@@ -1013,8 +1015,18 @@ def quark_api(endpoint: str, params=None, cookie=None, method="GET", body=None):
         data = json.dumps(body).encode("utf-8")
 
     req = urllib.request.Request(url, headers=headers, method=method, data=data)
-    with urllib.request.urlopen(req, timeout=DRIVE_TIMEOUT) as res:
-        return json.loads(res.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(req, timeout=DRIVE_TIMEOUT) as res:
+            return json.loads(res.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        # quiet 模式：把错误 body 当 JSON 返回（夸克限流 23018 走 HTTP 400，body 里带 code）
+        if quiet:
+            body_text = e.read().decode("utf-8", "ignore")
+            try:
+                return json.loads(body_text)
+            except Exception:
+                return {"code": e.code, "message": body_text[:200]}
+        raise
 
 
 @app.get("/api/drive/quark/status")
@@ -1084,7 +1096,10 @@ async def quark_download(request: Request):
         raise HTTPException(status_code=400, detail="fid 不能为空")
     try:
         # 注意：夸克下载接口要求 body 传 {"fids": [数组]}，字段是复数 fids；放 query 或单数 fid 会返回 302
-        data = quark_api("file/download", None, cookie, method="POST", body={"fids": [fid]})
+        data = quark_api("file/download", None, cookie, method="POST", body={"fids": [fid]}, quiet=True)
+        # 大文件下载限流（code=23018）：切换 Electron 客户端 UA 重试一次
+        if data.get("code") == 23018:
+            data = quark_api("file/download", None, cookie, method="POST", body={"fids": [fid]}, ua=QUARK_UA_ELECTRON)
         if data.get("code") != 0:
             raise HTTPException(status_code=502, detail=data.get("message", "获取下载链接失败"))
         # 成功时 data 是数组，取第一个的 download_url
@@ -1248,6 +1263,7 @@ async def baidu_list(request: Request):
                 "size_str": format_size(item.get("size", 0)),
                 "modified": item.get("server_mtime", 0),
                 "parent_dir": dir_path,
+                "path": item.get("path", ""),
             })
         return {"items": items, "current_path": dir_path, "total": len(items)}
     except urllib.error.HTTPError as e:
@@ -1324,6 +1340,43 @@ async def baidu_download(request: Request):
             "download_url": real_url,
             "file_name": dlink_list[0].get("server_filename", ""),
         }
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            raise HTTPException(status_code=401, detail="Cookie 已过期，请重新获取")
+        raise HTTPException(status_code=502, detail=f"HTTP {e.code}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
+@app.get("/api/drive/baidu/thumbnail")
+async def baidu_thumbnail(path: str = ""):
+    """百度网盘缩略图：filemetas 拿 thumbs URL 后 302 重定向（缩略图域名无需鉴权，浏览器可直接加载）"""
+    cfg = get_drive_config("baidu")
+    cookie = cfg.get("cookie", "")
+    if not cookie:
+        raise HTTPException(status_code=400, detail="请先配置 Cookie")
+    if not path:
+        raise HTTPException(status_code=400, detail="path 不能为空")
+    try:
+        params = {
+            "target": json.dumps([path], ensure_ascii=False),
+            "dlink": "1", "web": "5", "origin": "dlna",
+        }
+        req = urllib.request.Request(
+            f"https://pan.baidu.com/api/filemetas?{urllib.parse.urlencode(params)}",
+            headers={"User-Agent": "netdisk;P2SP;3.0.0.8;netdisk;11.12.3;awsl;1000857f94914b0b0", "Cookie": cookie, "Referer": "https://pan.baidu.com/disk/home?"},
+        )
+        with urllib.request.urlopen(req, timeout=DRIVE_TIMEOUT) as res:
+            data = json.loads(res.read().decode("utf-8"))
+        if data.get("errno") != 0:
+            raise HTTPException(status_code=502, detail=f"errno={data.get('errno')}")
+        thumbs = (data.get("info") or [{}])[0].get("thumbs") or {}
+        thumb_url = thumbs.get("url3") or thumbs.get("url2") or thumbs.get("url1") or thumbs.get("icon")
+        if not thumb_url:
+            raise HTTPException(status_code=502, detail="无缩略图")
+        return RedirectResponse(thumb_url, status_code=302)
     except urllib.error.HTTPError as e:
         if e.code in (401, 403):
             raise HTTPException(status_code=401, detail="Cookie 已过期，请重新获取")

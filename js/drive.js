@@ -181,7 +181,7 @@
             <span class="file-date">${formatDate(item.modified)}</span>
           </div>
         </div>
-        ${previewable ? `<button class="file-preview-btn" title="预览" onclick="event.stopPropagation(); window.WB.drive.preview('${drive}', '${esc(item.fid)}', '${esc(item.name)}')">👁 预览</button>` : ""}
+        ${previewable ? `<button class="file-preview-btn" title="预览" onclick="event.stopPropagation(); window.WB.drive.preview('${drive}', '${esc(item.fid)}', '${esc(item.name)}', '${esc(item.path || '')}')">👁 预览</button>` : ""}
       </div>`;
     }
     html += "</div>";
@@ -378,8 +378,12 @@
     if (!isDir) {
       // 文件：图片/视频/PDF 直接预览，其余提示去网页版
       const ft = getFileType(fileName || "");
+      // 获取文件路径（用于百度网盘预览缩略图/跳网页版）
+      const items = window.WB.drive._currentItems || [];
+      const item = items.find(function(i) { return i.fid === fid; });
+      const filePath = item ? item.path : "/" + fileName;
       if (ft === "image" || ft === "video" || ft === "pdf") {
-        await preview(driveKey, fid, fileName);
+        await preview(driveKey, fid, fileName, filePath);
       } else {
         const msg = driveKey === "baidu"
           ? "请在百度网盘网页版查看下载"
@@ -439,7 +443,34 @@
   }
 
   // ========== 预览文件
-  async function preview(driveKey, fid, fileName) {
+  async function preview(driveKey, fid, fileName, filePath) {
+    // 百度网盘：图片走缩略图，视频/PDF 跳网页版（dlink 浏览器无法直连）
+    if (driveKey === "baidu") {
+      const fileType = getFileType(fileName);
+      if (fileType === "image") {
+        const modalHtml = `
+        <div id="previewModal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;">
+          <button onclick="window.WB.drive.closePreview()" style="position:absolute;top:15px;right:20px;background:none;border:none;color:white;font-size:40px;cursor:pointer;line-height:1;">&times;</button>
+          <div style="max-width:95%;max-height:95%;overflow:auto;">
+            <div style="color:white;margin-bottom:10px;text-align:center;">${esc(fileName)}</div>
+            <img src="/api/drive/baidu/thumbnail?path=${encodeURIComponent(filePath)}" style="max-width:100%;max-height:85vh;display:block;margin:0 auto;" />
+          </div>
+        </div>`;
+        document.body.insertAdjacentHTML("beforeend", modalHtml);
+        document.addEventListener("keydown", function onEsc(e) {
+          if (e.key === "Escape") { closePreview(); document.removeEventListener("keydown", onEsc); }
+        });
+        return;
+      } else if (fileType === "video" || fileType === "pdf") {
+        window.WB.showToast("正在打开百度网盘网页版...", "info");
+        window.open(`https://pan.baidu.com/disk/main#/index?category=all&path=${encodeURIComponent(filePath)}`, "_blank", "noopener");
+        return;
+      } else {
+        window.WB.showToast("该文件类型暂不支持预览", "info");
+        return;
+      }
+    }
+
     try {
       const data = await Drive[driveKey].getDownloadUrl(fid);
       if (!data.download_url) throw new Error("获取下载链接失败");
