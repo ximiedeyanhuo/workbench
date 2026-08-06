@@ -1109,6 +1109,7 @@ async def quark_download(request: Request):
             raise HTTPException(status_code=502, detail="下载链接为空")
         return {
             "download_url": first.get("download_url", ""),
+            "preview_url": first.get("preview_url", ""),
             "file_name": first.get("file_name", "")
         }
     except Exception as e:
