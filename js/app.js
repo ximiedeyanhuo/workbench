@@ -1119,7 +1119,7 @@
   }
 
   // 移动端底栏「更多」面板容纳的低频路由（与 index.html 中 .more-grid 保持一致）
-  const MORE_ROUTES = ["life", "stocks", "gongkao", "drive", "links", "settings", "help"];
+  const MORE_ROUTES = ["life", "calendar", "reports", "stocks", "gongkao", "drive", "links", "settings", "help"];
 
   /** 关闭「更多」上滑面板 */
   function closeMoreSheet() {

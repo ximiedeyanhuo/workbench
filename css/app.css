@@ -2329,3 +2329,160 @@ mark.news-kw {
   .gk-target-day { font-size: 26px; }
   .gk-habit-card { flex-wrap: wrap; }
 }
+
+/* ============================================================
+   统计报表页（js/reports.js · 路由 #/reports）· 追加样式
+   ------------------------------------------------------------
+   说明：本页复用中部既有类 .card/.stat-grid/.chart-grid/
+   .chart-grid-2/.chart-box/.chart-tt/.tabs/.tab/.tx-year-sel/
+   .tx-year-wrap/.tx-year-table/.item/.pri-dot/.badge/.empty，
+   以下仅补充本页私有类。
+   ============================================================ */
+
+/* tab 面板内容容器 */
+.reports-tab-content {
+  padding-top: 16px;
+}
+
+/* 健康指标统计区（三列：最新 / 平均 / 最大） */
+.reports-health-meta {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 10px; margin-top: 10px; text-align: center;
+}
+/* 单个统计项（文字标签 + 数值） */
+.reports-health-meta-item {
+  background: var(--card2);
+  padding: 10px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px; color: var(--muted);
+}
+/* 统计数值 */
+.reports-health-meta-val {
+  font-size: 18px; font-weight: 800;
+  font-family: var(--mono); color: var(--ink);
+  margin-top: 4px;
+}
+
+/* 优先级分布三列卡 */
+.reports-pri-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 14px; margin-top: 16px;
+}
+/* 单优先级卡 */
+.reports-pri-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px; text-align: center;
+}
+/* 优先级标签（高/中/低，颜色由 JS 内联覆盖） */
+.reports-pri-label {
+  font-size: 12px; font-weight: 600;
+  color: var(--muted); letter-spacing: 0.03em;
+}
+/* 优先级数字 */
+.reports-pri-num {
+  font-size: 24px; font-weight: 800;
+  font-family: var(--mono); margin: 8px 0;
+}
+/* 优先级副注 */
+.reports-pri-sub {
+  font-size: 11px; color: var(--muted);
+}
+
+/* ============================================================
+   日历视图页（js/calendar.js · 路由 #/calendar）· 追加样式
+   ------------------------------------------------------------
+   说明：本页复用中部既有类 .cal-grid/.cal-wd/.cal-cell
+   （含 .dim/.today/.sel）/.d-num/.d-dot/.d-more/.pri-dot/
+   .badge/.b-danger/.b-warn/.b-primary/.card/.btn/.icon-btn，
+   以下仅补充本页私有类；月历整体适配见本区块末尾。
+   注意：calendar.js 当前在部分元素上带内联样式（会覆盖同名类），
+   这些 CSS 类作为规范定义，内联样式清理后即生效。
+   ============================================================ */
+
+/* 月份切换控制栏 */
+.cal-ctrl {
+  display: flex; align-items: center;
+  justify-content: space-between; gap: 10px;
+  margin-bottom: 14px;
+}
+/* 年月标题 */
+.cal-ctrl-title {
+  font-size: 17px; font-weight: 800; color: var(--ink);
+}
+
+/* 日期格内任务数徽标（小药丸，默认琥珀底） */
+.cal-task-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 999px;
+  font-size: 11px; font-weight: 700; line-height: 1;
+  background: var(--accent); color: #fff;
+}
+/* 暗色下琥珀底改用深墨文字（沿用本文件既有约定，如 .tab.on/.cal-cell.today） */
+[data-theme="dark"] .cal-task-badge { color: #161006; }
+/* 逾期红底 */
+.cal-task-badge.overdue { background: var(--danger); }
+/* 完成绿底 */
+.cal-task-badge.done    { background: var(--ok); }
+/* 进行中琥珀底 */
+.cal-task-badge.pending { background: var(--accent); }
+
+/* 日期格内支出合计小字（红） */
+.cal-tx-sum {
+  font-size: 11px; color: var(--danger);
+  font-variant-numeric: tabular-nums;
+}
+/* 收入合计（绿） */
+.cal-tx-sum.positive { color: var(--ok); }
+
+/* 日期格内习惯打卡色点容器 */
+.cal-habit-dots {
+  display: flex; gap: 3px; margin-top: 2px; flex-wrap: wrap;
+}
+
+/* 当日详情卡内分区标题 */
+.cal-detail-section {
+  font-size: 13px; font-weight: 700; color: var(--muted);
+  margin: 12px 0 6px;
+}
+/* 详情内任务行 */
+.cal-detail-task {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 0; font-size: 13px;
+}
+/* 详情内流水行 */
+.cal-detail-tx {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 0; font-size: 13px;
+}
+/* 详情内打卡行 */
+.cal-detail-habit {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 0; font-size: 13px;
+}
+/* 详情内当日合计 */
+.cal-detail-total {
+  font-weight: 800; font-size: 13px; margin-top: 8px;
+}
+
+/* ---------- 月历视图适配补充 ----------
+   既有 .cal-grid（repeat(7,1fr)）/.cal-cell（min-height:70px）/
+   .dim/.today/.sel/.d-num/.d-dot/.d-more 已满足完整月历需求。
+   以下仅针对日历页（#view 直接子级 .cal-grid）做两处增强：
+   ① 格子加高，容纳「日期 + 任务徽标 + 收支小字 + 习惯色点」并保持整行等高；
+   ② 今天的格子（琥珀底）里徽标加一圈描边，避免同色系粘连。
+   记账页月历 .cal-grid 在 .card 内，不受此选择器影响。 */
+#view > .cal-grid > .cal-cell {
+  min-height: 88px;
+}
+#view > .cal-grid > .cal-cell.today .cal-task-badge {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4);
+}
+[data-theme="dark"] #view > .cal-grid > .cal-cell.today .cal-task-badge {
+  box-shadow: 0 0 0 2px rgba(22, 16, 6, 0.3);
+}
+@media (max-width: 640px) {
+  #view > .cal-grid > .cal-cell { min-height: 64px; padding: 6px 8px; }
+}

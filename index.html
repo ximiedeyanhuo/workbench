@@ -33,6 +33,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
   <symbol id="i-work" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></symbol>
   <symbol id="i-daily" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></symbol>
+  <symbol id="i-reports" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></symbol>
   <symbol id="i-discover" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></symbol>
   <symbol id="i-system" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></symbol>
   <symbol id="i-chev" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></symbol>
@@ -77,6 +79,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         <button class="nav-parent" type="button" aria-expanded="false"><span class="nic"><svg class="ic"><use href="#i-work"/></svg></span><span class="np-label">效率</span><svg class="np-chev"><use href="#i-chev"/></svg></button>
         <div class="nav-sub"><div class="nav-sub-inner">
           <a href="#/tasks" data-route="tasks"><span class="nic"><svg class="ic"><use href="#i-tasks"/></svg></span><span>事务</span></a>
+          <a href="#/calendar" data-route="calendar"><span class="nic"><svg class="ic"><use href="#i-cal"/></svg></span><span>日历</span></a>
           <a href="#/gongkao" data-route="gongkao"><span class="nic"><svg class="ic"><use href="#i-gk"/></svg></span><span>考公</span></a>
           <a href="#/notes" data-route="notes"><span class="nic"><svg class="ic"><use href="#i-notes"/></svg></span><span>沉淀</span></a>
         </div></div>
@@ -87,6 +90,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         <div class="nav-sub"><div class="nav-sub-inner">
           <a href="#/life" data-route="life"><span class="nic"><svg class="ic"><use href="#i-life"/></svg></span><span>生活</span></a>
           <a href="#/finance" data-route="finance"><span class="nic"><svg class="ic"><use href="#i-finance"/></svg></span><span>记账</span></a>
+          <a href="#/reports" data-route="reports"><span class="nic"><svg class="ic"><use href="#i-reports"/></svg></span><span>统计</span></a>
           <a href="#/stocks" data-route="stocks"><span class="nic"><svg class="ic"><use href="#i-stock"/></svg></span><span>股票</span></a>
         </div></div>
       </div>
@@ -146,6 +150,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   <div class="more-sheet-hd">更多</div>
   <div class="more-grid">
     <a href="#/life" data-route="life"><span class="nic"><svg class="ic"><use href="#i-life"/></svg></span><span>生活</span></a>
+    <a href="#/calendar" data-route="calendar"><span class="nic"><svg class="ic"><use href="#i-cal"/></svg></span><span>日历</span></a>
+    <a href="#/reports" data-route="reports"><span class="nic"><svg class="ic"><use href="#i-reports"/></svg></span><span>统计</span></a>
     <a href="#/gongkao" data-route="gongkao"><span class="nic"><svg class="ic"><use href="#i-gk"/></svg></span><span>考公</span></a>
     <a href="#/stocks" data-route="stocks"><span class="nic"><svg class="ic"><use href="#i-stock"/></svg></span><span>股票</span></a>
     <a href="#/drive" data-route="drive"><span class="nic"><svg class="ic"><use href="#i-drive"/></svg></span><span>网盘</span></a>
@@ -168,6 +174,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   <script src="js/news.js"></script>
 <script src="js/links.js"></script>
 <script src="js/drive.js"></script>
+<script src="js/calendar.js"></script>
+<script src="js/reports.js"></script>
 <script src="js/app.js"></script>
 <script>
 if ('serviceWorker' in navigator) {
