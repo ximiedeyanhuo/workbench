@@ -1083,12 +1083,18 @@ async def quark_download(request: Request):
     if not fid:
         raise HTTPException(status_code=400, detail="fid 不能为空")
     try:
-        data = quark_api("file/download", {"fid": fid}, cookie, method="POST", body=None)
+        # 注意：夸克下载接口要求 body 传 {"fids": [数组]}，字段是复数 fids；放 query 或单数 fid 会返回 302
+        data = quark_api("file/download", None, cookie, method="POST", body={"fids": [fid]})
         if data.get("code") != 0:
             raise HTTPException(status_code=502, detail=data.get("message", "获取下载链接失败"))
+        # 成功时 data 是数组，取第一个的 download_url
+        dl = data.get("data") or []
+        first = dl[0] if dl else {}
+        if not first.get("download_url"):
+            raise HTTPException(status_code=502, detail="下载链接为空")
         return {
-            "download_url": data.get("data", {}).get("download_url", ""),
-            "file_name": data.get("data", {}).get("file_name", "")
+            "download_url": first.get("download_url", ""),
+            "file_name": first.get("file_name", "")
         }
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
