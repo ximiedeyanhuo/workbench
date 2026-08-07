@@ -290,46 +290,52 @@
   }
 
   /** 理财买卖流水月度统计：按月汇总当年买入（流出红）/卖出（流入绿）/净额 */
-  function renderStockFlow(el, year) {
+  async function renderStockFlow(el, year) {
     var box = el.querySelector("#rptStkFlow");
     if (!box) return;
-    var list = stocksRepo.list();
-    if (!list || !list.then) return;
-    list.then(function (records) {
-      if (!el.isConnected) return;
-      var txs = (records || []).map(function (r) {
-        var date = (r.date || r.createdAt || "").slice(0, 10) || "";
-        return { action: r.action || "buy", shares: Number(r.shares || 0), price: Number(r.price || r.cost || 0), date: date };
-      });
-      var buyAmt = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-      var sellAmt = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-      var hasAny = false;
-      txs.forEach(function (tx) {
-        if (!tx.date || tx.date.slice(0, 4) !== String(year)) return;
-        var m = parseInt(tx.date.slice(5, 7), 10) - 1;
-        if (m < 0 || m > 11) return;
-        var amt = tx.shares * tx.price;
-        if (tx.action === "sell") sellAmt[m] += amt;
-        else buyAmt[m] += amt;
-        hasAny = true;
-      });
-      if (!hasAny) {
-        box.innerHTML = '<div class="empty">该年度暂无理财交易流水</div>';
-        return;
-      }
-      var rows = "";
-      for (var m = 0; m < 12; m++) {
-        var b = buyAmt[m], s = sellAmt[m], net = s - b;
-        var has = b || s;
-        rows += '<tr>' +
-          '<td>' + (m + 1) + "月</td>" +
-          '<td style="color:' + (b ? "var(--danger)" : "inherit") + '">' + (b ? "-" + fmtYuan(b) : "—") + "</td>" +
-          '<td style="color:' + (s ? "var(--ok)" : "inherit") + '">' + (s ? "+" + fmtYuan(s) : "—") + "</td>" +
-          '<td style="color:' + (net >= 0 ? "var(--ok)" : "var(--danger)") + '">' + (has ? (net >= 0 ? "+" : "") + fmtYuan(net) : "—") + "</td></tr>";
-      }
-      box.innerHTML = '<div class="tx-year-wrap"><table class="tx-year-table">' +
-        "<thead><tr><th>月份</th><th>买入</th><th>卖出</th><th>净额</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
+    var records = await stocksRepo.list();
+    if (!el.isConnected) return;
+    var txs = (records || []).map(function (r) {
+      var date = (r.date || r.createdAt || "").slice(0, 10) || "";
+      return { action: r.action || "buy", shares: Number(r.shares || 0), price: Number(r.price || r.cost || 0), date: date };
     });
+    var buyAmt = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    var sellAmt = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    var hasAny = false;
+    txs.forEach(function (tx) {
+      if (!tx.date || tx.date.slice(0, 4) !== String(year)) return;
+      var m = parseInt(tx.date.slice(5, 7), 10) - 1;
+      if (m < 0 || m > 11) return;
+      var amt = tx.shares * tx.price;
+      if (tx.action === "sell") sellAmt[m] += amt;
+      else buyAmt[m] += amt;
+      hasAny = true;
+    });
+    if (!hasAny) {
+      box.innerHTML = '<div class="empty">该年度暂无理财交易流水</div>';
+      return;
+    }
+    var rows = "";
+    var buyTotal = 0, sellTotal = 0;
+    for (var m = 0; m < 12; m++) {
+      var b = buyAmt[m], s = sellAmt[m], net = s - b;
+      buyTotal += b;
+      sellTotal += s;
+      var has = b || s;
+      rows += '<tr>' +
+        '<td>' + (m + 1) + "月</td>" +
+        '<td style="color:' + (b ? "var(--danger)" : "inherit") + '">' + (b ? "-" + fmtYuan(b) : "—") + "</td>" +
+        '<td style="color:' + (s ? "var(--ok)" : "inherit") + '">' + (s ? "+" + fmtYuan(s) : "—") + "</td>" +
+        '<td style="color:' + (net >= 0 ? "var(--ok)" : "var(--danger)") + '">' + (has ? (net >= 0 ? "+" : "") + fmtYuan(net) : "—") + "</td></tr>";
+    }
+    var netTotal = sellTotal - buyTotal;
+    rows += '<tr class="tx-yr-row" style="font-weight:700">' +
+      "<td>全年</td>" +
+      '<td style="color:var(--danger)">-' + fmtYuan(buyTotal) + "</td>" +
+      '<td style="color:var(--ok)">+' + fmtYuan(sellTotal) + "</td>" +
+      '<td style="color:' + (netTotal >= 0 ? "var(--ok)" : "var(--danger)") + '">' + (netTotal >= 0 ? "+" : "") + fmtYuan(netTotal) + "</td></tr>";
+    box.innerHTML = '<div class="tx-year-wrap"><table class="tx-year-table">' +
+      "<thead><tr><th>月份</th><th>买入</th><th>卖出</th><th>净额</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
   }
 
   function renderFinanceCharts(el, monthlyInc, monthlyExp, catEntries) {

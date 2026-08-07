@@ -222,13 +222,19 @@
 
       const heldGroups = groups.filter((g) => g.holding > 0).sort((a, b) => a.code.localeCompare(b.code));
       const flowTxs = txs.slice().sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.createdAt || "").localeCompare(a.createdAt || ""));
+      let flowBuy = 0, flowSell = 0;
+      flowTxs.forEach((t) => {
+        const amt = t.shares * t.price;
+        if (t.action === "sell") flowSell += amt;
+        else flowBuy += amt;
+      });
 
       const qTime = quotes ? Object.values(quotes).map((q) => q.time).sort().pop() : "";
       const searchPh = isFund ? "基金代码 / 名称，如 023636 或 易方达安旭" : "代码 / 名称 / 拼音，如 600519 或 茅台";
       const tip = (isFund
         ? (window.WB.USE_API ? "录入金额即可，份额按净值自动换算；净值留空自动取最新净值" : "本地离线模式：无净值与搜索，录入金额 + 净值")
         : (window.WB.USE_API ? "同一标的可分多笔买入/卖出" : "本地离线模式：无行情与搜索，可先手动记流水"))
-        + " · 买入=资金流出，卖出=资金流入";
+        + " · 买入=资金流出，卖出=资金流入 · 卖出价/买入价留空自动取当前行情价";
       const emptyHeld = isFund
         ? '<div class="empty">还没有持仓，用上方搜索添加第一笔买入（支持公募基金 / 货币基金）</div>'
         : '<div class="empty">还没有持仓，用上方搜索添加第一笔买入（支持股票 / ETF）</div>';
@@ -282,7 +288,8 @@
           ${flowTxs.length ? `<div class="stk-wrap"><table class="stk-table">
             <thead><tr><th>日期</th><th>名称</th><th>类型</th><th>${isFund ? "份额" : "数量"}</th><th>成交价</th><th>金额</th><th></th></tr></thead>
             <tbody id="stkFlowBody">${flowTxs.map((t) => flowRowHtml(t, isFund)).join("")}</tbody>
-          </table></div>` : emptyFlow}
+          </table></div>
+          <div class="stk-foot">买入合计 ${fmt2(flowBuy)} · 卖出合计 ${fmt2(flowSell)} · 净流入 <span style="color:${flowSell - flowBuy >= 0 ? "var(--ok)" : "var(--danger)"}">${fmt2(flowSell - flowBuy)}</span></div>` : emptyFlow}
         </div>`;
 
       const rerender = () => routes.stocks.render(el);
@@ -373,15 +380,15 @@
         if (q) name = q.name || name;
         let shares;
         if (action === "sell") {
-          // 卖出：价格取当前现价（有行情时）或手动输入；卖出数量不得超过当前持仓
+          // 卖出：用户填了价格就用填的，没填才取当前现价（有行情时）；卖出数量不得超过当前持仓
           if (isFund) {
             if (!(price > 0)) price = q ? q.price : 0;
             if (!(price > 0)) return flashInvalid(costEl);
             shares = amount / price;
           } else {
+            if (!(price > 0)) price = q ? q.price : 0;
+            if (!(price > 0)) return flashInvalid(costEl);
             shares = parseFloat(sharesEl.value);
-            if (q) price = q.price;
-            else if (!(price > 0)) return flashInvalid(costEl);
           }
           const grp = groups.find((g) => g.code === stkSel.code && g.type === (isFund ? "fund" : "stock"));
           const held = grp ? grp.holding : 0;
@@ -391,12 +398,14 @@
             return;
           }
         } else {
-          // 买入
+          // 买入：买入价留空时有行情就取现价（与基金行为一致）
           if (isFund) {
             if (!(price > 0)) price = q ? q.price : 0;
             if (!(price > 0)) return flashInvalid(costEl); // 拿不到净值又没填净值
             shares = amount / price;
           } else {
+            if (!(price > 0)) price = q ? q.price : 0;
+            if (!(price > 0)) return flashInvalid(costEl); // 拿不到行情又没填价格
             shares = parseFloat(sharesEl.value);
           }
         }
@@ -429,9 +438,11 @@
         const btn = e.target.closest("[data-act]");
         if (!btn) return;
         if (btn.dataset.act === "deltx") {
-          const id = btn.closest("[data-id]").dataset.id;
-          if (!confirm("确认删除该笔交易流水？")) return;
-          await stocksRepo.delete(id);
+          const tr = btn.closest("[data-id]");
+          const tx = flowTxs.find((t) => t.id === tr.dataset.id);
+          if (!tx) return;
+          if (!confirm(`确认删除 ${tx.date} ${tx.name}（${tx.action === "buy" ? "买入" : "卖出"} ${fmt2(tx.shares * tx.price)} 元）这笔流水？`)) return;
+          await stocksRepo.delete(tx.id);
           rerender();
         }
       });
@@ -444,7 +455,7 @@
           if (!stillHere()) { clearInterval(stkTimer); stkTimer = null; return; }
           const s = el.querySelector("#stkSearch");
           if (s && (s.value.trim() || document.activeElement === s)) return;
-          if (["#stkShares", "#stkCost"].some((x) => el.querySelector(x) === document.activeElement)) return;
+          if (["#stkShares", "#stkCost", "#stkDate", "#stkAction"].some((x) => el.querySelector(x) === document.activeElement)) return;
           rerender();
         }, REFRESH_MS);
       }
