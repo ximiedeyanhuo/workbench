@@ -98,11 +98,11 @@
   function ctrlHtml() {
     var title = calYear + "\u5E74" + (calMonth + 1) + "\u6708";
     var showToday = calYear !== now.getFullYear() || calMonth !== now.getMonth();
-    return '<div class="cal-ctrl" style="display:flex;align-items:center;gap:10px;margin-bottom:16px">' +
+    return '<div class="cal-ctrl">' +
       '<button class="icon-btn plain" id="calPrev" title="\u4E0A\u4E2A\u6708">' + WB.icon("prev") + '</button>' +
-      '<span class="cal-ctrl-title" style="flex:1;text-align:center;font-weight:800;font-size:20px;color:var(--ink)">' + title + '</span>' +
+      '<span class="cal-ctrl-title">' + title + '</span>' +
       '<button class="icon-btn plain" id="calNext" title="\u4E0B\u4E2A\u6708">' + WB.icon("next") + '</button>' +
-      (showToday ? '<button class="btn sm ghost" id="calToday" style="font-size:12px">\u56DE\u5230\u4ECA\u5929</button>' : '') +
+      (showToday ? '<button class="btn sm ghost" id="calToday">\u56DE\u5230\u4ECA\u5929</button>' : '') +
       '</div>';
   }
   function gridHtml(dailyIdx) {
@@ -133,12 +133,12 @@
         var pendingTasks = totalTasks - doneTasks;
 
         if (overdueTasks > 0) {
-          content += '<span class="cal-task-badge" style="display:inline-flex;font-size:10px;font-weight:700;padding:1px 4px;border-radius:3px;margin-top:2px;background:var(--danger);color:#fff">' + overdueTasks + '</span>';
+          content += '<span class="cal-task-badge overdue">' + overdueTasks + '</span>';
         } else if (pendingTasks > 0) {
-          content += '<span class="cal-task-badge" style="display:inline-flex;font-size:10px;font-weight:700;padding:1px 4px;border-radius:3px;margin-top:2px;background:var(--accent);color:#fff">' + pendingTasks + '</span>';
+          content += '<span class="cal-task-badge pending">' + pendingTasks + '</span>';
         }
         if (doneTasks > 0 && overdueTasks === 0 && pendingTasks === 0) {
-          content += '<span class="cal-task-badge" style="display:inline-flex;font-size:10px;font-weight:700;padding:1px 4px;border-radius:3px;margin-top:2px;background:var(--ok);color:#fff">\u2713</span>';
+          content += '<span class="cal-task-badge done">\u2713</span>';
         }
       }
 
@@ -149,20 +149,20 @@
           else if (tx.type === "income") incomeTotal += Number(tx.amount || 0);
         });
         if (expenseTotal > 0) {
-          content += '<div class="cal-tx-sum" style="font-size:10px;color:var(--danger);font-weight:700;font-variant-numeric:tabular-nums">-' + fmtYuan(expenseTotal) + '</div>';
+          content += '<div class="cal-tx-sum">-' + fmtYuan(expenseTotal) + '</div>';
         } else if (incomeTotal > 0) {
-          content += '<div class="cal-tx-sum" style="font-size:10px;color:var(--ok);font-weight:700;font-variant-numeric:tabular-nums">+' + fmtYuan(incomeTotal) + '</div>';
+          content += '<div class="cal-tx-sum positive">+' + fmtYuan(incomeTotal) + '</div>';
         }
       }
 
       if (entry && entry.checkins.length) {
-        content += '<div class="cal-habit-dots" style="display:flex;gap:2px;margin-top:2px;flex-wrap:wrap">';
+        content += '<div class="cal-habit-dots">';
         var maxDots = Math.min(entry.checkins.length, 5);
         for (var hi = 0; hi < maxDots; hi++) {
           content += '<span class="d-dot" style="background:' + esc(entry.checkins[hi].color || "#FF5A36") + '"></span>';
         }
         if (entry.checkins.length > 5) {
-          content += '<span class="d-more" style="font-size:10px;color:var(--muted);font-family:var(--mono)">+' + (entry.checkins.length - 5) + '</span>';
+          content += '<span class="d-more">+' + (entry.checkins.length - 5) + '</span>';
         }
         content += '</div>';
       }
@@ -173,56 +173,56 @@
     return '<div class="cal-grid">' + cells + '</div>';
   }
   function detailHtml(dailyIdx) {
-    if (!calSelDay) return '<div class="empty" style="margin-top:16px">\u70B9\u51FB\u65E5\u671F\u67E5\u770B\u5F53\u65E5\u8BE6\u60C5</div>';
+    if (!calSelDay) return '<div class="empty sp-t-2x">\u70B9\u51FB\u65E5\u671F\u67E5\u770B\u5F53\u65E5\u8BE6\u60C5</div>';
 
     var entry = dailyIdx.get(calSelDay);
     if (!entry || (!entry.tasks.length && !entry.txs.length && !entry.checkins.length)) {
-      return '<div class="card" style="margin-top:16px"><div class="empty">\u5F53\u65E5\u65E0\u8BB0\u5F55</div></div>';
+      return '<div class="card sp-t-2x"><div class="empty">\u5F53\u65E5\u65E0\u8BB0\u5F55</div></div>';
     }
 
-    var html = '<div class="card" style="margin-top:16px">';
-    html += '<div style="font-size:14px;font-weight:800;margin-bottom:8px;color:var(--ink)">' + esc(calSelDay) + ' \u8BE6\u60C5</div>';
+    var html = '<div class="card sp-t-2x">';
+    html += '<div class="cal-detail-head">' + esc(calSelDay) + ' \u8BE6\u60C5</div>';
 
     if (entry.tasks.length) {
-      html += '<div style="font-size:13px;font-weight:800;margin:12px 0 6px;color:var(--ink)">\u4EFB\u52A1</div>';
+      html += '<div class="cal-detail-section">\u4EFB\u52A1</div>';
       entry.tasks.forEach(function (t) {
         var pLabel = PRIORITY_LABEL[t.priority] || "";
-        var doneStyle = t.done ? ' style="text-decoration:line-through;color:var(--muted)"' : "";
-        html += '<div style="display:flex;align-items:center;gap:6px;font-size:13px;padding:4px 0"' + doneStyle + '>' +
-          (t.done ? '<span style="color:var(--ok);font-weight:700">\u2713</span>' : '<span class="pri-dot" style="background:' + (PRIORITY_COLOR[t.priority] || "var(--muted)") + '"></span>') +
-          '<span style="flex:1">' + esc(t.title) + '</span>' +
+        var doneCls = t.done ? ' class="cal-detail-task done"' : ' class="cal-detail-task"';
+        html += '<div' + doneCls + '>' +
+          (t.done ? '<span class="cal-detail-ok">\u2713</span>' : '<span class="pri-dot" style="background:' + (PRIORITY_COLOR[t.priority] || "var(--muted)") + '"></span>') +
+          '<span class="cal-detail-txt">' + esc(t.title) + '</span>' +
           (pLabel ? '<span class="badge ' + priorityBadge(t.priority) + '">' + pLabel + '</span>' : "") +
-          (isOverdue(t) ? '<span class="badge b-danger" style="margin-left:4px">\u903E\u671F</span>' : "") +
+          (isOverdue(t) ? '<span class="badge b-danger mla">\u903E\u671F</span>' : "") +
           '</div>';
       });
     }
 
     if (entry.txs.length) {
-      html += '<div style="font-size:13px;font-weight:800;margin:12px 0 6px;color:var(--ink)">\u8BB0\u8D26</div>';
+      html += '<div class="cal-detail-section">\u8BB0\u8D26</div>';
       var dayExpense = 0, dayIncome = 0;
       entry.txs.forEach(function (tx) {
         var amt = Number(tx.amount || 0);
         if (tx.type === "expense") {
           dayExpense += amt;
-          html += '<div style="display:flex;align-items:center;gap:6px;font-size:13px;padding:4px 0">' +
-            '<span style="flex:1">' + esc(tx.category || "") + (tx.note ? " \u00B7 " + esc(tx.note) : "") + '</span>' +
+          html += '<div class="cal-detail-tx">' +
+            '<span class="cal-detail-txt">' + esc(tx.category || "") + (tx.note ? " \u00B7 " + esc(tx.note) : "") + '</span>' +
             '<span style="color:var(--danger)">-' + fmtYuan(amt) + '</span>' +
             '</div>';
         } else if (tx.type === "income") {
           dayIncome += amt;
-          html += '<div style="display:flex;align-items:center;gap:6px;font-size:13px;padding:4px 0">' +
-            '<span style="flex:1">' + esc(tx.category || "") + (tx.note ? " \u00B7 " + esc(tx.note) : "") + '</span>' +
+          html += '<div class="cal-detail-tx">' +
+            '<span class="cal-detail-txt">' + esc(tx.category || "") + (tx.note ? " \u00B7 " + esc(tx.note) : "") + '</span>' +
             '<span style="color:var(--ok)">+' + fmtYuan(amt) + '</span>' +
             '</div>';
         } else {
-          html += '<div style="display:flex;align-items:center;gap:6px;font-size:13px;padding:4px 0">' +
-            '<span style="flex:1">' + esc(tx.category || "") + (tx.note ? " \u00B7 " + esc(tx.note) : "") + '</span>' +
+          html += '<div class="cal-detail-tx">' +
+            '<span class="cal-detail-txt">' + esc(tx.category || "") + (tx.note ? " \u00B7 " + esc(tx.note) : "") + '</span>' +
             '<span>' + fmtYuan(amt) + '</span>' +
             '</div>';
         }
       });
       var net = dayIncome - dayExpense;
-      html += '<div style="font-size:13px;font-weight:700;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">\u5F53\u65E5\u5408\u8BA1\uFF1A' +
+      html += '<div class="cal-detail-total">\u5F53\u65E5\u5408\u8BA1\uFF1A' +
         '<span style="color:var(--ok)">\u6536\u5165 +' + fmtYuan(dayIncome) + '</span> \u00B7 ' +
         '<span style="color:var(--danger)">\u652F\u51FA -' + fmtYuan(dayExpense) + '</span> \u00B7 ' +
         '<span style="color:' + (net >= 0 ? "var(--ok)" : "var(--danger)") + '">\u7ED3\u4F59 ' + (net >= 0 ? "+" : "") + fmtYuan(net) + '</span>' +
@@ -230,9 +230,9 @@
     }
 
     if (entry.checkins.length) {
-      html += '<div style="font-size:13px;font-weight:800;margin:12px 0 6px;color:var(--ink)">\u6253\u5361</div>';
+      html += '<div class="cal-detail-section">\u6253\u5361</div>';
       entry.checkins.forEach(function (h) {
-        html += '<div style="display:flex;align-items:center;gap:6px;font-size:13px;padding:4px 0">' +
+        html += '<div class="cal-detail-habit">' +
           '<span class="d-dot" style="background:' + esc(h.color || "#FF5A36") + '"></span>' +
           esc(h.name) +
           '</div>';

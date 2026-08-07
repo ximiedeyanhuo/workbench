@@ -29,8 +29,8 @@
   const fmt2 = (n) => Number(n || 0).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const fmt4 = (n) => Number(n || 0).toLocaleString("zh-CN", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
   const signed2 = (n) => (n > 0.005 ? "+" + fmt2(n) : n < -0.005 ? "-" + fmt2(-n) : "0.00");
-  /** A 股惯例：涨红跌绿 */
-  const udColor = (n) => (n > 0.005 ? "var(--danger)" : n < -0.005 ? "var(--ok)" : "var(--muted)");
+  /** A 股惯例：涨红跌绿（--rise=红/涨，--fall=绿/跌） */
+  const udColor = (n) => (n > 0.005 ? "var(--rise)" : n < -0.005 ? "var(--fall)" : "var(--muted)");
 
   /** 归一化单笔流水（含旧快照迁移）：
    *  旧快照（无 action）视为一次买入，成交价=原成本，日期取 createdAt 日期部分（无效则今天） */
@@ -253,17 +253,17 @@
           <h2>${isFund ? "记一笔理财交易" : "记一笔交易"}</h2>
           <div class="row stk-form">
             <span class="stk-search-wrap">
-              <input id="stkSearch" placeholder="${searchPh}" autocomplete="off" style="width:200px" />
+              <input id="stkSearch" placeholder="${searchPh}" autocomplete="off" class="w-200" />
               <div class="stk-sug" id="stkSug" hidden></div>
             </span>
-            <select id="stkAction" style="width:76px">
+            <select id="stkAction" class="w-80">
               <option value="buy">买入</option>
               <option value="sell">卖出</option>
             </select>
-            <input type="date" id="stkDate" value="${todayStr()}" style="width:132px" />
-            <input type="number" id="stkShares" placeholder="${isFund ? "金额(元)" : "数量(股)"}" min="0" step="${isFund ? "0.01" : "100"}" style="width:100px" />
-            <input type="number" id="stkCost" placeholder="${isFund ? "净值(元/份)" : "价格(元/股)"}" min="0" step="0.0001" style="width:110px" />
-            <button class="btn" id="stkAdd">添加</button>
+            <input type="date" id="stkDate" value="${todayStr()}" class="w-130" />
+            <input type="number" id="stkShares" placeholder="${isFund ? "金额(元)" : "数量(股)"}" min="0" step="${isFund ? "0.01" : "100"}" class="w-100" />
+            <input type="number" id="stkCost" placeholder="${isFund ? "净值(元/份)" : "价格(元/股)"}" min="0" step="0.0001" class="w-110" />
+            <button class="btn in-card-btn" id="stkAdd">添加</button>
             <span class="stk-tip">${tip}</span>
           </div>
         </div>
@@ -271,7 +271,7 @@
           <h2>持仓明细
             <span class="count">
               ${qTime ? (isFund ? "净值 " : "行情 ") + esc(fmtQuoteTime(qTime)) + " · 30 秒自动刷新 · " : window.WB.USE_API && codes.length ? "行情获取失败 · " : ""}
-              <a href="javascript:void(0)" id="stkRefresh" style="color:var(--accent)">手动刷新</a>
+              <a href="javascript:void(0)" id="stkRefresh" class="accent-link">手动刷新</a>
             </span>
           </h2>
           ${heldGroups.length ? `<div class="stk-wrap"><table class="stk-table">

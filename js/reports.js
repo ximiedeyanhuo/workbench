@@ -53,7 +53,7 @@
   function fmt4(n) {
     return Number(n || 0).toLocaleString("zh-CN", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
   }
-  const udColor = (n) => (n > 0.005 ? "var(--danger)" : n < -0.005 ? "var(--ok)" : "var(--muted)");
+  const udColor = (n) => (n > 0.005 ? "var(--rise)" : n < -0.005 ? "var(--fall)" : "var(--muted)");
   function monthDays(year, month) {
     return new Date(year, month + 1, 0).getDate();
   }
@@ -158,19 +158,19 @@
     var catEntries = Object.entries(catMap).sort(function (a, b) { return b[1] - a[1]; });
 
     el.innerHTML = '<div class="reports-tab-content">' +
-      '<div class="card" style="margin-bottom:16px">' +
+      '<div class="card sp-b-2x">' +
       '<div class="row" style="justify-content:space-between;align-items:center">' +
-      '<h2 style="margin:0;font-size:15px">年度财务报告</h2>' +
+      '<h2 style="margin:0">年度财务报告</h2>' +
       '<select id="rptYear" class="tx-year-sel">' + yearOpts + "</select></div></div>" +
       '<div class="stat-grid">' +
       '<div class="stat"><div class="s-lab">年支出</div><div class="s-val" style="color:var(--danger)">' + fmtYuan(expAmt) + '</div><div class="s-sub">' + exp.length + " 笔</div></div>" +
       '<div class="stat"><div class="s-lab">年收入</div><div class="s-val" style="color:var(--ok)">' + fmtYuan(incAmt) + '</div><div class="s-sub">' + inc.length + " 笔</div></div>" +
       '<div class="stat"><div class="s-lab">年结余</div><div class="s-val" style="color:' + (net >= 0 ? "var(--ok)" : "var(--danger)") + '">' + (net >= 0 ? "+" : "") + fmtYuan(net) + "</div></div>" +
       '<div class="stat"><div class="s-lab">日均支出</div><div class="s-val">' + fmtYuan(dailyExp) + "</div></div></div>" +
-      '<div class="chart-grid-2" style="margin-bottom:20px">' +
+      '<div class="chart-grid-2 sp-b-3x">' +
       '<div class="chart-box"><div class="chart-tt">月度收支（' + year + "年）</div><canvas id=\"rptFinBar\" height=\"180\"></canvas></div>" +
       '<div class="chart-box"><div class="chart-tt">年支出分类占比</div><canvas id="rptFinDoughnut" height=\"180\"></canvas></div></div>' +
-      '<div class="card" style="margin-bottom:16px">' +
+      '<div class="card sp-b-2x">' +
       '<h2>理财持仓</h2>' +
       '<div class="stat-grid" id="rptStkStats">' +
         '<div class="stat"><div class="s-lab">持仓市值</div><div class="s-val" id="rptStkMv">—</div></div>' +
@@ -180,7 +180,7 @@
       '</div>' +
       '<div id="rptStkRows"><div class="empty">暂无持仓记录</div></div>' +
       '</div>' +
-      '<div class="card" style="margin-bottom:16px">' +
+      '<div class="card sp-b-2x">' +
       '<h2>理财买卖流水（' + year + '年）</h2>' +
       '<div id="rptStkFlow"><div class="empty">该年度暂无理财交易流水</div></div>' +
       '</div>' +
@@ -432,25 +432,24 @@
           for (var i = 0; i < 30; i++) { if (ck[thirtyDays[i]]) thirtyCnt++; }
           var ratePct = Math.round((thirtyCnt / 30) * 100);
           var s = streakOf(h);
-          return '<div class="item" style="margin-bottom:8px">' +
+          return '<div class="item sp-b-sm">' +
             '<span class="pri-dot" style="background:' + esc(h.color) + '"></span>' +
             '<span class="txt" style="flex:1">' + esc(h.name) +
-            '<div style="font-size:12px;color:var(--muted);margin-top:2px">总打卡 ' + totalDays + ' 天 · 连续 ' + s + ' 天</div>' +
-            '<div style="margin-top:4px;display:flex;align-items:center;gap:6px">' +
-            '<div style="flex:1;height:4px;background:var(--card2);border-radius:2px;overflow:hidden">' +
-            '<div style="height:100%;width:' + ratePct + '%;background:' + esc(h.color) + ';border-radius:2px;transition:width .3s"></div></div>' +
-            '<span style="font-size:11px;color:var(--muted);font-family:var(--mono);white-space:nowrap">' + ratePct + '%</span></div></span></div>';
+            '<div class="sub sp-t-xs">总打卡 ' + totalDays + ' 天 · 连续 ' + s + ' 天</div>' +
+            '<div class="hp-row">' +
+            '<div class="hp-bar"><div class="hp-bar-fill" style="width:' + ratePct + '%;background:' + esc(h.color) + '"></div></div>' +
+            '<span class="hp-pct">' + ratePct + '%</span></div></span></div>';
         }).join("")
       : '<div class="empty">暂无习惯数据</div>';
 
     el.innerHTML = '<div class="reports-tab-content">' +
-      '<div class="stat-grid" style="margin-bottom:20px">' +
+      '<div class="stat-grid sp-b-3x">' +
       '<div class="stat"><div class="s-lab">习惯总数</div><div class="s-val">' + total + '</div></div>' +
       '<div class="stat"><div class="s-lab">今日打卡</div><div class="s-val" style="color:var(--ok)">' + todayCheckins + '</div><div class="s-sub">' + (total > 0 ? Math.round(todayCheckins / total * 100) + "%" : "0%") + "</div></div>" +
       '<div class="stat"><div class="s-lab">30 天人均打卡率</div><div class="s-val">' + avgRate + '%</div></div>' +
       '<div class="stat"><div class="s-lab">连续最长</div><div class="s-val" style="color:var(--accent)">' + maxStreak + '</div><div class="s-sub">天</div></div>' +
       "</div>" +
-      '<div class="chart-box" style="margin-bottom:20px">' +
+      '<div class="chart-box sp-b-3x">' +
       '<div class="chart-tt">近 14 天每日打卡总数</div><canvas id="rptHabitBar" height="160"></canvas></div>' +
       '<div class="card"><h2>习惯详情</h2>' + habitRows + "</div></div>";
 
@@ -502,7 +501,6 @@
           '<div class="reports-health-meta-item">平均<div class="reports-health-meta-val">' + (avg !== null ? avg.toFixed(1) : "—") + '</div></div>' +
           '<div class="reports-health-meta-item">最大<div class="reports-health-meta-val">' + maxVal + '</div></div></div>'
         : '<div class="empty" style="padding:12px 0">暂无记录</div>';
-
       return '<div class="chart-box">' +
         '<div class="chart-tt">' + m.label + "（" + m.unit + "）</div>" +
         '<canvas id="rptHealth_' + m.key + '" height="150"></canvas>' +
@@ -573,13 +571,13 @@
     }).join("");
 
     el.innerHTML = '<div class="reports-tab-content">' +
-      '<div class="stat-grid" style="margin-bottom:20px">' +
+      '<div class="stat-grid sp-b-3x">' +
       '<div class="stat"><div class="s-lab">总任务</div><div class="s-val">' + total + "</div></div>" +
       '<div class="stat"><div class="s-lab">已完成</div><div class="s-val" style="color:var(--ok)">' + doneCount + '</div><div class="s-sub">' + (total > 0 ? Math.round(doneCount / total * 100) + "%" : "0%") + "</div></div>" +
       '<div class="stat"><div class="s-lab">进行中</div><div class="s-val" style="color:var(--accent)">' + activeCount + "</div></div>" +
       '<div class="stat"><div class="s-lab">逾期未完成</div><div class="s-val" style="color:' + (overdueCount > 0 ? "var(--danger)" : "var(--ok)") + '">' + overdueCount + "</div></div>" +
       "</div>" +
-      '<div class="chart-box" style="margin-bottom:20px">' +
+      '<div class="chart-box sp-b-3x">' +
       '<div class="chart-tt">近 30 天每日完成数</div><canvas id="rptTaskLine" height="160"></canvas></div>' +
       '<div class="card"><h2>优先级分布</h2>' +
       '<div class="reports-pri-grid">' + priCards + "</div></div></div>";

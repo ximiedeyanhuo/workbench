@@ -44,8 +44,8 @@
               ${REPEAT.map((r) => `<option value="${r.key}" ${(t.repeat || "") === r.key ? "selected" : ""}>${r.label}</option>`).join("")}
             </select>
           </div>
-          <div class="row" style="margin-top:8px">
-            <input data-ef="tags" placeholder="标签（逗号分隔）" style="width:160px" maxlength="60" value="${esc((t.tags || []).join(", "))}" />
+          <div class="row sp-t-sm">
+            <input data-ef="tags" placeholder="标签（逗号分隔）" class="w-160" maxlength="60" value="${esc((t.tags || []).join(", "))}" />
             <input class="grow" data-ef="note" placeholder="备注" maxlength="200" value="${esc(t.note || "")}" />
             <button class="btn sm" data-act="save-edit">保存</button>
             <button class="btn ghost sm" data-act="cancel-edit">取消</button>
@@ -64,7 +64,7 @@
     return `<li class="item ${t.done ? "done" : ""}" data-id="${t.id}">
       <span class="chk" data-act="toggle">${t.done ? "✓" : ""}</span>
       <span class="pri-dot" style="background:${p.color}" title="${p.label}优先级"></span>
-      <span class="txt">${esc(t.title)}${t.note ? `<div style="font-size:12px;color:var(--muted)">${esc(t.note)}</div>` : ""}</span>
+      <span class="txt">${esc(t.title)}${t.note ? `<div class="sub">${esc(t.note)}</div>` : ""}</span>
       ${(t.tags || []).map((tg) => `<span class="tag">${esc(tg)}</span>`).join("")}
       ${t.repeat ? `<span class="tag" title="完成后自动生成下一期">🔁 ${repeatLab(t.repeat)}</span>` : ""}
       ${dueBadge}
@@ -129,9 +129,9 @@
 
     const dayTasks = sortTasks((byDay[selectedDay] || []));
     const dayPanel = `
-      <div style="margin-top:16px">
+      <div class="sp-t-2x">
         <h2 style="font-size:14px;margin-bottom:10px">📌 ${selectedDay}（${dayTasks.length} 项）</h2>
-        <div class="row" style="margin-bottom:10px">
+        <div class="row sp-b-md">
           <input class="grow" id="dayTaskInput" placeholder="给这一天添加任务…" maxlength="100" />
           <button class="btn sm" id="dayTaskAdd">添加</button>
         </div>
@@ -187,9 +187,9 @@
               <option value="daily">每天</option>
               <option value="weekly">每周</option>
             </select>
-            <input id="tTags" placeholder="标签（逗号分隔）" style="width:150px" maxlength="60" />
-            <button class="btn" id="tAdd">添加</button>
-            <button class="btn ghost" id="tAiSplit" title="AI 把大任务拆成可执行小任务">✨ AI 拆解</button>
+            <input id="tTags" placeholder="标签（逗号分隔）" class="w-150" maxlength="60" />
+            <button class="btn in-card-btn" id="tAdd">添加</button>
+            <button class="btn ghost in-card-btn" id="tAiSplit" title="AI 把大任务拆成可执行小任务">${WB.icon("sparkle")} AI 拆解</button>
           </div>
           <div id="tAiPanel"></div>
         </div>
@@ -199,15 +199,15 @@
           </h2>
           <div class="row" style="justify-content:space-between;margin-bottom:12px">
             <div class="tabs" id="taskTabs">
-              <span class="tab ${filter === "all" ? "on" : ""}" data-f="all">全部</span>
-              <span class="tab ${filter === "today" ? "on" : ""}" data-f="today">今天</span>
-              <span class="tab ${filter === "week" ? "on" : ""}" data-f="week">本周</span>
-              <span class="tab ${filter === "done" ? "on" : ""}" data-f="done">已完成</span>
+              <button class="tab ${filter === "all" ? "on" : ""}" data-f="all">全部</button>
+              <button class="tab ${filter === "today" ? "on" : ""}" data-f="today">今天</button>
+              <button class="tab ${filter === "week" ? "on" : ""}" data-f="week">本周</button>
+              <button class="tab ${filter === "done" ? "on" : ""}" data-f="done">已完成</button>
             </div>
             <div class="tabs" style="align-items:center">
-              ${view === "list" && overdueTasks.length ? `<button class="btn ghost sm" id="tPostpone" title="把所有逾期未完成任务的截止日改为今天">⏩ 逾期顺延到今天（${overdueTasks.length}）</button>` : ""}
-              <span class="tab ${view === "list" ? "on" : ""}" data-v="list">☰ 列表</span>
-              <span class="tab ${view === "calendar" ? "on" : ""}" data-v="calendar">▦ 日历</span>
+              ${view === "list" && overdueTasks.length ? `<button class="btn ghost sm" id="tPostpone" title="把所有逾期未完成任务的截止日改为今天">${WB.icon("forward")} 逾期顺延到今天（${overdueTasks.length}）</button>` : ""}
+              <button class="tab ${view === "list" ? "on" : ""}" data-v="list">${WB.icon("list")} 列表</button>
+              <button class="tab ${view === "calendar" ? "on" : ""}" data-v="calendar">${WB.icon("calendar")} 日历</button>
             </div>
           </div>
           <div id="taskBody">
@@ -274,7 +274,7 @@
         if (!title) return flashInvalid(titleInput);
         const panel = el.querySelector("#tAiPanel");
         aiBtn.disabled = true;
-        aiBtn.textContent = "✨ 拆解中…";
+        aiBtn.textContent = "拆解中…";
         panel.innerHTML = '<div class="ai-panel">正在请智谱拆解「' + esc(title) + '」…</div>';
         try {
           const text = await WB.ai.chat(
@@ -312,7 +312,7 @@
           panel.innerHTML = `<div class="ai-panel err">AI 调用失败：${esc(err.message)}</div>`;
         } finally {
           aiBtn.disabled = false;
-          aiBtn.textContent = "✨ AI 拆解";
+          aiBtn.innerHTML = WB.icon("sparkle") + " AI 拆解";
         }
       });
 

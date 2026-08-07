@@ -91,18 +91,18 @@
               </div>`
             )
             .join("")
-        : '<div class="empty" style="grid-column:1/-1">把常用的系统、工具、文档链接加进来，一键直达</div>';
+        : '<div class="empty ql-empty">把常用的系统、工具、文档链接加进来，一键直达</div>';
 
       el.innerHTML = `
         <div class="card">
           <h2>添加入口</h2>
           <div class="row">
-            <input id="qlName" placeholder="名称，如：Gitee / 云效 / 掘金" style="width:200px" maxlength="20" />
+            <input id="qlName" placeholder="名称，如：Gitee / 云效 / 掘金" class="w-200" maxlength="20" />
             <input class="grow" id="qlUrl" placeholder="https://…" maxlength="500" />
             <select id="qlColor">
               ${COLORS.map((c, i) => `<option value="${c}" ${i === 0 ? "selected" : ""}>颜色 ${i + 1}</option>`).join("")}
             </select>
-            <button class="btn" id="qlAdd">添加</button>
+            <button class="btn in-card-btn" id="qlAdd">添加</button>
           </div>
           <div class="row cred-add">
             <input id="qlAccount" placeholder="账号（可选）" />

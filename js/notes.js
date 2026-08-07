@@ -72,22 +72,22 @@
     const editorHtml = !cur
       ? '<div class="card"><div class="empty">← 选择一篇笔记，或点「新建笔记」开始记录</div></div>'
       : `<div class="card">
-          <div class="row" style="margin-bottom:10px">
+          <div class="row sp-b-md">
             <input class="grow" id="nTitle" placeholder="笔记标题" maxlength="80" value="${esc(cur.title)}" />
-            <input id="nFolder" list="folderDl" placeholder="文件夹（可新建）" style="width:130px" maxlength="20" value="${esc(cur.folder || "")}" />
+            <input id="nFolder" list="folderDl" placeholder="文件夹（可新建）" class="w-130" maxlength="20" value="${esc(cur.folder || "")}" />
             <datalist id="folderDl">${folderNames(notes).map((f) => `<option value="${esc(f)}"></option>`).join("")}</datalist>
-            <input id="nTags" placeholder="标签（逗号分隔）" style="width:160px" maxlength="60" value="${esc((cur.tags || []).join(", "))}" />
+            <input id="nTags" placeholder="标签（逗号分隔）" class="w-160" maxlength="60" value="${esc((cur.tags || []).join(", "))}" />
           </div>
           ${
             previewing
-              ? `<div class="md-preview" style="min-height:300px;padding:6px 2px">${MD.render(cur.content || "")}</div>`
+              ? `<div class="md-preview n-preview">${MD.render(cur.content || "")}</div>`
               : `<textarea id="nContent" rows="16" placeholder="支持 Markdown：# 标题、**粗体**、- 列表、\`代码\`、> 引用、[链接](https://…)">${esc(cur.content)}</textarea>`
           }
-          <div class="row" style="margin-top:12px">
-            <button class="btn sm" id="nSave">💾 保存</button>
-            <button class="btn ghost sm" id="nPreview">${previewing ? "✏️ 编辑" : "👁 预览"}</button>
-            <button class="btn ghost sm" id="nAi" title="AI 生成摘要与建议标签">✨ AI 摘要</button>
-            <span style="flex:1"></span>
+          <div class="row sp-t-lg">
+            <button class="btn sm" id="nSave">${WB.icon("save")} 保存</button>
+            <button class="btn ghost sm" id="nPreview">${previewing ? WB.icon("edit") + " 编辑" : WB.icon("eye") + " 预览"}</button>
+            <button class="btn ghost sm" id="nAi" title="AI 生成摘要与建议标签">${WB.icon("sparkle")} AI 摘要</button>
+            <span class="mla"></span>
             <button class="btn danger sm" id="nDel">删除笔记</button>
           </div>
           <div id="nAiPanel"></div>
@@ -95,12 +95,12 @@
 
     return `<div class="notes-layout">
       <div class="card">
-        <div class="row" style="margin-bottom:10px">
+        <div class="row sp-b-md">
           <input class="grow" id="noteSearch" placeholder="🔍 搜标题 / 全文 / 标签" value="${esc(noteQ)}" />
           <button class="btn sm" id="noteNew">新建笔记</button>
         </div>
         ${folderHtml}
-        <div style="display:flex;flex-direction:column;gap:8px;max-height:520px;overflow-y:auto">${listHtml}</div>
+        <div class="note-scroll">${listHtml}</div>
       </div>
       <div>${editorHtml}</div>
     </div>`;
@@ -184,7 +184,7 @@
         if (content.length < 20) { WB.showToast("正文太短（不足 20 字），不需要 AI 摘要", "info"); return; }
         const panel = el.querySelector("#nAiPanel");
         aiBtn.disabled = true;
-        aiBtn.textContent = "✨ 生成中…";
+        aiBtn.textContent = "生成中…";
         panel.innerHTML = '<div class="ai-panel">正在请智谱阅读这篇笔记…</div>';
         try {
           const text = await WB.ai.chat(
@@ -197,8 +197,8 @@
           panel.innerHTML = `<div class="ai-panel">
             <div class="ai-panel-tt">✨ AI 摘要</div>
             <div class="ai-panel-body">${esc(r.summary)}</div>
-            ${tags.length ? `<div style="margin-top:6px">建议标签：${tags.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>` : ""}
-            <div class="row" style="margin-top:8px">
+            ${tags.length ? `<div class="sp-t-sm">建议标签：${tags.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>` : ""}
+            <div class="row sp-t-sm">
               <button class="btn sm" id="aiApply">采纳（摘要插入开头，标签合并）</button>
               <button class="btn ghost sm" id="aiClose">关闭</button>
             </div>
@@ -219,7 +219,7 @@
           panel.innerHTML = `<div class="ai-panel err">AI 调用失败：${esc(err.message)}</div>`;
         } finally {
           aiBtn.disabled = false;
-          aiBtn.textContent = "✨ AI 摘要";
+          aiBtn.innerHTML = WB.icon("sparkle") + " AI 摘要";
         }
       });
     }
@@ -263,8 +263,8 @@
           .map(
             (m) => `<li class="item" data-id="${m.id}">
               <span class="txt">
-                <a href="${safeUrl(m.url)}" target="_blank" rel="noopener noreferrer" style="font-weight:700;text-decoration:none">${esc(m.title || m.url)}</a>
-                ${m.note ? `<div style="font-size:12px;color:var(--muted)">${esc(m.note)}</div>` : ""}
+                <a href="${safeUrl(m.url)}" target="_blank" rel="noopener noreferrer" class="dl-title">${esc(m.title || m.url)}</a>
+                ${m.note ? `<div class="sub">${esc(m.note)}</div>` : ""}
               </span>
               ${(m.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join("")}
               <span class="meta">${(m.createdAt || "").slice(0, 10)}</span>
@@ -279,15 +279,15 @@
         <h2>收藏一个链接</h2>
         <div class="row">
           <input class="grow" id="mUrl" placeholder="https://…" maxlength="500" />
-          <input id="mTitle" placeholder="标题" style="width:170px" maxlength="80" />
-          <input id="mNote" placeholder="备注" style="width:150px" maxlength="100" />
-          <input id="mTags" placeholder="标签" style="width:110px" maxlength="60" />
-          <button class="btn" id="mAdd">收藏</button>
+          <input id="mTitle" placeholder="标题" class="w-170" maxlength="80" />
+          <input id="mNote" placeholder="备注" class="w-150" maxlength="100" />
+          <input id="mTags" placeholder="标签" class="w-110" maxlength="60" />
+          <button class="btn in-card-btn" id="mAdd">收藏</button>
         </div>
       </div>
       <div class="card">
         <h2>我的收藏<span class="count">${marks.length} 条</span></h2>
-        <div class="row" style="margin-bottom:10px">
+        <div class="row sp-b-md">
           <input class="grow" id="markSearch" placeholder="🔍 搜标题 / 网址 / 备注 / 标签" value="${esc(markQ)}" />
         </div>
         <ul class="list" id="markList">${itemsHtml}</ul>
@@ -359,9 +359,9 @@
       }
 
       el.innerHTML = `
-        <div class="tabs" style="margin-bottom:14px">
-          <span class="tab ${subtab === "notes" ? "on" : ""}" data-st="notes">📝 笔记（${notes.length}）</span>
-          <span class="tab ${subtab === "marks" ? "on" : ""}" data-st="marks">🔗 链接收藏（${marks.length}）</span>
+        <div class="tabs sp-b-xl">
+          <button class="tab ${subtab === "notes" ? "on" : ""}" data-st="notes">${WB.icon("notes")} 笔记（${notes.length}）</button>
+          <button class="tab ${subtab === "marks" ? "on" : ""}" data-st="marks">${WB.icon("link")} 链接收藏（${marks.length}）</button>
         </div>
         <div id="notesBody">${subtab === "notes" ? notesHtml(notes) : marksHtml(marks)}</div>`;
 

@@ -256,7 +256,7 @@
 
         <div class="card">
           <h2>考试目标<span class="count">${targets.length} 个</span></h2>
-          <div class="row" style="margin-bottom:12px">
+          <div class="row sp-b-lg">
             <input class="grow" id="gkTargetName" placeholder="考试名称，如：2026 国考" maxlength="50" />
             <input type="date" id="gkTargetDate" value="${today}" />
             <select id="gkTargetType">
@@ -283,9 +283,9 @@
           <h2>数据趋势</h2>
           <div class="chart-grid chart-grid-2">
             <div class="chart-box">
-              <div class="chart-tt" style="display:flex;justify-content:space-between;align-items:center">
+              <div class="chart-tt chart-tt-flex">
                 <span>模考成绩趋势</span>
-                <select id="examSubjectFilter" style="padding:4px 8px;font-size:12px">
+                <select id="examSubjectFilter" class="input-xs w-90">
                   <option value="all">全部</option>
                   ${subjectOpts.map((s) => `<option value="${esc(s)}" ${examFilter === s ? "selected" : ""}>${esc(s)}</option>`).join("")}
                 </select>
@@ -302,7 +302,7 @@
         <div class="dash-actions">
           <div class="card">
             <h2>复习进度<span class="count">${undoneSorted.length} 项待完成</span></h2>
-            <div class="row" style="margin-bottom:10px">
+            <div class="row sp-b-md">
               <input class="grow" id="gkTaskTitle" placeholder="快速添加复习任务，自动打上「考公」标签" maxlength="100" />
               <input type="date" id="gkTaskDue" value="${today}" />
               <select id="gkTaskPri">
@@ -331,7 +331,7 @@
               <h2>笔记速览<span class="count">${recentNotes.length}</span></h2>
               <ul class="list" id="gkNoteList">
                 ${recentNotes.length
-                  ? recentNotes.map((n) => `<li class="item" data-nid="${n.id}" style="cursor:pointer">
+                  ? recentNotes.map((n) => `<li class="item gk-note-li" data-nid="${n.id}">
                       <span class="txt">${esc(n.title || "未命名笔记")}</span>
                       <span class="meta">${(n.updatedAt || "").slice(5, 16).replace("T", " ")}</span>
                     </li>`).join("")
@@ -343,7 +343,7 @@
 
         <div class="card" id="gkChecklistCard">
           <h2>备考清单<span class="count">${checklist.filter((it) => it.done).length} / ${checklist.length}</span></h2>
-          <div class="row" style="margin-bottom:10px">
+          <div class="row sp-b-md">
             <input class="grow" id="gkCheckText" placeholder="添加考前待办，如：准备证件照" maxlength="80" />
             <button class="btn sm" id="gkCheckAdd">添加</button>
           </div>
@@ -352,17 +352,17 @@
 
         <div class="card" id="gkExamCard">
           <h2>模考记录<span class="count">${exams.length} 条</span></h2>
-          <div class="row gk-exam-form" style="margin-bottom:12px">
+          <div class="row gk-exam-form sp-b-lg">
             <input type="date" id="examDate" value="${today}" />
-            <input id="examSubject" list="examSubjDl" value="${esc(lastSubject)}" placeholder="科目" maxlength="20" style="width:90px" />
+            <input id="examSubject" list="examSubjDl" value="${esc(lastSubject)}" placeholder="科目" maxlength="20" class="w-90" />
             <datalist id="examSubjDl">
               <option value="行测"></option><option value="申论"></option><option value="总分"></option>
               <option value="职测"></option><option value="综应"></option><option value="面试"></option>
             </datalist>
-            <input type="number" id="examScore" placeholder="分数" min="0" step="0.1" style="width:90px" />
-            <input type="number" id="examFull" placeholder="满分" min="1" step="1" value="100" style="width:80px" />
-            <input type="number" id="examRank" placeholder="排名（可选）" min="1" step="1" style="width:110px" />
-            <input type="number" id="examCutoff" placeholder="进面线（可选）" min="0" step="0.1" style="width:110px" />
+            <input type="number" id="examScore" placeholder="分数" min="0" step="0.1" class="w-90" />
+            <input type="number" id="examFull" placeholder="满分" min="1" step="1" value="100" class="w-80" />
+            <input type="number" id="examRank" placeholder="排名（可选）" min="1" step="1" class="w-110" />
+            <input type="number" id="examCutoff" placeholder="进面线（可选）" min="0" step="0.1" class="w-110" />
             <input class="grow" id="examNote" placeholder="备注（可选）" maxlength="100" />
             <button class="btn sm" id="examAdd">添加</button>
           </div>
@@ -372,9 +372,9 @@
                   <span class="badge b-primary">${esc(e.subject)}</span>
                   <span class="txt"><b>${Number(e.score || 0).toFixed(1)}</b> / ${Number(e.fullScore || 100).toFixed(0)}
                     ${scoreDeltaHtml(e, prevSameSubject(exams, i))}
-                    ${e.rank ? `<span style="color:var(--muted);font-size:12px"> · 排名 ${Number(e.rank)}</span>` : ""}
+                    ${e.rank ? `<span class="exam-rank"> · 排名 ${Number(e.rank)}</span>` : ""}
                     ${cutoffBadge(e)}
-                    ${e.note ? `<div style="font-size:12px;color:var(--muted)">${esc(e.note)}</div>` : ""}
+                    ${e.note ? `<div class="sub">${esc(e.note)}</div>` : ""}
                   </span>
                   <span class="meta">${esc(e.date || "")}</span>
                   <button class="icon-btn" data-act="del-exam" title="删除">${WB.icon("del")}</button>

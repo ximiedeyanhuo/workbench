@@ -428,9 +428,9 @@
     const rows = digestData.items
       .map(
         (it, i) => `<li class="item">
-          <span class="txt"><b style="color:var(--muted);margin-right:6px">${i + 1}</b>
-            <a href="${safeUrl(it.link)}" target="_blank" rel="noopener noreferrer" data-dlink="${esc(it.link)}" style="font-weight:700;text-decoration:none">${esc(it.title)}</a>
-            <div style="font-size:12px;color:var(--muted)">${esc(it.src || "")}${it.reason ? " · " + esc(it.reason) : ""}</div>
+          <span class="txt"><b class="rank-num">${i + 1}</b>
+            <a href="${safeUrl(it.link)}" target="_blank" rel="noopener noreferrer" data-dlink="${esc(it.link)}" class="dl-title">${esc(it.title)}</a>
+            <div class="sub">${esc(it.src || "")}${it.reason ? " · " + esc(it.reason) : ""}</div>
           </span>
         </li>`
       )
@@ -438,8 +438,8 @@
     return `<div class="card" id="digestPanel">
       <h2>今日精选<span class="count">智谱从全部已抓取资讯中挑选 · ${digestData.day}</span></h2>
       <ul class="list">${rows}</ul>
-      <div class="row" style="margin-top:8px">
-        <button class="btn ghost sm" id="digestRegen">🔄 重新生成</button>
+      <div class="row sp-t-sm">
+        <button class="btn ghost sm" id="digestRegen">${WB.icon("refresh")} 重新生成</button>
       </div>
     </div>`;
   }
@@ -447,11 +447,11 @@
   function renderShell(list, loading, counts) {
     const c = CATS.find((x) => x.k === cat) || CATS[0];
     const tabs = CATS.map(
-      (x) => `<span class="tab ${x.k === cat ? "on" : ""}" data-cat="${x.k}">${x.icon} ${x.label}${counts && counts[x.k] ? ` <b class="tab-cnt">${counts[x.k]}</b>` : ""}</span>`
+      (x) => `<button class="tab ${x.k === cat ? "on" : ""}" data-cat="${x.k}">${x.icon} ${x.label}${counts && counts[x.k] ? ` <b class="tab-cnt">${counts[x.k]}</b>` : ""}</button>`
     ).join("");
 
     const ranges = RANGES.map(
-      (r) => `<span class="tab ${r.k === timeRange ? "on" : ""}" data-range="${r.k}">${r.label}</span>`
+      (r) => `<button class="tab ${r.k === timeRange ? "on" : ""}" data-range="${r.k}">${r.label}</button>`
     ).join("");
 
     const manage = manageOpen
@@ -463,7 +463,7 @@
                 ? list
                     .map(
                       (f) => `<li class="item" data-id="${f.id}">
-                        <span class="dot" style="width:9px;height:9px;border-radius:50%;background:${c.color};flex-shrink:0"></span>
+                        <span class="dot" style="background:${c.color}"></span>
                         <span class="txt">${esc(f.name)} <span class="meta">${f.type === "video" ? "视频 · " : ""}${esc(f.url)}</span></span>
                         <button class="icon-btn" data-act="del" title="删除">${WB.icon("del")}</button>
                       </li>`
@@ -472,14 +472,14 @@
                 : '<div class="empty">该分类还没有资讯源，在下方添加</div>'
             }
           </ul>
-          <div class="row" style="margin-top:12px">
-            <input id="fName" placeholder="源名称，如：财新网" style="width:160px" maxlength="20" />
+          <div class="row sp-t-lg">
+            <input id="fName" placeholder="源名称，如：财新网" class="w-160" maxlength="20" />
             <input class="grow" id="fUrl" placeholder="RSS 或站点地址 https://…" maxlength="500" />
             <select id="fType">
               <option value="article">文字</option>
               <option value="video">视频</option>
             </select>
-            <button class="btn" id="fAdd">添加到「${c.label}」</button>
+            <button class="btn in-card-btn" id="fAdd">添加到「${c.label}」</button>
           </div>
         </div>`
       : "";
@@ -502,9 +502,9 @@
       <div class="card">
         <div class="row" style="align-items:center">
           <div class="tabs grow">${tabs}</div>
-          <button class="${digestBtnClass}" id="digestBtn"${digestBtnAttrs}>✨ 今日精选</button>
-          <button class="btn ghost sm" id="mgBtn">${manageOpen ? "收起管理" : "＋ 管理源"}</button>
-          <button class="${refreshBtnClass}" id="refreshBtn"${refreshBtnAttrs}>🔄 刷新本类</button>
+          <button class="${digestBtnClass}" id="digestBtn"${digestBtnAttrs}>${WB.icon("sparkle")} 今日精选</button>
+          <button class="btn ghost sm" id="mgBtn">${manageOpen ? "收起管理" : WB.icon("plus") + " 管理源"}</button>
+          <button class="${refreshBtnClass}" id="refreshBtn"${refreshBtnAttrs}>${WB.icon("refresh")} 刷新本类</button>
         </div>
         <div class="row news-filter" style="align-items:center">
           <span class="news-filter-lab">时间：</span>
@@ -624,7 +624,7 @@
         const st = await WB.ai.status();
         if (!st.configured) { WB.showToast("未配置智谱 API Key：设环境变量 ZHIPU_API_KEY 或在项目根创建 zhipu.key 文件后重启服务", "error"); return; }
         dg.disabled = true;
-        dg.textContent = "✨ 挑选中…";
+        dg.textContent = "挑选中…";
         try {
           await generateDigest();
           if (!stillOnNews()) return; // AI 生成期间已切走路由，放弃重渲染
@@ -632,7 +632,7 @@
           routes.news.render(el);
         } catch (err) {
           dg.disabled = false;
-          dg.textContent = "✨ 今日精选";
+          dg.innerHTML = WB.icon("sparkle") + " 今日精选";
           WB.showToast("今日精选生成失败：" + err.message, "error");
         }
       });
@@ -643,14 +643,14 @@
       dp.querySelector("#digestRegen").addEventListener("click", async (e) => {
         const b = e.target;
         b.disabled = true;
-        b.textContent = "🔄 生成中…";
+        b.textContent = "生成中…";
         try {
           await generateDigest();
           if (!stillOnNews()) return; // AI 生成期间已切走路由，放弃重渲染
           routes.news.render(el);
         } catch (err) {
           b.disabled = false;
-          b.textContent = "🔄 重新生成";
+          b.innerHTML = WB.icon("refresh") + " 重新生成";
           WB.showToast("今日精选生成失败：" + err.message, "error");
         }
       });

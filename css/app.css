@@ -43,6 +43,10 @@
   --warn:          #8f6400;   /* 预警金 */
   --ok:            #2e7d4f;   /* 正点绿 */
   --purple:        #7b5ab0;   /* 图表系列色（睡眠等） */
+  /* 涨跌语义色：股票模块专用（A股红涨绿跌）。与财务模块 --ok/--danger（收入/支出）
+     分离，避免同一 token 跨模块语义相反造成困惑。 */
+  --rise:          #b3261e;   /* 涨 = 红 */
+  --fall:          #2e7d4f;   /* 跌 = 绿 */
   --shadow-sm: 0 1px 3px rgba(84, 60, 20, 0.09);
   --shadow-md: 0 2px 6px rgba(84, 60, 20, 0.07), 0 12px 28px -16px rgba(84, 60, 20, 0.18);
   --shadow-lg: 0 4px 10px rgba(84, 60, 20, 0.08), 0 24px 48px -22px rgba(84, 60, 20, 0.32);
@@ -79,6 +83,8 @@
   --warn:          #e2b04c;   /* 预警金 */
   --ok:            #57b06b;   /* 正点绿 */
   --purple:        #9b7fd4;   /* 图表系列色（睡眠等） */
+  --rise:          #e0553f;   /* 涨 = 红 */
+  --fall:          #57b06b;   /* 跌 = 绿 */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.42), 0 14px 30px -18px rgba(0, 0, 0, 0.62);
   --shadow-lg: 0 6px 14px rgba(0, 0, 0, 0.45), 0 30px 60px -24px rgba(0, 0, 0, 0.72);
@@ -588,6 +594,87 @@ input.invalid, select.invalid, textarea.invalid {
   white-space: nowrap;
 }
 
+/* 涨跌文字（股票）：rise=红 涨 / fall=绿 跌（A股惯例） */
+.rise { color: var(--rise); }
+.fall { color: var(--fall); }
+
+/* 语义色圆点：尺寸统一，颜色由 data-color/inline 提供 */
+.dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+
+/* 强调链接（替代内联 color:var(--accent)） */
+.accent-link { color: var(--accent); }
+.accent-link:hover { color: var(--accent-hover); text-decoration: underline; }
+
+/* 卡片头部 .count 内嵌控件（习惯月份切换等） */
+.count-ctrl { display: flex; gap: 6px; align-items: center; }
+
+/* 资讯今日精选：序号 + 标题链接 */
+.rank-num { color: var(--muted); margin-right: 6px; }
+.dl-title { font-weight: 700; text-decoration: none; }
+.dl-title:hover { color: var(--accent); }
+
+/* ============================================================
+   设计规范 · 通用工具类（收敛各模块散落的内联样式）
+   ------------------------------------------------------------
+   原则：静态布局 / 间距 / 字号 / 输入尺寸一律走类，不再内联；
+   数据驱动的动态色（分类色 dot、涨跌、图表）仍按需内联 token。
+   ============================================================ */
+
+/* —— 副注文字：替代散落各处 "font-size:12px;color:var(--muted)" —— */
+.sub {
+  font-size: 12px; color: var(--muted); line-height: 1.6;
+}
+.sub-11 { font-size: 11px; color: var(--muted); line-height: 1.6; }
+.sub-13 { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+/* —— 间距刻度：sp-<side>-<scale>，替代散落的 6/8/10/12/14/16px —— */
+.sp-t-xs  { margin-top: 6px; }    .sp-b-xs  { margin-bottom: 6px; }
+.sp-t-sm  { margin-top: 8px; }    .sp-b-sm  { margin-bottom: 8px; }
+.sp-t-md  { margin-top: 10px; }   .sp-b-md  { margin-bottom: 10px; }
+.sp-t-lg  { margin-top: 12px; }   .sp-b-lg  { margin-bottom: 12px; }
+.sp-t-xl  { margin-top: 14px; }   .sp-b-xl  { margin-bottom: 14px; }
+.sp-t-2x  { margin-top: 16px; }   .sp-b-2x  { margin-bottom: 16px; }
+.sp-t-3x  { margin-top: 20px; }   .sp-b-3x  { margin-bottom: 20px; }
+
+/* —— 输入尺寸刻度（配合固定宽度刻度 .w-* 使用） —— */
+.input-xs { padding: 4px 9px; font-size: 12px; border-radius: var(--radius-xs); }
+.input-sm { padding: 6px 11px; font-size: 12.5px; }
+.input-md { padding: 9px 13px; font-size: 14px; }
+
+/* —— 固定输入宽度刻度（替代内联 style="width:xxx"） —— */
+.w-60  { width: 60px !important; }  .w-80  { width: 80px !important; }
+.w-90  { width: 90px !important; }  .w-100 { width: 100px !important; }
+.w-110 { width: 110px !important; } .w-120 { width: 120px !important; }
+.w-130 { width: 130px !important; } .w-140 { width: 140px !important; }
+.w-150 { width: 150px !important; } .w-160 { width: 160px !important; }
+.w-170 { width: 170px !important; } .w-180 { width: 180px !important; }
+.w-200 { width: 200px !important; } .w-230 { width: 230px !important; }
+.w-250 { width: 250px !important; }
+
+/* —— 按钮尺寸语义：表单内「添加 / 提交」主操作统一为紧凑小按钮 —— */
+.in-card-btn { padding: 5px 13px; font-size: 12px; }
+/* 独立浮层/首屏大按钮 */
+.hero-btn { padding: 9px 18px; font-size: 14px; }
+
+/* —— tab 即按钮：使 <button class="tab"> 与 <span class="tab"> 渲染一致 —— */
+button.tab { font-family: inherit; letter-spacing: inherit; }
+button.tab:focus-visible { outline-offset: 0; }
+.tab svg { width: 13px; height: 13px; display: inline-block; vertical-align: -0.15em; margin-right: 3px; }
+
+/* —— 通用图标按钮内联 SVG 对齐 —— */
+.inline-svg { display: inline-flex; vertical-align: -0.125em; }
+.inline-svg svg { width: 14px; height: 14px; }
+
+/* —— 列表式条目组（卡片内 ul/div 纵向条目，复用 .list 语义） —— */
+.stack { display: flex; flex-direction: column; }
+.stack-sm { display: flex; flex-direction: column; gap: 4px; }
+.stack-md { display: flex; flex-direction: column; gap: 8px; }
+
+/* —— 右侧自动吸附（替代内联 margin-left:auto 分隔） —— */
+.mla { margin-left: auto; }
+
 /* ============ 仪表盘 ============ */
 .hero-greet {
   font-size: clamp(30px, 4.6vw, 42px); font-weight: 800;
@@ -958,6 +1045,13 @@ input.invalid, select.invalid, textarea.invalid {
   line-height: 1.75; color: var(--ink-2);
   padding: 4px 0;
 }
+/* 笔记列表滚动容器 + 预览高度（替代内联样式） */
+.note-scroll {
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: 520px; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.n-preview { min-height: 300px; padding: 6px 2px; }
 .md-preview h1, .md-preview h2, .md-preview h3 {
   font-weight: 800; margin: 20px 0 10px;
   line-height: 1.25; letter-spacing: -0.02em; color: var(--ink);
@@ -1494,6 +1588,7 @@ input.invalid, select.invalid, textarea.invalid {
 .ql-card:hover .ql-ops { opacity: 1; }
 .ql-ops .icon-btn { background: var(--card); border: 1px solid var(--line); }
 .ql-card { cursor: pointer; }
+.ql-empty { grid-column: 1 / -1; }
 .ql-cred {
   position: absolute; top: 8px; left: 8px;
   font-size: 13px; opacity: 0; transition: opacity .15s;
@@ -1827,6 +1922,13 @@ mark.news-kw {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.drive-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 .drive-header h2 {
   margin: 0;
@@ -2012,6 +2114,26 @@ mark.news-kw {
   font-size: 15px;
   font-weight: 800;
 }
+
+/* 统计报表：习惯进度条 */
+.hp-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.hp-bar {
+  flex: 1; height: 4px; background: var(--card2); border-radius: 2px;
+  overflow: hidden;
+}
+.hp-bar-fill {
+  height: 100%; border-radius: 2px; transition: width .3s;
+}
+.hp-pct {
+  font-size: 11px; color: var(--muted); font-family: var(--mono);
+  white-space: nowrap;
+}
+
+/* 考公：图表标题栏（含筛选下拉）+ 笔记速览可点 + 模考排名/备注 */
+.chart-tt-flex { display: flex; justify-content: space-between; align-items: center; }
+.gk-note-li { cursor: pointer; }
+.exam-rank { color: var(--muted); font-size: 12px; }
+
 
 /* ================= 登录遮罩：检票口 ================= */
 .login-mask {
@@ -2460,6 +2582,10 @@ mark.news-kw {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 0; font-size: 13px;
 }
+.cal-detail-task.done { text-decoration: line-through; color: var(--muted); }
+.cal-detail-ok { color: var(--ok); font-weight: 700; flex-shrink: 0; }
+.cal-detail-txt { flex: 1; min-width: 0; }
+.cal-detail-txt.badge { flex: 0 0 auto; }
 /* 详情内流水行 */
 .cal-detail-tx {
   display: flex; align-items: center; justify-content: space-between;
@@ -2473,6 +2599,11 @@ mark.news-kw {
 /* 详情内当日合计 */
 .cal-detail-total {
   font-weight: 800; font-size: 13px; margin-top: 8px;
+  padding-top: 8px; border-top: 1px solid var(--line);
+}
+/* 详情卡头部（选中日期） */
+.cal-detail-head {
+  font-size: 14px; font-weight: 800; margin-bottom: 8px; color: var(--ink);
 }
 
 /* ---------- 月历视图适配补充 ----------

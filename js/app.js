@@ -499,7 +499,7 @@
                   <option value="study">学习</option>
                   <option value="other-e">其它</option>
                 </select>
-                <input id="dFinAmount" type="number" min="0.01" step="0.01" placeholder="金额" style="width:90px" />
+                <input id="dFinAmount" type="number" min="0.01" step="0.01" placeholder="金额" class="w-90" />
                 <input class="grow" id="dFinNote" placeholder="备注（可选）" maxlength="50" />
                 <button class="btn sm" id="dFinAdd">记账</button>
               </div>
@@ -736,8 +736,8 @@
           </div>
           <div class="set-row">
             <span class="s-name">修改密码</span>
-            <input id="pwdOld" type="password" placeholder="原密码" autocomplete="current-password" style="width:120px" />
-            <input id="pwdNew" type="password" placeholder="新密码（至少 6 位）" autocomplete="new-password" style="width:150px" />
+            <input id="pwdOld" type="password" placeholder="原密码" autocomplete="current-password" class="w-120" />
+            <input id="pwdNew" type="password" placeholder="新密码（至少 6 位）" autocomplete="new-password" class="w-150" />
             <button class="btn sm" id="pwdSaveBtn">修改</button>
           </div>
           <div class="set-row">
@@ -754,8 +754,8 @@
           <h2>用户管理<span class="count">仅管理员</span></h2>
           <div class="set-row">
             <span class="s-name">新建用户</span>
-            <input id="nuName" placeholder="用户名（2-20 位字母/数字）" maxlength="20" style="width:170px" />
-            <input id="nuPwd" type="password" placeholder="初始密码（至少 6 位）" style="width:150px" />
+            <input id="nuName" placeholder="用户名（2-20 位字母/数字）" maxlength="20" class="w-170" />
+            <input id="nuPwd" type="password" placeholder="初始密码（至少 6 位）" class="w-150" />
             <button class="btn sm" id="nuAddBtn">创建</button>
           </div>
           <div class="set-row">
@@ -767,7 +767,7 @@
           <h2>个人资料</h2>
           <div class="set-row">
             <span class="s-name">昵称</span>
-            <input id="nickInput" maxlength="12" value="${esc(nickname)}" style="width:180px" />
+            <input id="nickInput" maxlength="12" value="${esc(nickname)}" class="w-180" />
             <button class="btn sm" id="nickSave">保存</button>
           </div>
         </div>

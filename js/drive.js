@@ -139,7 +139,7 @@
   // ========== 文件列表渲染
   function renderFileList(items, drive) {
     if (!items || items.length === 0) {
-      return `<div class="empty" style="cursor:pointer;" onclick="window.WB.drive.goBack()">目录为空<br><span style="font-size:12px;color:var(--muted);">点击返回上一级</span></div>`;
+      return `<div class="empty" style="cursor:pointer;" onclick="window.WB.drive.goBack()">目录为空<br><span class="sub">点击返回上一级</span></div>`;
     }
     // 文件夹在前，按名称排序
     const sorted = items.slice().sort(function (a, b) {
@@ -275,9 +275,9 @@
       <div class="drive-container">
         <div class="drive-header">
           <h2>我的网盘</h2>
-          <div style="display: flex; gap: 8px; align-items: center;">
-            <input type="text" id="driveSearchInput" placeholder="搜索文件..." style="width: 220px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); font-size: 13px; background: var(--card); color: var(--ink);" />
-            <button class="btn sm" onclick="window.WB.drive.refreshAll()">刷新状态</button>
+          <div class="drive-header-actions">
+            <input type="text" id="driveSearchInput" class="input input-sm w-200" placeholder="搜索文件..." />
+            <button class="btn sm" onclick="window.WB.drive.refreshAll()">${WB.icon("refresh")} 刷新状态</button>
           </div>
         </div>
         <div class="drive-grid" id="driveGrid">
@@ -336,9 +336,9 @@
       el.innerHTML = `
       <div class="drive-browser">
         <div class="browser-header">
-          <button class="btn sm back-btn" onclick="window.WB.drive.backToList()">← 返回网盘列表</button>
+          <button class="btn sm back-btn" onclick="window.WB.drive.backToList()">${WB.icon("back")} 返回网盘列表</button>
           <h2>${({quark: "🟡 夸克网盘", baidu: "🔵 百度网盘"})[driveKey] || driveKey}</h2>
-          <input type="text" id="driveFileSearch" placeholder="搜索当前目录..." style="margin-left: auto; width: 200px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); font-size: 13px; background: var(--card); color: var(--ink);" />
+          <input type="text" id="driveFileSearch" class="input input-sm w-200 mla" placeholder="搜索当前目录..." />
         </div>
         <div class="browser-path">
           ${renderBreadcrumb(driveKey)}
@@ -364,7 +364,7 @@
       <div class="card">
         <div class="empty">
           ⚠️ 加载失败：${esc(e.message)}<br />
-          <span style="font-size:12px;color:var(--muted);margin-top:8px;display:block;">可能是 Cookie 已过期，请去设置页重新配置</span>
+          <span class="sub sp-t-sm" style="display:block;">可能是 Cookie 已过期，请去设置页重新配置</span>
           <br />
           <button class="btn sm" onclick="window.WB.drive.backToList()">返回</button>
           <button class="btn sm" onclick="location.hash='#/settings'">去配置</button>

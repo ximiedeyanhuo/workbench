@@ -184,7 +184,7 @@
       <div class="progress-top"><span>已存 ${fmtMoney(saved)} / ${fmtMoney(target)}</span><b>${pct}%</b></div>
       <div class="bar"><i style="width:${pct}%"></i></div>
       <div class="tx-goal-edit">
-        目标金额 <input type="number" id="finTarget" value="${Number(target)}" min="0" /> 元 <span style="margin-left:auto">仅统计「储蓄」类型</span>
+        目标金额 <input type="number" id="finTarget" value="${Number(target)}" min="0" /> 元 <span class="mla">仅统计「储蓄」类型</span>
       </div>
     </div>`;
   }
@@ -209,7 +209,7 @@
       <div class="bar"><i style="width:${pct}%;${over ? "background:var(--danger)" : warn80 ? "background:var(--warn)" : ""}"></i></div>` : ""}
       ${tip}
       <div class="tx-goal-edit">
-        每月预算 <input type="number" id="finBudget" value="${Number(budget) || ""}" min="0" placeholder="如 3000" /> 元 <span style="margin-left:auto">仅统计「支出」类型</span>
+        每月预算 <input type="number" id="finBudget" value="${Number(budget) || ""}" min="0" placeholder="如 3000" /> 元 <span class="mla">仅统计「支出」类型</span>
       </div>
     </div>`;
   }
@@ -222,7 +222,7 @@
             const c = catOf(cats, "expense", tp.category);
             return `<li class="item" data-tpl="${tp.id}">
               <span class="tx-dot" style="background:${esc(c.color)}"></span>
-              <span class="txt">${esc(tp.name)}<div style="font-size:12px;color:var(--muted)">${esc(c.name)} · ${fmtYuan(tp.amount)} 元</div></span>
+              <span class="txt">${esc(tp.name)}<div class="sub">${esc(c.name)} · ${fmtYuan(tp.amount)} 元</div></span>
               <button class="btn sm" data-act="use-tpl" title="按模板记一笔今天的支出">记入</button>
               <button class="icon-btn" data-act="del-tpl" title="删除模板">${WB.icon("del")}</button>
             </li>`;
@@ -233,10 +233,10 @@
     return `<div class="card" id="finTplCard">
       <h2>固定支出模板<span class="count">${templates.length} 个</span></h2>
       <ul class="list">${rows}</ul>
-      <div class="row" style="margin-top:10px">
-        <input id="tplName" placeholder="名称，如：房租" style="width:110px" maxlength="20" />
+      <div class="row sp-t-md">
+        <input id="tplName" placeholder="名称，如：房租" class="w-110" maxlength="20" />
         <select id="tplCat">${catOpts}</select>
-        <input type="number" id="tplAmount" placeholder="金额" style="width:90px" min="0.01" step="0.01" />
+        <input type="number" id="tplAmount" placeholder="金额" class="w-90" min="0.01" step="0.01" />
         <button class="btn sm" id="tplAdd">存模板</button>
       </div>
     </div>`;
@@ -251,7 +251,7 @@
             const modeTxt = s.mode === "auto" ? "每月自动记入" : "到期提醒";
             return `<li class="item" data-sched="${s.id}">
               <span class="tx-dot" style="background:${esc(c.color)}"></span>
-              <span class="txt">${esc(s.name)}<div style="font-size:12px;color:var(--muted)">每月 ${s.dueDay} 号 · ${esc(c.name)} · ${fmtYuan(s.amount)} 元</div></span>
+              <span class="txt">${esc(s.name)}<div class="sub">每月 ${s.dueDay} 号 · ${esc(c.name)} · ${fmtYuan(s.amount)} 元</div></span>
               <span class="badge ${s.mode === "auto" ? "b-ok" : "b-warn"}" data-act="toggle-sched" title="点击切换自动记入/到期提醒">${modeTxt}</span>
               <button class="icon-btn" data-act="del-sched" title="删除定期账单">${WB.icon("del")}</button>
             </li>`;
@@ -262,18 +262,18 @@
     return `<div class="card" id="finSchedCard">
       <h2>定期账单<span class="count">${schedules.length} 项</span></h2>
       <ul class="list">${rows}</ul>
-      <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
+      <div class="stack-md sp-t-md">
         <div class="row">
-          <input id="schedName" placeholder="名称，如：房贷" style="width:100px" maxlength="20" />
+          <input id="schedName" placeholder="名称，如：房贷" class="w-100" maxlength="20" />
           <select id="schedType"><option value="expense">支出</option><option value="income">收入</option></select>
           <select id="schedCat">${catOpts}</select>
-          <input type="number" id="schedAmount" placeholder="金额" style="width:90px" min="0.01" step="0.01" />
+          <input type="number" id="schedAmount" placeholder="金额" class="w-90" min="0.01" step="0.01" />
         </div>
         <div class="row">
-          <span style="font-size:12px;color:var(--muted);white-space:nowrap">每月</span>
-          <input type="number" id="schedDay" placeholder="15" style="width:60px" min="1" max="31" />
-          <span style="font-size:12px;color:var(--muted);white-space:nowrap">号自动记入 / 到期提醒</span>
-          <button class="btn sm" id="schedAdd" style="margin-left:auto">添加</button>
+          <span class="sub" style="white-space:nowrap">每月</span>
+          <input type="number" id="schedDay" placeholder="15" class="w-60" min="1" max="31" />
+          <span class="sub" style="white-space:nowrap">号自动记入 / 到期提醒</span>
+          <button class="btn sm mla" id="schedAdd">添加</button>
         </div>
       </div>
     </div>`;
@@ -350,7 +350,7 @@
     return `<li class="tx-item tx-editing" data-id="${t.id}" data-type="${t.type}">
       <div class="row tx-edit-form">
         <select data-ed="cat">${opts}</select>
-        <input type="number" data-ed="amount" value="${t.amount}" min="0" step="0.01" style="width:100px" />
+        <input type="number" data-ed="amount" value="${t.amount}" min="0" step="0.01" class="w-100" />
         <input data-ed="note" value="${esc(t.note)}" placeholder="备注" maxlength="40" class="grow" />
         <input type="date" data-ed="date" value="${esc(t.date)}" />
         <button class="btn sm" data-act="save-fin">保存</button>
@@ -595,7 +595,7 @@
     return `<div class="tx-cat-mgr" id="finCatMgr">
       <div class="tx-cat-chips">${chips}</div>
       <div class="row" style="margin-top:8px">
-        <input id="finNewCatName" placeholder="新分类名" maxlength="8" style="width:120px" />
+        <input id="finNewCatName" placeholder="新分类名" maxlength="8" class="w-120" />
         <input type="color" id="finNewCatColor" value="#3B82F6" title="分类颜色" />
         <button class="btn sm" id="finAddCat">添加分类</button>
         <span class="tx-cat-tip">预置分类不可删；删除自定义分类不影响已有记录</span>
@@ -631,13 +631,13 @@
 
     // "全部"模式不提供记一笔（需要具体类型），给出提示
     const addFormHtml = finTab === "all"
-      ? `<div class="row tx-form" style="margin-bottom:8px;color:var(--muted);font-size:12.5px">当前为全部类型视图 · 切到上方具体类型标签即可记一笔</div>`
-      : `<div class="row tx-form" style="margin-bottom:8px">
+      ? `<div class="row tx-form sp-b-sm" style="color:var(--muted);font-size:12.5px">当前为全部类型视图 · 切到上方具体类型标签即可记一笔</div>`
+      : `<div class="row tx-form sp-b-sm">
         <select id="finCategory">${catOpts}</select>
-        <input type="number" id="finAmount" placeholder="金额" style="width:100px" min="0" step="0.01" />
+        <input type="number" id="finAmount" placeholder="金额" class="w-100" min="0" step="0.01" />
         <input class="grow" id="finNote" placeholder="备注（可空）" maxlength="40" />
         <input type="date" id="finDate" value="${finSelDay || todayStr()}" />
-        <button class="btn" id="finAdd">记一笔</button>
+        <button class="btn in-card-btn" id="finAdd">记一笔</button>
       </div>`;
 
     // 年份选项：数据中实际存在的年份 + 当前年（降序），另含"全部年份"
@@ -649,18 +649,18 @@
 
     return `<div class="card" id="finListCard">
       <h2>流水明细
-        <span style="margin-left:auto">
+        <span class="mla">
           <select id="finYearSel" class="tx-year-sel" title="选择年份；「全部年份」查看所有流水">
             <option value="" ${finAllYears ? "selected" : ""}>全部年份</option>
             ${yearOpts}
           </select>
         </span>
       </h2>
-      <div class="tabs" id="txTabs" style="margin-bottom:12px">${typeToggle}</div>
+      <div class="tabs sp-b-lg" id="txTabs">${typeToggle}</div>
       ${addFormHtml}
-      <div class="row tx-filter" style="margin-bottom:8px">
+      <div class="row tx-filter sp-b-sm">
         <select id="finFilterCat">${filterOpts}</select>
-        <input id="finKeyword" placeholder="搜备注…" value="${esc(finKeyword)}" style="width:110px" />
+        <input id="finKeyword" placeholder="搜备注…" value="${esc(finKeyword)}" class="w-110" />
         <input type="date" id="finDateStart" value="${esc(finDateStart)}" title="交易日期-起" />
         <span class="tx-range-sep">~</span>
         <input type="date" id="finDateEnd" value="${esc(finDateEnd)}" title="交易日期-止" />
