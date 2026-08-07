@@ -4,6 +4,17 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>个人工作台</title>
+<script>
+/* 防主题闪烁（FOUC）：在首帧绘制前同步应用本地缓存的主题，
+   避免暗色模式用户刷新时先闪一帧亮色再切暗色。与 app.js 的
+   initTheme 用同一 key（wb2_theme）与默认值（light）。 */
+(function () {
+  try {
+    var t = localStorage.getItem("wb2_theme") || "light";
+    document.documentElement.setAttribute("data-theme", t);
+  } catch (e) { /* 隐私模式等忽略 */ }
+})();
+</script>
 <link rel="manifest" href="/manifest.json" />
 <meta name="theme-color" content="#a94f08" />
 <link rel="stylesheet" href="css/app.css" />
