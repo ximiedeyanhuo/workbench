@@ -180,6 +180,10 @@
       '</div>' +
       '<div id="rptStkRows"><div class="empty">暂无持仓记录</div></div>' +
       '</div>' +
+      '<div class="card" style="margin-bottom:16px">' +
+      '<h2>理财买卖流水（' + year + '年）</h2>' +
+      '<div id="rptStkFlow"><div class="empty">该年度暂无理财交易流水</div></div>' +
+      '</div>' +
       '<div class="card"><h2>月度汇总</h2>' +
       '<div class="tx-year-wrap"><table class="tx-year-table">' +
       "<thead><tr><th>月份</th><th>收入</th><th>支出</th><th>结余</th></tr></thead>" +
@@ -187,16 +191,40 @@
 
     renderFinanceCharts(el, monthlyInc, monthlyExp, catEntries);
     fillStockStats(el);
+    renderStockFlow(el, year);
+  }
+
+  /** 按 code 聚合流水为持仓组（ES5，含旧快照迁移）：holding=Σ买-Σ卖，avgCost=Σ(买量×价)/Σ买量 */
+  function aggregateStockHoldings(txs) {
+    var groups = {};
+    txs.forEach(function (tx) {
+      if (!tx.code) return;
+      var g = groups[tx.code] || (groups[tx.code] = { code: tx.code, name: tx.name, type: tx.type, holding: 0, avgCost: 0, buyShares: 0, buyAmt: 0 });
+      if (tx.action === "sell") {
+        g.holding -= tx.shares;
+      } else {
+        g.holding += tx.shares;
+        g.buyShares += tx.shares;
+        g.buyAmt += tx.shares * tx.price;
+      }
+    });
+    return Object.keys(groups).map(function (code) {
+      var g = groups[code];
+      g.avgCost = g.buyShares > 0 ? g.buyAmt / g.buyShares : 0;
+      return g;
+    });
   }
 
   async function fillStockStats(el) {
     var list = await stocksRepo.list();
-    var rows = (list || []).map(function (r) {
+    var txs = (list || []).map(function (r) {
+      if (!r.action) { r.action = "buy"; r.price = r.cost; r.date = (r.createdAt || "").slice(0, 10); }
       return { id: r.id, code: r.code || "", name: r.name || r.code || "",
-               shares: Number(r.shares || 0), cost: Number(r.cost || 0),
-               type: r.type || "stock" };
+               shares: Number(r.shares || 0), price: Number(r.price || 0),
+               type: r.type || "stock", action: r.action || "buy" };
     });
     if (!el.isConnected) return;
+    var rows = aggregateStockHoldings(txs).filter(function (g) { return g.holding > 0; });
     if (!rows.length) return;
 
     var stockRows = rows.filter(function (r) { return r.type !== "fund"; });
@@ -209,18 +237,19 @@
       if (!el.isConnected) return;
       if (quoteMap || navMap) quoted = true;
     }
-    var all = rows.map(function (r) {
+    var all = rows.map(function (g) {
       var q = null;
-      if (r.type === "fund") q = navMap ? navMap[r.code] || null : null;
-      else q = quoteMap ? quoteMap[r.code] || null : null;
+      if (g.type === "fund") q = navMap ? navMap[g.code] || null : null;
+      else q = quoteMap ? quoteMap[g.code] || null : null;
       if (q) quoted = true;
-      return { r: r, q: q };
+      g.q = q;
+      return g;
     });
     var mv = 0, cost = 0, day = 0;
-    all.forEach(function (x) {
-      cost += x.r.cost * x.r.shares;
-      if (x.q) { mv += x.q.price * x.r.shares; day += x.q.change * x.r.shares; }
-      else mv += x.r.cost * x.r.shares;
+    all.forEach(function (g) {
+      cost += g.avgCost * g.holding;
+      if (g.q) { mv += g.q.price * g.holding; day += g.q.change * g.holding; }
+      else mv += g.avgCost * g.holding;
     });
     var pl = quoted ? mv - cost : 0;
     var mvTxt = quoted ? fmtYuan(mv) : "—";
@@ -238,26 +267,69 @@
     var box = el.querySelector("#rptStkRows");
     if (box) {
       box.innerHTML = '<div class="tx-year-wrap"><table class="tx-year-table">' +
-        "<thead><tr><th>名称</th><th>类型</th><th>份额/数量</th><th>成本</th><th>现价</th><th>市值</th><th>盈亏</th></tr></thead><tbody>" +
-        all.map(function (x) {
-          var r = x.r, q = x.q, isFund = r.type === "fund";
-          var mv2 = q ? q.price * r.shares : 0;
-          var pl2 = q ? (q.price - r.cost) * r.shares : 0;
-          var plPct2 = q && r.cost > 0 ? ((q.price - r.cost) / r.cost) * 100 : 0;
-          var day2 = q ? q.change * r.shares : 0;
+        "<thead><tr><th>名称</th><th>类型</th><th>当前持仓</th><th>平均成本</th><th>现价</th><th>市值</th><th>盈亏</th></tr></thead><tbody>" +
+        all.map(function (g) {
+          var q = g.q, isFund = g.type === "fund";
+          var mv2 = q ? q.price * g.holding : 0;
+          var pl2 = q ? (q.price - g.avgCost) * g.holding : 0;
+          var plPct2 = q && g.avgCost > 0 ? ((q.price - g.avgCost) / g.avgCost) * 100 : 0;
+          var day2 = q ? q.change * g.holding : 0;
           var priceTxt = q ? (isFund && q.isMoney ? "1.0000" : isFund ? fmt4(q.price) : fmt2(q.price)) : "—";
           var priceSub = q ? (isFund && q.isMoney ? "万份 " + fmt4(q.pct) : (q.pct >= 0 ? "+" : "") + fmt2(q.pct) + "%") : "";
           return '<tr>' +
-            '<td>' + esc(r.name) + '<span class="stk-code">' + esc(r.code) + "</span></td>" +
+            '<td>' + esc(g.name) + '<span class="stk-code">' + esc(g.code) + "</span></td>" +
             '<td>' + (isFund ? "基金" : "股票") + "</td>" +
-            '<td>' + (isFund ? fmt2(r.shares * r.cost) : r.shares) + "</td>" +
-            '<td>' + (isFund ? fmt4(r.cost) : fmt2(r.cost)) + "</td>" +
+            '<td>' + (isFund ? fmt2(g.holding) : g.holding) + "</td>" +
+            '<td>' + (isFund ? fmt4(g.avgCost) : fmt2(g.avgCost)) + "</td>" +
             '<td style="color:' + (q ? udColor(q.change) : "var(--muted)") + '">' + priceTxt + '<span class="stk-sub">' + priceSub + "</span></td>" +
             '<td>' + (q ? fmt2(mv2) : "—") + "</td>" +
             '<td style="color:' + (q ? udColor(pl2) : "var(--muted)") + '">' + (q ? ((pl2 >= 0 ? "+" : "") + fmt2(pl2) + '<span class="stk-sub">' + (plPct2 >= 0 ? "+" : "") + fmt2(plPct2) + "%</span>") : "—") + "</td>" +
             "</tr>";
         }).join("") + "</tbody></table></div>";
     }
+  }
+
+  /** 理财买卖流水月度统计：按月汇总当年买入（流出红）/卖出（流入绿）/净额 */
+  function renderStockFlow(el, year) {
+    var box = el.querySelector("#rptStkFlow");
+    if (!box) return;
+    var list = stocksRepo.list();
+    if (!list || !list.then) return;
+    list.then(function (records) {
+      if (!el.isConnected) return;
+      var txs = (records || []).map(function (r) {
+        var date = (r.date || r.createdAt || "").slice(0, 10) || "";
+        return { action: r.action || "buy", shares: Number(r.shares || 0), price: Number(r.price || r.cost || 0), date: date };
+      });
+      var buyAmt = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+      var sellAmt = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+      var hasAny = false;
+      txs.forEach(function (tx) {
+        if (!tx.date || tx.date.slice(0, 4) !== String(year)) return;
+        var m = parseInt(tx.date.slice(5, 7), 10) - 1;
+        if (m < 0 || m > 11) return;
+        var amt = tx.shares * tx.price;
+        if (tx.action === "sell") sellAmt[m] += amt;
+        else buyAmt[m] += amt;
+        hasAny = true;
+      });
+      if (!hasAny) {
+        box.innerHTML = '<div class="empty">该年度暂无理财交易流水</div>';
+        return;
+      }
+      var rows = "";
+      for (var m = 0; m < 12; m++) {
+        var b = buyAmt[m], s = sellAmt[m], net = s - b;
+        var has = b || s;
+        rows += '<tr>' +
+          '<td>' + (m + 1) + "月</td>" +
+          '<td style="color:' + (b ? "var(--danger)" : "inherit") + '">' + (b ? "-" + fmtYuan(b) : "—") + "</td>" +
+          '<td style="color:' + (s ? "var(--ok)" : "inherit") + '">' + (s ? "+" + fmtYuan(s) : "—") + "</td>" +
+          '<td style="color:' + (net >= 0 ? "var(--ok)" : "var(--danger)") + '">' + (has ? (net >= 0 ? "+" : "") + fmtYuan(net) : "—") + "</td></tr>";
+      }
+      box.innerHTML = '<div class="tx-year-wrap"><table class="tx-year-table">' +
+        "<thead><tr><th>月份</th><th>买入</th><th>卖出</th><th>净额</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
+    });
   }
 
   function renderFinanceCharts(el, monthlyInc, monthlyExp, catEntries) {

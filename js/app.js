@@ -367,12 +367,28 @@
         : "";
 
       // 净资产总览：累计储蓄 + 持仓市值（股票行情 / 基金净值异步补齐，先按成本价兜底显示）
-      const stockHoldings = stocks.filter((r) => (r.type || "stock") !== "fund")
-        .map((r) => ({ code: r.code || "", shares: Number(r.shares || 0), cost: Number(r.cost || 0) }));
-      const fundHoldings = stocks.filter((r) => (r.type || "stock") === "fund")
-        .map((r) => ({ code: r.code || "", shares: Number(r.shares || 0), cost: Number(r.cost || 0) }));
-      const holdings = stockHoldings.concat(fundHoldings);
-      const stockCostVal = holdings.reduce((s, r) => s + r.cost * r.shares, 0);
+      // 按 code 聚合流水（含旧快照迁移：无 action 视为买入，price=cost）；holding=Σ买-Σ卖，avgCost=Σ买额/Σ买量
+      const aggregateStocks = (txs) => {
+        const groups = {};
+        txs.forEach((tx) => {
+          if (!tx.code) return;
+          const g = groups[tx.code] || (groups[tx.code] = { code: tx.code, name: tx.name, type: tx.type, holding: 0, buyShares: 0, buyAmt: 0 });
+          const shares = Number(tx.shares || 0);
+          const price = Number(tx.action ? (tx.price || 0) : (tx.cost || 0));
+          if (tx.action === "sell") g.holding -= shares;
+          else { g.holding += shares; g.buyShares += shares; g.buyAmt += shares * price; }
+        });
+        return Object.keys(groups).map((code) => {
+          const g = groups[code];
+          g.avgCost = g.buyShares > 0 ? g.buyAmt / g.buyShares : 0;
+          return g;
+        });
+      };
+      const allGroups = aggregateStocks(stocks);
+      const stockHoldings = allGroups.filter((g) => (g.type || "stock") !== "fund" && g.holding > 0);
+      const fundHoldings = allGroups.filter((g) => (g.type || "stock") === "fund" && g.holding > 0);
+      const holdings = allGroups.filter((g) => g.holding > 0);
+      const stockCostVal = holdings.reduce((s, g) => s + g.avgCost * g.holding, 0);
       const showNetWorth = saved > 0 || holdings.length > 0;
       const nwHtml = showNetWorth
         ? `<div class="card">
@@ -608,8 +624,8 @@
             let mv = 0, day = 0, quoted = false;
             holdings.forEach((r) => {
               const q = qmap[r.code];
-              if (q) { quoted = true; mv += q.price * r.shares; day += q.change * r.shares; }
-              else mv += r.cost * r.shares;
+              if (q) { quoted = true; mv += q.price * r.holding; day += q.change * r.holding; }
+              else mv += r.avgCost * r.holding;
             });
             if (!quoted) return;
             const sgn = (n) => (n > 0.005 ? "+" : n < -0.005 ? "-" : "") + fmtMoney(Math.abs(n));
@@ -617,7 +633,7 @@
             const col = day > 0.005 ? "var(--danger)" : day < -0.005 ? "var(--ok)" : "var(--muted)";
             stockEl.textContent = fmtMoney(mv);
             const subEl = el.querySelector("#nwStockSub");
-            if (subEl) subEl.textContent = `共 ${holdings.length} 笔持仓 · ${fundHoldings.length ? "股票 + 理财" : "实时行情"}`;
+            if (subEl) subEl.textContent = `共 ${holdings.length} 个标的 · ${fundHoldings.length ? "股票 + 理财" : "实时行情"}`;
             const dayEl = el.querySelector("#nwDay");
             if (dayEl) { dayEl.textContent = sgn(day); dayEl.style.color = col; }
             const totalEl = el.querySelector("#nwTotal");
