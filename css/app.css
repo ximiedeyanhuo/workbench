@@ -702,6 +702,67 @@ button.tab:focus-visible { outline-offset: 0; }
 /* —— 右侧自动吸附（替代内联 margin-left:auto 分隔） —— */
 .mla { margin-left: auto; }
 
+/* ============================================================
+   浮层反馈：加载指示 / Toast 提示 / 路由骨架屏
+   ------------------------------------------------------------
+   由 app.js 的 showLoading / showToast / navigate 动态创建，
+   类驱动替代原内联 cssText，纳入明暗主题 token 体系。
+   ============================================================ */
+.wb-loading {
+  position: fixed; top: 20px; right: 20px; z-index: 99999;
+  padding: 12px 20px; background: var(--card);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  display: flex; align-items: center; gap: 10px;
+  font-size: 14px; font-weight: 500; color: var(--ink);
+}
+.wb-loading .spinner {
+  width: 16px; height: 16px; flex-shrink: 0;
+  border: 2px solid var(--line); border-top-color: var(--accent);
+  border-radius: 50%; animation: wb-spin .8s linear infinite;
+}
+@keyframes wb-spin { to { transform: rotate(360deg); } }
+
+.wb-toast {
+  position: fixed; top: 20px; right: 20px; z-index: 99999;
+  padding: 12px 20px; background: var(--card);
+  border-left: 4px solid var(--accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  box-shadow: var(--shadow-lg);
+  font-size: 14px; font-weight: 500; color: var(--ink);
+  max-width: 320px;
+  animation: wb-toast-in .3s ease;
+}
+.wb-toast.success { border-left-color: var(--ok); }
+.wb-toast.error   { border-left-color: var(--danger); }
+.wb-toast.warning { border-left-color: var(--warn); }
+@keyframes wb-toast-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+.wb-toast.hide { opacity: 0; transform: translateX(100%); transition: all .3s ease; }
+
+/* —— 路由骨架屏：卡片位 shimmer 占位，提升感知性能 —— */
+.wb-skeleton { padding: 4px 0; }
+.wb-skeleton .sk-line {
+  height: 14px; border-radius: var(--radius-xs);
+  background: linear-gradient(90deg, var(--card2) 25%, var(--line) 37%, var(--card2) 63%);
+  background-size: 400% 100%;
+  animation: wb-shimmer 1.4s ease infinite;
+  margin-bottom: 12px;
+}
+.wb-skeleton .sk-line.short { width: 40%; }
+.wb-skeleton .sk-block {
+  height: 90px; border-radius: var(--radius);
+  background: linear-gradient(90deg, var(--card2) 25%, var(--line) 37%, var(--card2) 63%);
+  background-size: 400% 100%;
+  animation: wb-shimmer 1.4s ease infinite;
+}
+@keyframes wb-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
 /* ============ 仪表盘 ============ */
 .hero-greet {
   font-size: clamp(30px, 4.6vw, 42px); font-weight: 800;

@@ -11,47 +11,24 @@
     if (!el) {
       el = document.createElement("div");
       el.id = "globalLoading";
-      el.style.cssText = "position:fixed;top:20px;right:20px;z-index:99999;padding:12px 20px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.15);display:flex;align-items:center;gap:10px;font-size:14px;font-weight:500;color:var(--ink);";
-      el.innerHTML = '<span style="display:inline-block;width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;"></span><span id="loadingText">' + text + "</span>";
+      el.className = "wb-loading";
+      el.innerHTML = '<span class="spinner"></span><span id="loadingText"></span>';
       document.body.appendChild(el);
-      // 添加动画样式
-      if (!document.getElementById("spinStyle")) {
-        const style = document.createElement("style");
-        style.id = "spinStyle";
-        style.textContent = "@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}";
-        document.head.appendChild(style);
-      }
-    } else {
-      document.getElementById("loadingText").textContent = text;
-      el.style.display = "flex";
     }
+    document.getElementById("loadingText").textContent = text;
+    el.style.display = "flex";
     return function hide() {
       el.style.display = "none";
     };
   }
 
   function showToast(text, type = "info") {
-    const colors = {
-      success: "var(--ok)",
-      error: "var(--danger)",
-      warning: "#f59e0b",
-      info: "var(--accent)",
-    };
     const el = document.createElement("div");
-    el.style.cssText = "position:fixed;top:20px;right:20px;z-index:99999;padding:12px 20px;background:var(--card);border-left:4px solid " + colors[type] + ";border-radius:0 12px 12px 0;box-shadow:0 4px 20px rgba(0,0,0,0.15);font-size:14px;font-weight:500;color:var(--ink);max-width:320px;animation:slideIn 0.3s ease;";
+    el.className = "wb-toast " + (type === "success" ? "success" : type === "error" ? "error" : type === "warning" ? "warning" : "");
     el.textContent = text;
     document.body.appendChild(el);
-    // 添加滑入动画
-    if (!document.getElementById("slideStyle")) {
-      const style = document.createElement("style");
-      style.id = "slideStyle";
-      style.textContent = "@keyframes slideIn{0%{transform:translateX(100%);opacity:0}100%{transform:translateX(0);opacity:1}}";
-      document.head.appendChild(style);
-    }
     setTimeout(function () {
-      el.style.opacity = "0";
-      el.style.transform = "translateX(100%)";
-      el.style.transition = "all 0.3s ease";
+      el.classList.add("hide");
       setTimeout(function () { return el.parentNode && el.parentNode.removeChild(el); }, 300);
     }, 3000);
   }
@@ -118,7 +95,10 @@
     }
     closeMoreSheet();
     const view = document.getElementById("view");
-    view.innerHTML = '<div class="empty">加载中…</div>';
+    view.innerHTML = '<div class="wb-skeleton" aria-hidden="true">'
+      + '<div class="sk-line"></div><div class="sk-line"></div><div class="sk-line short"></div>'
+      + '<div class="sk-block"></div><div class="sk-block"></div>'
+      + '</div>';
     try {
       await route.render(view);
       if (token !== navSeq) return; // 渲染期间已切走：丢弃本次结果，避免污染新页面
