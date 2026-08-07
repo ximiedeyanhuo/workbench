@@ -204,7 +204,7 @@
               <button class="tab ${filter === "week" ? "on" : ""}" data-f="week">本周</button>
               <button class="tab ${filter === "done" ? "on" : ""}" data-f="done">已完成</button>
             </div>
-            <div class="tabs" style="align-items:center">
+            <div class="tabs align-c">
               ${view === "list" && overdueTasks.length ? `<button class="btn ghost sm" id="tPostpone" title="把所有逾期未完成任务的截止日改为今天">${WB.icon("forward")} 逾期顺延到今天（${overdueTasks.length}）</button>` : ""}
               <button class="tab ${view === "list" ? "on" : ""}" data-v="list">${WB.icon("list")} 列表</button>
               <button class="tab ${view === "calendar" ? "on" : ""}" data-v="calendar">${WB.icon("calendar")} 日历</button>
@@ -287,7 +287,7 @@
           panel.innerHTML = `<div class="ai-panel">
             <div class="ai-panel-tt">✨ 「${esc(title)}」拆解结果（取消勾选不需要的）</div>
             ${subs.map((s, i) => `<label class="ai-sub"><input type="checkbox" checked data-sub="${i}" /> ${esc(s)}</label>`).join("")}
-            <div class="row" style="margin-top:8px">
+            <div class="row sp-t-sm">
               <button class="btn sm" id="aiSubAdd">添加选中项为任务</button>
               <button class="btn ghost sm" id="aiSubClose">关闭</button>
             </div>

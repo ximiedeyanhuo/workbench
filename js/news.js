@@ -500,18 +500,18 @@
     return `
       ${offlineBanner}
       <div class="card">
-        <div class="row" style="align-items:center">
+        <div class="row align-c">
           <div class="tabs grow">${tabs}</div>
           <button class="${digestBtnClass}" id="digestBtn"${digestBtnAttrs}>${WB.icon("sparkle")} 今日精选</button>
           <button class="btn ghost sm" id="mgBtn">${manageOpen ? "收起管理" : WB.icon("plus") + " 管理源"}</button>
           <button class="${refreshBtnClass}" id="refreshBtn"${refreshBtnAttrs}>${WB.icon("refresh")} 刷新本类</button>
         </div>
-        <div class="row news-filter" style="align-items:center">
+        <div class="row news-filter align-c">
           <span class="news-filter-lab">时间：</span>
           <div class="tabs">${ranges}</div>
           <label class="news-unread-tg"><input type="checkbox" id="unreadOnly" ${unreadOnly ? "checked" : ""} /> 只看未读</label>
         </div>
-        <div class="row news-filter" style="align-items:center">
+        <div class="row news-filter align-c">
           <span class="news-filter-lab">关注词：</span>
           <input id="newsKw" class="grow" placeholder="关键词用逗号分隔，如：国考, 陕西, AI —— 命中标题的条目会置顶并高亮" maxlength="120" value="${esc(keywords.join(", "))}" />
         </div>

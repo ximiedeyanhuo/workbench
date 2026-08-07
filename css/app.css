@@ -653,6 +653,33 @@ input.invalid, select.invalid, textarea.invalid {
 .w-200 { width: 200px !important; } .w-230 { width: 230px !important; }
 .w-250 { width: 250px !important; }
 
+/* —— 文字色：替代内联 color:var(--*) —— */
+.c-danger { color: var(--danger); }
+.c-ok     { color: var(--ok); }
+.c-warn   { color: var(--warn); }
+.c-muted  { color: var(--muted); }
+.c-accent { color: var(--accent); }
+.c-white  { color: #fff; }
+
+/* —— 单属性杂项工具类 —— */
+.sp-l-md { margin-left: 10px; }
+.cur-p   { cursor: pointer; }
+.nowrap  { white-space: nowrap; }
+.align-c { align-items: center; }
+.mg0     { margin: 0; }
+.fx1     { flex: 1; }
+.fw7     { font-weight: 700; }
+.db      { display: block; }
+.dim     { opacity: 0.6; }
+
+/* —— 通用预览灯箱（drive.js 弹窗去重） —— */
+.lightbox { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
+.lightbox .lb-close { position: absolute; top: 15px; right: 20px; background: none; border: none; color: #fff; font-size: 40px; cursor: pointer; line-height: 1; }
+.lightbox .lb-body { max-width: 95%; max-height: 95%; overflow: auto; }
+.lightbox .lb-title { color: #fff; margin-bottom: 10px; text-align: center; }
+.lightbox .lb-media { max-width: 100%; max-height: 85vh; display: block; margin: 0 auto; }
+.lightbox .lb-frame { width: 100%; height: 85vh; border: none; }
+
 /* —— 按钮尺寸语义：表单内「添加 / 提交」主操作统一为紧凑小按钮 —— */
 .in-card-btn { padding: 5px 13px; font-size: 12px; }
 /* 独立浮层/首屏大按钮 */

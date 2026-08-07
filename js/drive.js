@@ -154,7 +154,7 @@
     // 非根目录时，显示「..」返回项
     if (currentPathIndex > 0) {
       html += `
-      <div class="file-item dir" style="opacity:0.6;" onclick="window.WB.drive.goBack()">
+      <div class="file-item dir dim" onclick="window.WB.drive.goBack()">
         <div class="file-icon">⬆️</div>
         <div class="file-info">
           <div class="file-name">返回上一级</div>
@@ -449,11 +449,11 @@
       const fileType = getFileType(fileName);
       if (fileType === "image") {
         const modalHtml = `
-        <div id="previewModal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;">
-          <button onclick="window.WB.drive.closePreview()" style="position:absolute;top:15px;right:20px;background:none;border:none;color:white;font-size:40px;cursor:pointer;line-height:1;">&times;</button>
-          <div style="max-width:95%;max-height:95%;overflow:auto;">
-            <div style="color:white;margin-bottom:10px;text-align:center;">${esc(fileName)}</div>
-            <img src="/api/drive/baidu/thumbnail?path=${encodeURIComponent(filePath)}" style="max-width:100%;max-height:85vh;display:block;margin:0 auto;" onerror="setTimeout(()=>{window.WB.drive.closePreview();window.WB.showToast('缩略图加载失败，请在百度网盘网页版查看','info')},100)" />
+        <div id="previewModal" class="lightbox">
+          <button onclick="window.WB.drive.closePreview()" class="lb-close">&times;</button>
+          <div class="lb-body">
+            <div class="lb-title">${esc(fileName)}</div>
+            <img src="/api/drive/baidu/thumbnail?path=${encodeURIComponent(filePath)}" class="lb-media" onerror="setTimeout(()=>{window.WB.drive.closePreview();window.WB.showToast('缩略图加载失败，请在百度网盘网页版查看','info')},100)" />
           </div>
         </div>`;
         document.body.insertAdjacentHTML("beforeend", modalHtml);
@@ -486,11 +486,11 @@
       let contentHtml = "";
 
       if (fileType === "image") {
-        contentHtml = `<img src="${data.download_url}" style="max-width:100%;max-height:85vh;display:block;margin:0 auto;" />`;
+        contentHtml = `<img src="${data.download_url}" class="lb-media" />`;
       } else if (fileType === "video") {
-        contentHtml = `<video src="${data.download_url}" controls autoplay style="max-width:100%;max-height:85vh;display:block;margin:0 auto;">您的浏览器不支持视频播放</video>`;
+        contentHtml = `<video src="${data.download_url}" controls autoplay class="lb-media">您的浏览器不支持视频播放</video>`;
       } else if (fileType === "pdf") {
-        contentHtml = `<iframe src="${data.download_url}" style="width:100%;height:85vh;border:none;"></iframe>`;
+        contentHtml = `<iframe src="${data.download_url}" class="lb-frame"></iframe>`;
       } else {
         window.WB.showToast("该文件类型暂不支持预览", "info");
         return;
@@ -498,10 +498,10 @@
 
       // 创建弹窗
       const modalHtml = `
-      <div id="previewModal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;">
-        <button onclick="window.WB.drive.closePreview()" style="position:absolute;top:15px;right:20px;background:none;border:none;color:white;font-size:40px;cursor:pointer;line-height:1;">&times;</button>
-        <div style="max-width:95%;max-height:95%;overflow:auto;">
-          <div style="color:white;margin-bottom:10px;text-align:center;">${esc(fileName)}</div>
+      <div id="previewModal" class="lightbox">
+        <button onclick="window.WB.drive.closePreview()" class="lb-close">&times;</button>
+        <div class="lb-body">
+          <div class="lb-title">${esc(fileName)}</div>
           ${contentHtml}
         </div>
       </div>`;
@@ -563,7 +563,7 @@
       <div class="set-row">
         <span class="s-name">Cookie 配置</span>
         <div style="flex:1;display:flex;gap:8px;align-items:center">
-          <input type="text" class="input" id="quarkCookieInput" placeholder="粘贴 Cookie 到此处" style="flex:1" />
+          <input type="text" class="input fx1" id="quarkCookieInput" placeholder="粘贴 Cookie 到此处" />
           <button class="btn sm" id="quarkSaveBtn">保存</button>
           <button class="btn sm" id="quarkTestBtn">测试</button>
         </div>
@@ -581,7 +581,7 @@
       <div class="set-row">
         <span class="s-name">Cookie 配置</span>
         <div style="flex:1;display:flex;gap:8px;align-items:center">
-          <input type="text" class="input" id="baiduCookieInput" placeholder="粘贴 Cookie 到此处" style="flex:1" />
+          <input type="text" class="input fx1" id="baiduCookieInput" placeholder="粘贴 Cookie 到此处" />
           <button class="btn sm" id="baiduSaveBtn">保存</button>
           <button class="btn sm" id="baiduTestBtn">测试</button>
         </div>

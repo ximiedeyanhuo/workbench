@@ -206,13 +206,13 @@
           dayExpense += amt;
           html += '<div class="cal-detail-tx">' +
             '<span class="cal-detail-txt">' + esc(tx.category || "") + (tx.note ? " \u00B7 " + esc(tx.note) : "") + '</span>' +
-            '<span style="color:var(--danger)">-' + fmtYuan(amt) + '</span>' +
+            '<span class="c-danger">-' + fmtYuan(amt) + '</span>' +
             '</div>';
         } else if (tx.type === "income") {
           dayIncome += amt;
           html += '<div class="cal-detail-tx">' +
             '<span class="cal-detail-txt">' + esc(tx.category || "") + (tx.note ? " \u00B7 " + esc(tx.note) : "") + '</span>' +
-            '<span style="color:var(--ok)">+' + fmtYuan(amt) + '</span>' +
+            '<span class="c-ok">+' + fmtYuan(amt) + '</span>' +
             '</div>';
         } else {
           html += '<div class="cal-detail-tx">' +
@@ -223,8 +223,8 @@
       });
       var net = dayIncome - dayExpense;
       html += '<div class="cal-detail-total">\u5F53\u65E5\u5408\u8BA1\uFF1A' +
-        '<span style="color:var(--ok)">\u6536\u5165 +' + fmtYuan(dayIncome) + '</span> \u00B7 ' +
-        '<span style="color:var(--danger)">\u652F\u51FA -' + fmtYuan(dayExpense) + '</span> \u00B7 ' +
+        '<span class="c-ok">\u6536\u5165 +' + fmtYuan(dayIncome) + '</span> \u00B7 ' +
+        '<span class="c-danger">\u652F\u51FA -' + fmtYuan(dayExpense) + '</span> \u00B7 ' +
         '<span style="color:' + (net >= 0 ? "var(--ok)" : "var(--danger)") + '">\u7ED3\u4F59 ' + (net >= 0 ? "+" : "") + fmtYuan(net) + '</span>' +
         '</div>';
     }

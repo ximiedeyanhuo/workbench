@@ -152,22 +152,22 @@
       <div class="tx-cards">
         <div class="tx-card">
           <span class="tx-card-lab">本月收入</span>
-          <b style="color:var(--ok)">+${fmtYuan(inc.amt)}</b>
+          <b class="c-ok">+${fmtYuan(inc.amt)}</b>
           <span class="tx-card-sub">${inc.cnt} 笔</span>
         </div>
         <div class="tx-card">
           <span class="tx-card-lab">本月支出</span>
-          <b style="color:var(--danger)">-${fmtYuan(exp.amt)}</b>
+          <b class="c-danger">-${fmtYuan(exp.amt)}</b>
           <span class="tx-card-sub">${exp.cnt} 笔</span>
         </div>
         <div class="tx-card">
           <span class="tx-card-lab">本年收入</span>
-          <b style="color:var(--ok)">+${fmtYuan(yinc.amt)}</b>
+          <b class="c-ok">+${fmtYuan(yinc.amt)}</b>
           <span class="tx-card-sub">${yinc.cnt} 笔</span>
         </div>
         <div class="tx-card">
           <span class="tx-card-lab">本年支出</span>
-          <b style="color:var(--danger)">-${fmtYuan(yexp.amt)}</b>
+          <b class="c-danger">-${fmtYuan(yexp.amt)}</b>
           <span class="tx-card-sub">${yexp.cnt} 笔</span>
         </div>
         <div class="tx-card">
@@ -270,9 +270,9 @@
           <input type="number" id="schedAmount" placeholder="金额" class="w-90" min="0.01" step="0.01" />
         </div>
         <div class="row">
-          <span class="sub" style="white-space:nowrap">每月</span>
+          <span class="sub nowrap">每月</span>
           <input type="number" id="schedDay" placeholder="15" class="w-60" min="1" max="31" />
-          <span class="sub" style="white-space:nowrap">号自动记入 / 到期提醒</span>
+          <span class="sub nowrap">号自动记入 / 到期提醒</span>
           <button class="btn sm mla" id="schedAdd">添加</button>
         </div>
       </div>
@@ -287,7 +287,7 @@
     return `<div class="card">
       <h2>本月支出分类</h2>
       <div class="tx-chart-meta">
-        <span>本月支出 <b style="color:var(--danger)">${fmtYuan(total)}</b></span>
+        <span>本月支出 <b class="c-danger">${fmtYuan(total)}</b></span>
         <span>${catSet.size} 个分类</span>
       </div>
       <div class="tx-chart-wrap"><canvas id="chartExp" height="180"></canvas></div>
@@ -306,8 +306,8 @@
     return `<div class="card">
       <h2>近 6 月收支</h2>
       <div class="tx-chart-meta">
-        <span>收入 <b style="color:var(--ok)">+${fmtYuan(incTotal)}</b></span>
-        <span>支出 <b style="color:var(--danger)">-${fmtYuan(expTotal)}</b></span>
+        <span>收入 <b class="c-ok">+${fmtYuan(incTotal)}</b></span>
+        <span>支出 <b class="c-danger">-${fmtYuan(expTotal)}</b></span>
       </div>
       ${hasData ? `<div class="tx-chart-wrap"><canvas id="chartTrend" height="180"></canvas></div>` : `<div class="empty tx-chart-empty">近 6 个月暂无收支记录</div>`}
     </div>`;
@@ -424,8 +424,8 @@
       if (finKeyword) base = base.filter((t) => (t.note || "").toLowerCase().includes(finKeyword.toLowerCase()));
       const inc = sumBy(base, "income"), exp = sumBy(base, "expense");
       sumBar = `<div class="tx-filter-sum">筛选范围：
-        <b style="color:var(--ok)">收入 ${fmtYuan(inc.amt)} (${inc.cnt}笔)</b>
-        <b style="color:var(--danger)">支出 ${fmtYuan(exp.amt)} (${exp.cnt}笔)</b>
+        <b class="c-ok">收入 ${fmtYuan(inc.amt)} (${inc.cnt}笔)</b>
+        <b class="c-danger">支出 ${fmtYuan(exp.amt)} (${exp.cnt}笔)</b>
         <b>结余 ${signedYuan(inc.amt - exp.amt)}</b>
         <span class="tx-cat-tip">当前列表：${typeLabel(finTab)} ${total} 笔</span>
       </div>`;
@@ -476,7 +476,7 @@
       detail = `<div class="tx-cal-detail-head">${finSelDay} 明细</div>` +
         groupedListHtml(cats, dayTx, "当日没有记录");
     }
-    return `<div class="cal-grid" id="txCal">${cells}</div><div id="finCalList" style="margin-top:14px">${detail}</div>`;
+    return `<div class="cal-grid" id="txCal">${cells}</div><div id="finCalList" class="sp-t-xl">${detail}</div>`;
   }
 
   /** 周账视图：finYear 内有记录的自然周（周一~周日），金额可点跳明细（需求 §3） */
@@ -543,8 +543,8 @@
       <tbody>${rows.join("")}</tbody>
       <tfoot><tr>
         <td>合计</td>
-        <td style="color:var(--ok)">+${fmtYuan(yIncome)}</td>
-        <td style="color:var(--danger)">-${fmtYuan(yExpense)}</td>
+        <td class="c-ok">+${fmtYuan(yIncome)}</td>
+        <td class="c-danger">-${fmtYuan(yExpense)}</td>
         <td style="color:${yNet >= 0 ? "var(--ok)" : "var(--danger)"}">${signedYuan(yNet)}</td>
         <td class="tx-yr-cnt">${fmtYuan(yExpense / 12)}</td>
         <td class="tx-yr-cnt">${yInCnt + yExCnt}</td>
@@ -594,7 +594,7 @@
       .join("");
     return `<div class="tx-cat-mgr" id="finCatMgr">
       <div class="tx-cat-chips">${chips}</div>
-      <div class="row" style="margin-top:8px">
+      <div class="row sp-t-sm">
         <input id="finNewCatName" placeholder="新分类名" maxlength="8" class="w-120" />
         <input type="color" id="finNewCatColor" value="#3B82F6" title="分类颜色" />
         <button class="btn sm" id="finAddCat">添加分类</button>
@@ -671,7 +671,7 @@
         <input type="file" id="finImportFile" accept=".csv,text/csv,.xlsx,.xlsm" hidden />
       </div>
       ${finShowCatMgr ? catMgrHtml(cats, custom) : ""}
-      <div id="finList" style="margin-top:12px">${buildListHtml(cats, txs)}</div>
+      <div id="finList" class="sp-t-lg">${buildListHtml(cats, txs)}</div>
     </div>`;
   }
 
@@ -706,7 +706,7 @@
           ${showNav ? `<button class="icon-btn plain" id="statNext" title="下一${isYearNav ? "年" : "个月"}">${WB.icon("next")}</button>` : ""}
         </span>
       </h2>
-      <div class="tabs" id="txViews" style="margin-bottom:12px">${viewToggle}</div>
+      <div class="tabs sp-b-lg" id="txViews">${viewToggle}</div>
       ${body}
     </div>`;
   }

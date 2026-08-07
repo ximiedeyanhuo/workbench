@@ -160,11 +160,11 @@
     el.innerHTML = '<div class="reports-tab-content">' +
       '<div class="card sp-b-2x">' +
       '<div class="row" style="justify-content:space-between;align-items:center">' +
-      '<h2 style="margin:0">年度财务报告</h2>' +
+      '<h2 class="mg0">年度财务报告</h2>' +
       '<select id="rptYear" class="tx-year-sel">' + yearOpts + "</select></div></div>" +
       '<div class="stat-grid">' +
-      '<div class="stat"><div class="s-lab">年支出</div><div class="s-val" style="color:var(--danger)">' + fmtYuan(expAmt) + '</div><div class="s-sub">' + exp.length + " 笔</div></div>" +
-      '<div class="stat"><div class="s-lab">年收入</div><div class="s-val" style="color:var(--ok)">' + fmtYuan(incAmt) + '</div><div class="s-sub">' + inc.length + " 笔</div></div>" +
+      '<div class="stat"><div class="s-lab">年支出</div><div class="s-val c-danger">' + fmtYuan(expAmt) + '</div><div class="s-sub">' + exp.length + " 笔</div></div>" +
+      '<div class="stat"><div class="s-lab">年收入</div><div class="s-val c-ok">' + fmtYuan(incAmt) + '</div><div class="s-sub">' + inc.length + " 笔</div></div>" +
       '<div class="stat"><div class="s-lab">年结余</div><div class="s-val" style="color:' + (net >= 0 ? "var(--ok)" : "var(--danger)") + '">' + (net >= 0 ? "+" : "") + fmtYuan(net) + "</div></div>" +
       '<div class="stat"><div class="s-lab">日均支出</div><div class="s-val">' + fmtYuan(dailyExp) + "</div></div></div>" +
       '<div class="chart-grid-2 sp-b-3x">' +
@@ -175,8 +175,8 @@
       '<div class="stat-grid" id="rptStkStats">' +
         '<div class="stat"><div class="s-lab">持仓市值</div><div class="s-val" id="rptStkMv">—</div></div>' +
         '<div class="stat"><div class="s-lab">持仓成本</div><div class="s-val" id="rptStkCost">—</div></div>' +
-        '<div class="stat"><div class="s-lab">持仓盈亏</div><div class="s-val" id="rptStkPl" style="color:var(--muted)">—</div></div>' +
-        '<div class="stat"><div class="s-lab">今日盈亏</div><div class="s-val" id="rptStkDay" style="color:var(--muted)">—</div></div>' +
+        '<div class="stat"><div class="s-lab">持仓盈亏</div><div class="s-val c-muted" id="rptStkPl">—</div></div>' +
+        '<div class="stat"><div class="s-lab">今日盈亏</div><div class="s-val c-muted" id="rptStkDay">—</div></div>' +
       '</div>' +
       '<div id="rptStkRows"><div class="empty">暂无持仓记录</div></div>' +
       '</div>' +
@@ -329,10 +329,10 @@
         '<td style="color:' + (net >= 0 ? "var(--ok)" : "var(--danger)") + '">' + (has ? (net >= 0 ? "+" : "") + fmtYuan(net) : "—") + "</td></tr>";
     }
     var netTotal = sellTotal - buyTotal;
-    rows += '<tr class="tx-yr-row" style="font-weight:700">' +
+    rows += '<tr class="tx-yr-row fw7">' +
       "<td>全年</td>" +
-      '<td style="color:var(--danger)">-' + fmtYuan(buyTotal) + "</td>" +
-      '<td style="color:var(--ok)">+' + fmtYuan(sellTotal) + "</td>" +
+      '<td class="c-danger">-' + fmtYuan(buyTotal) + "</td>" +
+      '<td class="c-ok">+' + fmtYuan(sellTotal) + "</td>" +
       '<td style="color:' + (netTotal >= 0 ? "var(--ok)" : "var(--danger)") + '">' + (netTotal >= 0 ? "+" : "") + fmtYuan(netTotal) + "</td></tr>";
     box.innerHTML = '<div class="tx-year-wrap"><table class="tx-year-table">' +
       "<thead><tr><th>月份</th><th>买入</th><th>卖出</th><th>净额</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
@@ -434,7 +434,7 @@
           var s = streakOf(h);
           return '<div class="item sp-b-sm">' +
             '<span class="pri-dot" style="background:' + esc(h.color) + '"></span>' +
-            '<span class="txt" style="flex:1">' + esc(h.name) +
+            '<span class="txt fx1">' + esc(h.name) +
             '<div class="sub sp-t-xs">总打卡 ' + totalDays + ' 天 · 连续 ' + s + ' 天</div>' +
             '<div class="hp-row">' +
             '<div class="hp-bar"><div class="hp-bar-fill" style="width:' + ratePct + '%;background:' + esc(h.color) + '"></div></div>' +
@@ -445,9 +445,9 @@
     el.innerHTML = '<div class="reports-tab-content">' +
       '<div class="stat-grid sp-b-3x">' +
       '<div class="stat"><div class="s-lab">习惯总数</div><div class="s-val">' + total + '</div></div>' +
-      '<div class="stat"><div class="s-lab">今日打卡</div><div class="s-val" style="color:var(--ok)">' + todayCheckins + '</div><div class="s-sub">' + (total > 0 ? Math.round(todayCheckins / total * 100) + "%" : "0%") + "</div></div>" +
+      '<div class="stat"><div class="s-lab">今日打卡</div><div class="s-val c-ok">' + todayCheckins + '</div><div class="s-sub">' + (total > 0 ? Math.round(todayCheckins / total * 100) + "%" : "0%") + "</div></div>" +
       '<div class="stat"><div class="s-lab">30 天人均打卡率</div><div class="s-val">' + avgRate + '%</div></div>' +
-      '<div class="stat"><div class="s-lab">连续最长</div><div class="s-val" style="color:var(--accent)">' + maxStreak + '</div><div class="s-sub">天</div></div>' +
+      '<div class="stat"><div class="s-lab">连续最长</div><div class="s-val c-accent">' + maxStreak + '</div><div class="s-sub">天</div></div>' +
       "</div>" +
       '<div class="chart-box sp-b-3x">' +
       '<div class="chart-tt">近 14 天每日打卡总数</div><canvas id="rptHabitBar" height="160"></canvas></div>' +
@@ -573,8 +573,8 @@
     el.innerHTML = '<div class="reports-tab-content">' +
       '<div class="stat-grid sp-b-3x">' +
       '<div class="stat"><div class="s-lab">总任务</div><div class="s-val">' + total + "</div></div>" +
-      '<div class="stat"><div class="s-lab">已完成</div><div class="s-val" style="color:var(--ok)">' + doneCount + '</div><div class="s-sub">' + (total > 0 ? Math.round(doneCount / total * 100) + "%" : "0%") + "</div></div>" +
-      '<div class="stat"><div class="s-lab">进行中</div><div class="s-val" style="color:var(--accent)">' + activeCount + "</div></div>" +
+      '<div class="stat"><div class="s-lab">已完成</div><div class="s-val c-ok">' + doneCount + '</div><div class="s-sub">' + (total > 0 ? Math.round(doneCount / total * 100) + "%" : "0%") + "</div></div>" +
+      '<div class="stat"><div class="s-lab">进行中</div><div class="s-val c-accent">' + activeCount + "</div></div>" +
       '<div class="stat"><div class="s-lab">逾期未完成</div><div class="s-val" style="color:' + (overdueCount > 0 ? "var(--danger)" : "var(--ok)") + '">' + overdueCount + "</div></div>" +
       "</div>" +
       '<div class="chart-box sp-b-3x">' +

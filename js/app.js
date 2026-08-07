@@ -396,7 +396,7 @@
             <div class="stat-grid">
               <div class="stat" data-go="#/finance"><div class="s-lab">累计储蓄</div><div class="s-val">${fmtMoney(saved)}</div><div class="s-sub">「储蓄」类型合计</div></div>
               <div class="stat" data-go="#/stocks"><div class="s-lab">持仓市值</div><div class="s-val" id="nwStock">${fmtMoney(stockCostVal)}</div><div class="s-sub" id="nwStockSub">${holdings.length ? "行情加载中…" : "暂无持仓"}</div></div>
-              <div class="stat" data-go="#/stocks"><div class="s-lab">今日盈亏</div><div class="s-val" id="nwDay" style="color:var(--muted)">—</div><div class="s-sub">股票涨跌 + 基金净值差</div></div>
+              <div class="stat" data-go="#/stocks"><div class="s-lab">今日盈亏</div><div class="s-val c-muted" id="nwDay">—</div><div class="s-sub">股票涨跌 + 基金净值差</div></div>
               <div class="stat"><div class="s-lab">净资产合计</div><div class="s-val" id="nwTotal">${fmtMoney(saved + stockCostVal)}</div><div class="s-sub">储蓄 + 市值</div></div>
             </div>
           </div>`
@@ -405,7 +405,7 @@
       // 到期任务浏览器通知：权限未授予时给一个开启入口（点击才请求，避免打扰）
       const canNotify = "Notification" in window;
       const notifyBtnHtml = canNotify && Notification.permission === "default" && focus.length
-        ? ' <button class="btn sm ghost" id="notifyBtn" style="margin-left:10px" title="每天首次打开时提醒当日到期/逾期任务">🔔 开启到期提醒</button>'
+        ? ' <button class="btn sm ghost sp-l-md" id="notifyBtn" title="每天首次打开时提醒当日到期/逾期任务">🔔 开启到期提醒</button>'
         : "";
 
       // 每周回顾：本周（周一至今）关键数据，AI 点评按周缓存在 settings（键 weeklyReview）
@@ -453,7 +453,7 @@
       const noteRows = recentNotes.length
         ? recentNotes
             .map(
-              (n) => `<li class="item" data-nid="${n.id}" style="cursor:pointer">
+              (n) => `<li class="item cur-p" data-nid="${n.id}">
                 <span class="txt">${esc(n.title || "未命名笔记")}</span>
                 <span class="meta">${(n.updatedAt || "").slice(5, 16).replace("T", " ")}</span>
               </li>`
@@ -504,7 +504,7 @@
                 <button class="btn sm" id="dFinAdd">记账</button>
               </div>
               <div class="mini-bar"><i style="width:${pct}%"></i></div>
-              <div class="mini-bar-lab">年度储蓄 ${fmtMoney(saved)} / ${fmtMoney(target)}（${pct}%） · <a href="#/finance" style="color:var(--accent)">去记账页</a></div>
+              <div class="mini-bar-lab">年度储蓄 ${fmtMoney(saved)} / ${fmtMoney(target)}（${pct}%） · <a href="#/finance" class="c-accent">去记账页</a></div>
             </div>
             <div class="card">
               <h2>最近沉淀</h2>
@@ -531,7 +531,7 @@
               <h2>每周回顾<span class="count">${monStr.slice(5)} ~ ${today.slice(5)}</span></h2>
               <div class="wr-stats">${wrStats.map((s) => `<div>${s}</div>`).join("")}</div>
               <div id="wrAi">${wrCached ? '<div class="ai-panel">' + MD.render(wrCached.text) + "</div>" : ""}</div>
-              <div class="row" style="margin-top:10px">
+              <div class="row sp-t-md">
                 <button class="btn sm" id="wrGen">✨ ${wrCached ? "重新生成 AI 点评" : "生成 AI 点评"}</button>
                 ${wrCached ? `<span style="align-self:center;font-size:12px;color:var(--muted)">生成于 ${esc(wrCached.at || "")}</span>` : ""}
               </div>
@@ -698,7 +698,7 @@
           await setSetting("weeklyReview", { week: monStr, text, at });
           if (currentRoute() === "dashboard") navigate();
         } catch (err) {
-          box.innerHTML = `<div class="ai-panel" style="color:var(--danger)">生成失败：${esc((err && err.message) || "网络异常")}</div>`;
+          box.innerHTML = `<div class="ai-panel c-danger">生成失败：${esc((err && err.message) || "网络异常")}</div>`;
           btn.disabled = false;
           btn.textContent = "✨ 生成 AI 点评";
         }
@@ -781,7 +781,7 @@
           </div>
           <div class="set-row">
             <span class="s-name">切换模式</span>
-            <span class="s-desc">在 URL 末尾加 <code>?mode=local</code> 强制本地、<code>?mode=api</code> 强制在线；默认启动时自动探测。手机端 PWA 装到桌面后建议锁本地：<a href="?mode=local" style="color:var(--accent)">用本地模式打开一次</a>（浏览器会记住该 URL）。</span>
+            <span class="s-desc">在 URL 末尾加 <code>?mode=local</code> 强制本地、<code>?mode=api</code> 强制在线；默认启动时自动探测。手机端 PWA 装到桌面后建议锁本地：<a href="?mode=local" class="c-accent">用本地模式打开一次</a>（浏览器会记住该 URL）。</span>
           </div>
         </div>
         <div class="card">
