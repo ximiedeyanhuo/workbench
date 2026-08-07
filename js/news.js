@@ -282,17 +282,26 @@
   }
 
   // ---------- 渲染 ----------
-  function itemCard(it, isVideo, srcName, catLabel) {
+  function itemCard(it, isVideo, srcName, catLabel, catColor) {
     const href = safeUrl(it.link);
     const thumb = it.thumb ? safeUrl(it.thumb) : "";
     const isRead = !!readMap[it.link];
     const isSaved = savedSet.has(it.link);
+    const media = thumb && thumb !== "#"
+      ? `<div class="news-thumb-wrap">
+          <div class="news-thumb-placeholder${isVideo ? " video" : ""}">${isVideo ? "▶" : esc(catLabel)}</div>
+          <img class="news-thumb" src="${thumb}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.classList.add('err')" />${isVideo ? '<span class="news-play">▶</span>' : ""}
+        </div>`
+      : `<div class="news-thumb-placeholder${isVideo ? " video" : ""}">${isVideo ? "▶" : esc(catLabel)}</div>`;
     return `<a class="news-card${isRead ? " read" : ""}" href="${href}" target="_blank" rel="noopener noreferrer" data-link="${esc(it.link)}">
-      ${thumb && thumb !== "#" ? `<div class="news-thumb-wrap"><img class="news-thumb" src="${thumb}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.style.display='none'" />${isVideo ? '<span class="news-play">▶</span>' : ""}</div>` : ""}
+      ${media}
       <div class="news-body">
         <div class="news-title">${hiTitle(it.title) || "（无标题）"}</div>
         ${it.summary ? `<div class="news-sum">${esc(it.summary)}</div>` : ""}
-        <div class="news-meta">${isVideo ? '<span class="tag">视频</span>' : ""}<span>${esc(fmtDate(it.date))}</span>
+        <div class="news-meta">
+          ${isVideo ? '<span class="tag">视频</span>' : ""}
+          <span class="news-src" style="color:${catColor}">${esc(srcName)}</span>
+          <span class="news-date">${esc(fmtDate(it.date))}</span>
           <button class="news-fav${isSaved ? " on" : ""}" data-fav="${esc(it.link)}" data-title="${esc(it.title)}" data-src="${esc(srcName)}" data-tag="${esc(catLabel)}" title="${isSaved ? "已收藏" : "收藏到沉淀·链接收藏"}">${isSaved ? "★" : "☆"}</button>
         </div>
       </div>
@@ -309,14 +318,21 @@
       // 关键词置顶：命中的条目插队到前面，同态内保持原抓取顺序
       if (keywords.length) shown = shown.filter((it) => hitKeyword(it.title)).concat(shown.filter((it) => !hitKeyword(it.title)));
       body = shown.length
-        ? `<div class="news-grid">${shown.map((it) => itemCard(it, isVideo, f.name, c.label)).join("")}</div>`
+        ? `<div class="news-grid">${shown.map((it) => itemCard(it, isVideo, f.name, c.label, c.color)).join("")}</div>`
         : `<div class="news-degraded">当前过滤条件下没有条目（共 ${cache.items.length} 条，试试放宽「只看未读 / 时间范围」）</div>`;
     } else if (cache && !cache.ok) {
-      body = `<div class="news-degraded">此源未能解析出资讯条目（${esc(cache.err)}）。
-        <a href="${safeUrl(f.url)}" target="_blank" rel="noopener noreferrer">点此直达源站 →</a>
+      body = `<div class="news-degraded">
+        <div class="degraded-tt">这个源暂时没能抓出内容</div>
+        ${esc(cache.err)}
+        <div class="degraded-act"><a href="${safeUrl(f.url)}" target="_blank" rel="noopener noreferrer">点此直达源站 →</a>
+        <button class="btn ghost sm" data-act="retry-one" data-id="${esc(f.id)}">重试</button></div>
         <div class="news-degraded-hint">若长期失败，可在「管理源」里把地址换成该站的 RSS 订阅地址。</div></div>`;
     } else {
-      body = `<div class="news-degraded">尚未抓取，点击右上角「🔄 刷新本类」获取，或 <a href="${safeUrl(f.url)}" target="_blank" rel="noopener noreferrer">直达源站 →</a></div>`;
+      body = `<div class="news-degraded">
+        <div class="degraded-tt">还没抓到内容</div>
+        点「刷新本类」拉取一次，或
+        <a href="${safeUrl(f.url)}" target="_blank" rel="noopener noreferrer">直达源站 →</a>
+      </div>`;
     }
     const updated = cache && cache.at ? "更新于 " + fmtDate(cache.at) : "未更新";
     return `<div class="news-src-blk">
@@ -446,8 +462,9 @@
 
   function renderShell(list, loading, counts) {
     const c = CATS.find((x) => x.k === cat) || CATS[0];
+    const hasUnread = !!counts && !!counts[cat] && counts[cat] > 0;
     const tabs = CATS.map(
-      (x) => `<button class="tab ${x.k === cat ? "on" : ""}" data-cat="${x.k}">${x.icon} ${x.label}${counts && counts[x.k] ? ` <b class="tab-cnt">${counts[x.k]}</b>` : ""}</button>`
+      (x) => `<button class="tab ${x.k === cat ? "on" : ""}" data-cat="${x.k}">${x.icon} ${x.label}${counts && counts[x.k] ? ` <b class="tab-cnt" style="background:${x.color}">${counts[x.k]}</b>` : ""}</button>`
     ).join("");
 
     const ranges = RANGES.map(
@@ -485,8 +502,11 @@
       : "";
 
     const content = loading
-      ? '<div class="card" id="newsBody"><div class="empty">正在获取最新资讯…（跨域受限的源将自动降级为直达）</div></div>'
-      : `<div class="card" id="newsBody">${list.length ? list.map(sourceBlock).join("") : '<div class="empty">该分类暂无资讯源，点「＋ 管理源」添加</div>'}</div>`;
+      ? `<div class="card" id="newsBody"><div class="news-skeleton">
+          ${"<div class='sk-line'></div>".repeat(3)}
+          <div class="sk-block"></div><div class="sk-block"></div>
+        </div></div>`
+      : `<div class="card" id="newsBody">${list.length ? list.map(sourceBlock).join("") : '<div class="empty">这个分类还没有资讯源，点「管理源」添加一个试试</div>'}</div>`;
 
     const online = !!(window.WB && window.WB.USE_API);
     const offlineBanner = online
@@ -510,6 +530,7 @@
           <span class="news-filter-lab">时间：</span>
           <div class="tabs">${ranges}</div>
           <label class="news-unread-tg"><input type="checkbox" id="unreadOnly" ${unreadOnly ? "checked" : ""} /> 只看未读</label>
+          ${hasUnread && list.length ? `<button class="btn ghost sm mla" id="markAllRead" title="把当前分类全部标为已读">${WB.icon("check")} 全部已读</button>` : ""}
         </div>
         <div class="row news-filter align-c">
           <span class="news-filter-lab">关注词：</span>
@@ -602,6 +623,7 @@
           fav.classList.add("on");
           fav.textContent = "★";
           fav.title = "已收藏";
+          WB.showToast("已收藏到「沉淀 · 链接收藏」", "success");
           return;
         }
         const card = e.target.closest(".news-card");
@@ -671,6 +693,47 @@
         await refresh(list);
         if (!stillOnNews()) return; // 刷新期间已切走路由，放弃重渲染
         routes.news.render(el);
+      });
+
+    // 全部已读：把当前分类所有未读条目标为已读
+    const mar = el.querySelector("#markAllRead");
+    if (mar)
+      mar.addEventListener("click", async () => {
+        const all = await feedRepo.list();
+        const list = all.filter((f) => f.category === cat);
+        let n = 0;
+        list.forEach((f) => {
+          (f.cache && f.cache.items || []).forEach((it) => {
+            if (it.link && !readMap[it.link]) { readMap[it.link] = new Date().toISOString(); n++; }
+          });
+        });
+        if (n) {
+          // 容量控制同 markRead：只保留最近 500 条
+          const keys = Object.keys(readMap);
+          if (keys.length > 500) {
+            keys.sort((a, b) => readMap[a].localeCompare(readMap[b]));
+            keys.slice(0, keys.length - 500).forEach((k) => delete readMap[k]);
+          }
+          try { await setSetting("newsRead", readMap); } catch (err) { /* 忽略 */ }
+        }
+        WB.showToast(n ? `已将 ${n} 条标为已读` : "当前没有未读条目", "success");
+        routes.news.render(el);
+      });
+
+    // 单源重试：重新抓取某一个失败/未抓取的源
+    const bodyRetry = el.querySelector("#newsBody");
+    if (bodyRetry)
+      bodyRetry.addEventListener("click", async (e) => {
+        const b = e.target.closest('[data-act="retry-one"]');
+        if (!b) return;
+        const id = b.dataset.id;
+        b.disabled = true;
+        b.textContent = "重试中…";
+        const f = await feedRepo.get(id);
+        if (f) {
+          await refresh([f]);
+          if (stillOnNews()) routes.news.render(el);
+        }
       });
 
     const add = el.querySelector("#fAdd");

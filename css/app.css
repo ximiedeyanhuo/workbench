@@ -742,22 +742,22 @@ button.tab:focus-visible { outline-offset: 0; }
 }
 .wb-toast.hide { opacity: 0; transform: translateX(100%); transition: all .3s ease; }
 
-/* —— 路由骨架屏：卡片位 shimmer 占位，提升感知性能 —— */
-.wb-skeleton { padding: 4px 0; }
-.wb-skeleton .sk-line {
+/* —— 骨架屏 shimmer 占位：路由切换 + 资讯加载共用 —— */
+.sk-line {
   height: 14px; border-radius: var(--radius-xs);
   background: linear-gradient(90deg, var(--card2) 25%, var(--line) 37%, var(--card2) 63%);
   background-size: 400% 100%;
   animation: wb-shimmer 1.4s ease infinite;
   margin-bottom: 12px;
 }
-.wb-skeleton .sk-line.short { width: 40%; }
-.wb-skeleton .sk-block {
+.sk-line.short { width: 40%; }
+.sk-block {
   height: 90px; border-radius: var(--radius);
   background: linear-gradient(90deg, var(--card2) 25%, var(--line) 37%, var(--card2) 63%);
   background-size: 400% 100%;
   animation: wb-shimmer 1.4s ease infinite;
 }
+.wb-skeleton { padding: 4px 0; }
 @keyframes wb-shimmer {
   0% { background-position: 100% 50%; }
   100% { background-position: 0 50%; }
@@ -1765,6 +1765,27 @@ button.tab:focus-visible { outline-offset: 0; }
 .news-thumb {
   width: 100%; aspect-ratio: 16 / 9; object-fit: cover;
   display: block; background: var(--card2);
+  transition: transform .35s ease;
+}
+.news-card:hover .news-thumb { transform: scale(1.05); }
+/* 缩略图加载失败：隐藏坏图，露出下方的占位层（不整块收起防卡片高度跳动） */
+.news-thumb.err { display: none; }
+/* 无缩略图 / 缩略图失败时的分类占位层 */
+.news-thumb-placeholder {
+  display: flex; align-items: center; justify-content: center;
+  aspect-ratio: 16 / 9; width: 100%;
+  background:
+    linear-gradient(135deg, var(--card2) 0%, color-mix(in srgb, var(--accent) 8%, var(--card2)) 100%);
+  color: var(--muted); font-size: 13px; font-weight: 700;
+  letter-spacing: 0.1em; font-family: var(--mono);
+}
+.news-thumb-wrap .news-thumb-placeholder {
+  position: absolute; inset: 0; z-index: 0; height: auto; aspect-ratio: auto;
+}
+.news-thumb-wrap .news-thumb { position: relative; z-index: 1; }
+.news-thumb-placeholder.video {
+  color: #fff; font-size: 18px;
+  background: rgba(11, 17, 22, .62);
 }
 .news-play {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
@@ -1815,10 +1836,40 @@ mark.news-kw {
 }
 .news-fav:hover { color: var(--accent); background: var(--card2); }
 .news-fav.on { color: var(--accent); }
-.tab-cnt {
-  font-weight: 800; font-size: 10px; opacity: .85;
-  margin-left: 4px; font-family: var(--mono);
+/* 卡片内来源小字 + 日期分隔 */
+.news-src {
+  font-size: 11px; font-weight: 600; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; max-width: 45%;
 }
+.news-date { white-space: nowrap; }
+.news-meta .news-fav { margin-left: auto; }
+
+/* 资讯加载骨架屏 */
+.news-skeleton { padding: 6px 0; }
+.news-skeleton .sk-line { margin-bottom: 14px; }
+.news-skeleton .sk-block { margin-bottom: 14px; }
+
+/* 降级卡：失败/未抓取的源 */
+.news-degraded { font-size: 12.5px; }
+.degraded-tt {
+  font-weight: 700; font-size: 13px; color: var(--ink);
+  margin-bottom: 4px;
+}
+.degraded-act {
+  display: flex; align-items: center; gap: 10px; margin-top: 10px;
+}
+.degraded-act a { color: var(--accent); font-weight: 600; }
+.tab-cnt {
+  font-weight: 700; font-size: 10px; color: #fff;
+  margin-left: 5px; font-family: var(--mono);
+  min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: var(--radius-pill);
+  display: inline-flex; align-items: center; justify-content: center;
+  vertical-align: 1px;
+}
+[data-theme="dark"] .tab-cnt { color: #161006; }
+/* 当前选中分类的未读徽标：放大强调 */
+.tab.on .tab-cnt { box-shadow: 0 0 0 2px color-mix(in srgb, var(--card) 60%, transparent); }
 .news-filter { margin-top: 12px; align-items: center; gap: 12px; }
 .news-filter-lab {
   font-size: 12px; color: var(--muted); font-weight: 600;
