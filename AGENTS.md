@@ -28,7 +28,50 @@ curl.exe -s -b "$env:TEMP\ck.txt" http://localhost:8642/api/db/tasks
 
 ## 上线流程（硬性规则）
 
-- **每次部署上线前必须先提交到 GitHub**。deploy.ps1 已内置强制 `git add/commit/push`（推送失败即中止），直接执行 `.\deploy.ps1 [可选提交说明]` 即可，**不要绕过 deploy.ps1 手动 scp**。该脚本只传代码（server.py/index.html/sw.js/js/css/lib 等），绝不传数据（workbench*.db/users.json/sessions.json/zhipu.key/backups）。服务器 root@111.228.27.161:/data/app/workbench，端口 8642。
+### 目标服务器参数（写死，不要猜）
+
+- 服务器 `root@111.228.27.161`，代码目录 `/data/app/workbench`，端口 8642。
+- git remote 是 **SSH over 443**：`ssh://git@ssh.github.com:443/ximiedeyanhuo/workbench.git`。**不是** github.com:22，直接 `git push` 默认走 22 会超时；也别改成 https（需要额外凭据）。
+- 本地 `server.py` 里 `HOST = "0.0.0.0"`，**远程服务器上必须改成 `"127.0.0.1"`**（8642 不暴露公网，由 nginx 反代）。scp 覆盖 server.py 后必须改回，否则服务监听全网口。
+- 远程验证用 `curl http://127.0.0.1:8642/...`（服务器本机回环）；外部访问走 http://111.228.27.161（nginx 80 端口）。
+- 本机 PowerShell 版本 7.6.x；git 未设 `push.default`，推送必须写全 `git push origin main`。
+
+### 标准流程（二选一）
+
+**方式 A（推荐，自动规避全部坑）：`.\deploy.ps1 "提交说明"`**
+自动完成：强制 `git add/commit/push`（推送失败即中止）→ SSH 免密检查（不通就退出并提示配公钥）→ scp 代码白名单 → sed 把 server.py 的 HOST 改回 127.0.0.1 → `systemctl restart workbench` → `is-active` 验证。
+只传代码：`server.py/index.html/sw.js/manifest.json/icon-192.png/icon-512.png/HELP.md/js/css/lib`。**绝不传数据**：`workbench*.db/users.json/sessions.json/zhipu.key/backups`。
+若沙箱执行策略拦截 .ps1（"running scripts is disabled"），用 `powershell -ExecutionPolicy Bypass -File deploy.ps1 "说明"`。
+
+**方式 B（手动，等价命令序列）**：
+```bash
+# 1. 提交推送（提交信息按仓库风格，中文一行）
+git add <改过的文件> && git commit -m "说明" && git push origin main
+
+# 2. scp 代码（目标路径必须完整：/data/app/workbench/ + 相对路径，漏掉 workbench 段文件会进错目录）
+scp js/app.js root@111.228.27.161:/data/app/workbench/js/app.js
+scp css/app.css root@111.228.27.161:/data/app/workbench/css/app.css
+# 改了 server.py 的话：scp 后必须改回 HOST（GNU sed 的 \x22 转义双引号，避开 PowerShell 破坏）：
+ssh root@111.228.27.161 'sed -i "s/^HOST = .*$/HOST = \"127.0.0.1\"/" /data/app/workbench/server.py && grep ^HOST /data/app/workbench/server.py'
+
+# 3. 重启 + 验证（重启后 sleep 2 再 curl，服务起得慢）
+ssh root@111.228.27.161 "systemctl restart workbench && sleep 2 && curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8642/"
+# 再确认新代码真的上线（grep 新函数名/特征字符串），只看 200 不够——可能跑的是旧缓存或旧文件
+ssh root@111.228.27.161 "curl -s http://127.0.0.1:8642/js/app.js | grep -c '新函数名'"
+```
+
+### 常见失败原因（其他 AI 踩过的坑，按出现频率）
+
+1. **git push 超时/失败**：remote 必须 `ssh.github.com:443`；别用 https、别期望 22 端口通。推送写 `git push origin main`（本机没设 push.default，裸 `git push` 可能报 "no upstream"）。
+2. **scp 目标路径写错**：必须完整 `root@111.228.27.161:/data/app/workbench/<相对路径>`。漏 `workbench` 段、多写斜杠、Windows 反斜杠，都会把文件放到错误位置甚至变成新目录。
+3. **覆盖 server.py 后忘改 HOST**：远程必须是 `"127.0.0.1"`。deploy.ps1 自动处理；手动 scp 必须自己 sed，否则服务监听 0.0.0.0 或 nginx 反代失效。
+4. **PowerShell 下用 `curl`**：`curl` 是 Invoke-WebRequest 别名，必须 `curl.exe`。API 冒烟测试传 JSON 必须写临时文件（inline 引号转义会损坏 body），见「常用命令」。
+5. **改 js/css 忘升 sw.js 版本号**：`CACHE = "workbench-vNN"` 必须递增，否则用户浏览器走旧缓存，本地验证"修复无效"是假结论。
+6. **重启后立刻验证**：`systemctl restart workbench` 后 sleep 2 再 curl，否则服务还没起来。
+7. **验证只看 HTTP 200**：200 不代表新代码生效。用 grep 确认新函数/新字符串在远程文件里（或浏览器硬刷新验证）。
+8. **ssh 远程命令引号被 PowerShell 转义破坏**：双引号用 `\x22`（deploy.ps1 第 64 行有示范），复杂命令优先写进 deploy.ps1。
+9. **浏览器 E2E 跑旧代码**：必须注销 SW + 清 caches + `?nocache=<时间戳>` 硬导航，否则测的是内存里的旧代码（见「测试约定」）。
+10. **沙箱内 Get-NetTCPConnection 不可靠**：端口排查用 `netstat -ano | Select-String ':8642'`。
 - 改了 js/css 等静态文件记得升 sw.js 的 `CACHE` 版本号（workbench-vNN），否则用户浏览器走旧缓存。
 
 ## 架构

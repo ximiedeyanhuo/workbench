@@ -1,5 +1,53 @@
 # 个人工作台部署指南（VPS + 无域名）
 
+> **实际生产服务器参数（写死，不要猜）**：`root@111.228.27.161`，代码目录 `/data/app/workbench`，端口 8642。
+> 日常增量上线（改完代码后）走 **deploy.ps1** 或下方「日常上线」章节，**只传代码绝不传数据**；本指南其余章节是**首次部署/迁移**用。
+
+## 0. 日常增量上线（每次改完代码）
+
+### 方式 A：deploy.ps1（推荐，一条命令）
+
+```powershell
+# 项目根目录执行；自动完成：强制 git add/commit/push → SSH 免密检查 → scp 代码白名单 → HOST 改回 127.0.0.1 → 重启 → 状态验证
+.\deploy.ps1 "提交说明"
+# 若沙箱执行策略拦截脚本：
+powershell -ExecutionPolicy Bypass -File deploy.ps1 "提交说明"
+```
+
+- 只传代码：`server.py/index.html/sw.js/manifest.json/icon-192.png/icon-512.png/HELP.md/js/css/lib`。
+- **绝不传数据**：`workbench*.db/users.json/sessions.json/zhipu.key/backups`。
+- 改了 js/css 必须升 `sw.js` 的 `CACHE = "workbench-vNN"` 版本号，否则用户浏览器走旧缓存。
+
+### 方式 B：手动（等价命令）
+
+```bash
+# 1. 提交推送（remote 是 SSH over 443：ssh://git@ssh.github.com:443/...，别走 https 或 22 端口）
+git add <改过的文件> && git commit -m "说明" && git push origin main
+
+# 2. scp 代码（目标路径必须完整：/data/app/workbench/ + 相对路径）
+scp js/app.js root@111.228.27.161:/data/app/workbench/js/app.js
+# 改了 server.py 的话，scp 后必须改回 HOST=127.0.0.1（GNU sed 用 \x22 转义双引号，避开 PowerShell 破坏）：
+ssh root@111.228.27.161 'sed -i "s/^HOST = .*$/HOST = \"127.0.0.1\"/" /data/app/workbench/server.py && grep ^HOST /data/app/workbench/server.py'
+
+# 3. 重启 + 验证（sleep 2 再 curl，服务起得慢；远程验证走 127.0.0.1 回环）
+ssh root@111.228.27.161 "systemctl restart workbench && sleep 2 && curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8642/"
+# 再确认新代码真的上线（grep 特征字符串），只看 200 不够
+ssh root@111.228.27.161 "curl -s http://127.0.0.1:8642/js/app.js | grep -c '新函数名'"
+```
+
+### 常见失败原因速查
+
+| 症状 | 原因 | 解决 |
+|------|------|------|
+| git push 超时/失败 | remote 走了 https 或 22 端口 | remote 必须 `ssh.github.com:443`；推送写 `git push origin main` |
+| 文件传到了错误位置/新目录 | scp 目标路径漏了 `workbench` 段或用反斜杠 | 必须完整 `root@111.228.27.161:/data/app/workbench/<相对路径>` |
+| 服务监听全网口/反代失效 | server.py 的 HOST 被覆盖成 0.0.0.0 | 远程必须 `"127.0.0.1"`（deploy.ps1 自动处理，手动要自己 sed） |
+| curl 报错/JSON 损坏 | PowerShell 里 `curl` 是 Invoke-WebRequest 别名 | 用 `curl.exe`；传 JSON 写临时文件 `--data "@file"` |
+| 用户看到旧界面 | 改了 js/css 没升 sw.js CACHE 版本 | `CACHE = "workbench-vNN"` 递增 |
+| 重启后 curl 失败 | 服务还没起来 | `sleep 2` 后再验证 |
+| 浏览器测试"修复无效" | 测的是内存旧代码 | 注销 SW + 清 caches + `?nocache=<时间戳>` 硬导航 |
+| 远程验证 200 但代码没生效 | 只看状态码不够 | 用 grep 确认新函数/新字符串在远程文件里 |
+
 ## 1. 上传代码到服务器
 
 ```bash
