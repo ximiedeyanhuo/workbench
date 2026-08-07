@@ -2344,6 +2344,14 @@ mark.news-kw {
   padding-top: 16px;
 }
 
+/* 图表 canvas 固定显示高度：Chart.js 用 maintainAspectRatio:false
+   时按容器高度渲染，而 .chart-box 高度是 auto（由内容撑开），
+   会导致「canvas 撑高容器 → 容器变高 → 图表重渲染」循环膨胀
+   （实测被撑到上万像素）。!important 压住 Chart.js 写入的内联高度。 */
+.reports-tab-content .chart-box canvas {
+  height: 180px !important;
+}
+
 /* 健康指标统计区（三列：最新 / 平均 / 最大） */
 .reports-health-meta {
   display: grid; grid-template-columns: repeat(3, 1fr);
