@@ -563,6 +563,93 @@ def feed_proxy(url: str):
     return PlainTextResponse(content=raw.decode(charset, errors="replace"), media_type="application/xml; charset=utf-8")
 
 
+# ---------- 阅读模式 / 图片代理 ----------
+# /api/article 抓取文章正文转纯文本（供站内阅读），/api/img 代理图片（绕防盗链）。
+import html as _html
+
+ARTICLE_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) WorkbenchReader/1.0"
+_IMG_CT = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+           "gif": "image/gif", "webp": "image/webp", "svg": "image/svg+xml",
+           "bmp": "image/bmp", "avif": "image/avif", "ico": "image/x-icon"}
+
+
+@app.get("/api/article")
+def article_proxy(url: str):
+    """抓取文章页并抽取正文为纯文本（启发式去噪）。SSRF 防护同 feed_proxy。"""
+    try:
+        raw, charset = safe_fetch(url, {"User-Agent": ARTICLE_UA, "Accept-Language": "zh-CN,zh;q=0.9"}, FEED_TIMEOUT, FEED_MAX_BYTES)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"正文抓取失败: {exc}")
+    html_text = raw.decode(charset or "utf-8", errors="replace")
+    text, title = _extract_article(html_text)
+    return JSONResponse({"ok": True, "title": title, "text": text})
+
+
+def _extract_article(doc: str) -> tuple:
+    """启发式正文提取：优先 <article>/<main> 容器，剔除脚本/样式/导航等噪声，
+    返回 (纯文本段落, 页面标题)。不追求完美，够 RSS 阅读器用即可。"""
+    # 标题：<title> 或 og:title
+    title = ""
+    m = re.search(r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']', doc, re.I)
+    if not m:
+        m = re.search(r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:title["\']', doc, re.I)
+    if not m:
+        m = re.search(r"<title[^>]*>(.*?)</title>", doc, re.I | re.S)
+    if m:
+        title = _html.unescape(re.sub(r"\s+", " ", m.group(1))).strip()
+
+    # 优先取 <article> 或 <main>；否则整页
+    body = ""
+    for tag in ("article", "main"):
+        mm = re.search(r"<%s[^>]*>(.*?)</%s>" % (tag, tag), doc, re.I | re.S)
+        if mm:
+            body = mm.group(1)
+            break
+    if not body:
+        body = doc
+
+    # 去脚本/样式/注释
+    body = re.sub(r"<(script|style|noscript|iframe|svg)[^>]*>.*?</\1>", " ", body, flags=re.I | re.S)
+    body = re.sub(r"<!--.*?-->", " ", body, flags=re.S)
+
+    # 收集段落与标题块（h1-h4 / p / li），过滤噪声（过短、纯导航、无文字）
+    blocks = []
+    for tag in ("h1", "h2", "h3", "h4", "p", "li"):
+        blocks += re.findall(r"<%s[^>]*>(.*?)</%s>" % (tag, tag), body, flags=re.I | re.S)
+    if not blocks:
+        # 兜底：去掉所有标签取纯文本
+        text = re.sub(r"<[^>]+>", " ", body)
+        text = _html.unescape(re.sub(r"\s+", " ", text)).strip()
+        return (text, title)
+
+    lines = []
+    for b in blocks:
+        t = _html.unescape(re.sub(r"<[^>]+>", " ", b))
+        t = re.sub(r"\s+", " ", t).strip()
+        if len(t) < 8:  # 过滤过短噪声（导航、按钮、页脚）
+            continue
+        lines.append(t)
+    return ("\n\n".join(lines), title)
+
+
+@app.get("/api/img")
+def img_proxy(url: str):
+    """图片代理：绕防盗链（Referer 检查）。SSRF 防护 + 类型白名单。"""
+    import urllib.parse as _up
+    try:
+        raw, charset = safe_fetch(url, {"User-Agent": ARTICLE_UA, "Accept": "image/*"}, 15, 4 * 1024 * 1024)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"图片抓取失败: {exc}")
+    # 按 URL 扩展名判定类型；未知类型兜底 image/jpeg
+    ext = _up.urlparse(url).path.rsplit(".", 1)[-1].lower() if "." in _up.urlparse(url).path else ""
+    ctype = _IMG_CT.get(ext, "image/jpeg")
+    return Response(content=raw, media_type=ctype, headers={"Cache-Control": "public, max-age=86400"})
+
+
 # ---------- 公考专用解析器 ----------
 # 华图、中公、公务员局 没有原生 RSS，RSSHub 路由也不稳定。
 # 我们后端直接抓公告页 HTML，正则解析出条目，输出成 RSS 2.0 让前端复用同一解析路径。

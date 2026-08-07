@@ -9,7 +9,7 @@
  */
 (function () {
   "use strict";
-  const { routes, repo, esc, uid, safeUrl, todayStr, getSetting, setSetting } = window.WB;
+  const { routes, repo, esc, uid, safeUrl, todayStr, getSetting, setSetting, debounce } = window.WB;
   const feedRepo = repo("feeds");
 
   // settings 兼容读取：旧版本把数据平铺在行上（如 {key, urls}），现统一为 {key, value}。
@@ -75,8 +75,12 @@
   let manageOpen = false;
   let unreadOnly = false; // 只看未读开关
   let timeRange = ""; // "" | "24h" | "3d" | "7d"
+  let newsView = "source"; // "source"(按源) | "timeline"(按时间) | "saved"(已收藏)
+  let globalQ = ""; // 全局搜索关键词（跨分类）
   let readMap = {}; // link -> 已读时间 ISO 字符串（持久化在 settings.newsRead）
   let savedSet = new Set(); // 已收藏到链接库的 link 集合
+  let savedList = []; // 已收藏的 bookmarks 原始记录（saved 视图用）
+  let allFeeds = []; // 全部资讯源（timeline/全局搜索用）
   let digestOpen = false; // 今日精选面板开关（结果持久化在 settings.newsDigest，每天一份）
   let digestData = null; // settings.newsDigest 记录：{key, day, items:[{title,link,src,reason}]}
   let keywords = []; // 关注关键词：命中标题的条目置顶+高亮（持久化在 settings.newsKeywords）
@@ -282,18 +286,25 @@
   }
 
   // ---------- 渲染 ----------
+  /** 缩略图地址：在线走 /api/img 代理（绕防盗链），离线直连 */
+  function thumbSrc(u) {
+    if (!u || u === "#") return "";
+    if (window.WB.USE_API) return "/api/img?url=" + encodeURIComponent(u);
+    return safeUrl(u);
+  }
+
   function itemCard(it, isVideo, srcName, catLabel, catColor) {
     const href = safeUrl(it.link);
-    const thumb = it.thumb ? safeUrl(it.thumb) : "";
+    const thumb = thumbSrc(it.thumb);
     const isRead = !!readMap[it.link];
     const isSaved = savedSet.has(it.link);
-    const media = thumb && thumb !== "#"
+    const media = thumb
       ? `<div class="news-thumb-wrap">
           <div class="news-thumb-placeholder${isVideo ? " video" : ""}">${isVideo ? "▶" : esc(catLabel)}</div>
           <img class="news-thumb" src="${thumb}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.classList.add('err')" />${isVideo ? '<span class="news-play">▶</span>' : ""}
         </div>`
       : `<div class="news-thumb-placeholder${isVideo ? " video" : ""}">${isVideo ? "▶" : esc(catLabel)}</div>`;
-    return `<a class="news-card${isRead ? " read" : ""}" href="${href}" target="_blank" rel="noopener noreferrer" data-link="${esc(it.link)}">
+    return `<div class="news-card${isRead ? " read" : ""}" data-link="${esc(it.link)}" data-title="${esc(it.title)}">
       ${media}
       <div class="news-body">
         <div class="news-title">${hiTitle(it.title) || "（无标题）"}</div>
@@ -302,10 +313,14 @@
           ${isVideo ? '<span class="tag">视频</span>' : ""}
           <span class="news-src" style="color:${catColor}">${esc(srcName)}</span>
           <span class="news-date">${esc(fmtDate(it.date))}</span>
+          <button class="icon-btn plain news-read" data-link="${esc(it.link)}" data-title="${esc(it.title)}" title="站内阅读">${WB.icon("notes")}</button>
           <button class="news-fav${isSaved ? " on" : ""}" data-fav="${esc(it.link)}" data-title="${esc(it.title)}" data-src="${esc(srcName)}" data-tag="${esc(catLabel)}" title="${isSaved ? "已收藏" : "收藏到沉淀·链接收藏"}">${isSaved ? "★" : "☆"}</button>
         </div>
+        <div class="news-card-actions">
+          <a class="news-origin" href="${href}" target="_blank" rel="noopener noreferrer" title="在新标签打开原文">打开原文 ↗</a>
+        </div>
       </div>
-    </a>`;
+    </div>`;
   }
 
   function sourceBlock(f) {
@@ -350,6 +365,7 @@
     title: "资讯",
     async render(el) {
       const all = await feedRepo.list();
+      allFeeds = all;
       // 已读表与收藏集：驱动卡片灰化、分类未读数、星标状态
       readMap = await getSettingCompat("newsRead", (r) => r.urls, {});
       keywords = await getSettingCompat("newsKeywords", (r) => r.words, []);
@@ -361,8 +377,10 @@
       try {
         const marks = await repo("bookmarks").list();
         savedSet = new Set(marks.map((m) => m.url));
+        savedList = marks || [];
       } catch (err) {
         savedSet = new Set();
+        savedList = [];
       }
       // 一次性迁移：上一版给公考类塞了错误的 rsshub 路由和临时的官方 URL 占位，
       // 直接清掉再让下面的补种逻辑写入正确的解析器版本。用 settings 里的版本 flag 保证只在需要时跑。
@@ -460,6 +478,114 @@
     </div>`;
   }
 
+  /** 站内阅读：抓取正文并在浮层内展示（在线走 /api/article），离线/失败给打开原文兜底 */
+  function openReader(link, title) {
+    let modal = document.getElementById("newsReader");
+    if (modal) modal.remove();
+    modal = document.createElement("div");
+    modal.id = "newsReader";
+    modal.className = "reader-mask";
+    modal.innerHTML = `<div class="reader-box">
+      <button class="reader-close" aria-label="关闭">&times;</button>
+      <div class="reader-scroll">
+        <div class="reader-head">
+          <h2 class="reader-title">${esc(title || "")}</h2>
+          <a class="reader-origin" href="${safeUrl(link)}" target="_blank" rel="noopener noreferrer" title="在新标签打开原文">${WB.icon("external")} 打开原文</a>
+        </div>
+        <div class="reader-body"><div class="empty">正在加载正文…</div></div>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+
+    const box = modal.querySelector(".reader-body");
+    const close = () => modal.remove();
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal || e.target.closest(".reader-close")) close();
+    });
+    document.addEventListener("keydown", function onEsc(e) {
+      if (e.key === "Escape") { close(); document.removeEventListener("keydown", onEsc); }
+    });
+
+    if (!window.WB.USE_API) {
+      box.innerHTML = '<div class="empty">离线模式无法抓取正文，<a class="reader-origin" href="' + safeUrl(link) + '" target="_blank" rel="noopener noreferrer">去源站阅读 →</a></div>';
+      return;
+    }
+    fetch("/api/article?url=" + encodeURIComponent(link))
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status))))
+      .then((data) => {
+        if (!data.ok || !data.text) throw new Error("未解析到正文");
+        const paras = String(data.text).split("\n").map((p) => p.trim()).filter(Boolean);
+        box.innerHTML = paras.length
+          ? paras.map((p) => `<p>${esc(p)}</p>`).join("")
+          : '<div class="empty">此页未能提取正文，<a class="reader-origin" href="' + safeUrl(link) + '" target="_blank" rel="noopener noreferrer">去源站阅读 →</a></div>';
+      })
+      .catch((err) => {
+        box.innerHTML = '<div class="empty">正文加载失败：' + esc((err && err.message) || "未知错误") + '<br/><a class="reader-origin" href="' + safeUrl(link) + '" target="_blank" rel="noopener noreferrer">去源站阅读 →</a></div>';
+      });
+  }
+
+  /** 按时间混排视图：把全部已抓取条目跨分类按时间倒序排成列表（RSS 阅读器式） */
+  function timelineHtml() {
+    const items = [];
+    allFeeds.forEach((f) => {
+      if (!(f.cache && f.cache.ok && f.cache.items)) return;
+      const c = CATS.find((x) => x.k === f.category) || CATS[0];
+      f.cache.items.forEach((it) => {
+        const d = parseDate(it.date);
+        items.push({ it, feed: f, cat: c, ts: d ? d.getTime() : 0 });
+      });
+    });
+    // 全局搜索过滤
+    const q = globalQ.trim().toLowerCase();
+    let rows = q
+      ? items.filter((r) => (r.it.title || "").toLowerCase().includes(q) || (r.it.summary || "").toLowerCase().includes(q))
+      : items;
+    rows = rows.filter((r) => passFilters(r.it)).sort((a, b) => b.ts - a.ts).slice(0, 120);
+
+    if (!rows.length) {
+      return `<div class="card" id="newsBody"><div class="empty">${q ? "没有匹配「" + esc(globalQ) + "」的资讯" : "还没有已抓取的资讯，先在各分类点「刷新本类」"}</div></div>`;
+    }
+    const lis = rows.map((r) => {
+      const it = r.it, c = r.cat;
+      return `<div class="tl-news" data-link="${esc(it.link)}" data-title="${esc(it.title)}">
+        <span class="tl-news-dot" style="background:${c.color}"></span>
+        <span class="tl-news-cat">${esc(c.label)}</span>
+        <a class="tl-news-title${readMap[it.link] ? " read" : ""}" data-link="${esc(it.link)}" data-title="${esc(it.title)}" title="站内阅读">${hiTitle(it.title)}</a>
+        <span class="tl-news-src">${esc(r.feed.name)}</span>
+        <span class="tl-news-date">${esc(fmtDate(it.date))}</span>
+      </div>`;
+    }).join("");
+    return `<div class="card" id="newsBody"><ul class="list">${lis}</ul>
+      ${globalQ ? `<div class="sub sp-t-md">共 ${rows.length} 条匹配「${esc(globalQ)}」</div>` : ""}</div>`;
+  }
+
+  /** 已收藏视图：列出收藏到「沉淀」的文章，可取消收藏 */
+  function savedHtml() {
+    const q = globalQ.trim().toLowerCase();
+    let rows = q
+      ? savedList.filter((m) => (m.title || "").toLowerCase().includes(q) || (m.note || "").toLowerCase().includes(q))
+      : savedList;
+    if (!rows.length) {
+      return `<div class="card" id="newsBody"><div class="empty">${q ? "没有匹配「" + esc(globalQ) + "」的收藏" : "还没有收藏，点资讯卡片上的 ☆ 收藏到「沉淀」"}</div></div>`;
+    }
+    const lis = rows.map((m) => {
+      const isSaved = savedSet.has(m.url);
+      return `<li class="item">
+        <span class="txt">
+          <a href="${safeUrl(m.url)}" target="_blank" rel="noopener noreferrer" class="dl-title">${esc(m.title || m.url)}</a>
+          ${m.note ? `<div class="sub">${esc(m.note)}</div>` : ""}
+        </span>
+        ${(m.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join("")}
+        <span class="meta">${(m.createdAt || "").slice(0, 10)}</span>
+        <button class="icon-btn" data-act="unsave" data-id="${esc(m.id)}" title="取消收藏">${WB.icon("del")}</button>
+      </li>`;
+    }).join("");
+    return `<div class="card" id="newsBody">
+      <h2>已收藏<span class="count">${rows.length} 条</span></h2>
+      <ul class="list">${lis}</ul>
+    </div>`;
+  }
+
   function renderShell(list, loading, counts) {
     const c = CATS.find((x) => x.k === cat) || CATS[0];
     const hasUnread = !!counts && !!counts[cat] && counts[cat] > 0;
@@ -501,12 +627,17 @@
         </div>`
       : "";
 
+    // 视图分支：按源 / 按时间 / 已收藏
     const content = loading
       ? `<div class="card" id="newsBody"><div class="news-skeleton">
           ${"<div class='sk-line'></div>".repeat(3)}
           <div class="sk-block"></div><div class="sk-block"></div>
         </div></div>`
-      : `<div class="card" id="newsBody">${list.length ? list.map(sourceBlock).join("") : '<div class="empty">这个分类还没有资讯源，点「管理源」添加一个试试</div>'}</div>`;
+      : newsView === "timeline"
+        ? timelineHtml()
+        : newsView === "saved"
+          ? savedHtml()
+          : `<div class="card" id="newsBody">${list.length ? list.map(sourceBlock).join("") : '<div class="empty">这个分类还没有资讯源，点「管理源」添加一个试试</div>'}</div>`;
 
     const online = !!(window.WB && window.WB.USE_API);
     const offlineBanner = online
@@ -525,6 +656,14 @@
           <button class="${digestBtnClass}" id="digestBtn"${digestBtnAttrs}>${WB.icon("sparkle")} 今日精选</button>
           <button class="btn ghost sm" id="mgBtn">${manageOpen ? "收起管理" : WB.icon("plus") + " 管理源"}</button>
           <button class="${refreshBtnClass}" id="refreshBtn"${refreshBtnAttrs}>${WB.icon("refresh")} 刷新本类</button>
+        </div>
+        <div class="row news-filter align-c">
+          <div class="tabs" id="newsViewTabs">
+            <button class="tab ${newsView === "source" ? "on" : ""}" data-view="source">按源</button>
+            <button class="tab ${newsView === "timeline" ? "on" : ""}" data-view="timeline">按时间</button>
+            <button class="tab ${newsView === "saved" ? "on" : ""}" data-view="saved">已收藏</button>
+          </div>
+          ${newsView !== "source" ? `<input id="globalQ" class="grow input-sm" placeholder="搜索全部资讯 / 收藏…" value="${esc(globalQ)}" maxlength="60" />` : ""}
         </div>
         <div class="row news-filter align-c">
           <span class="news-filter-lab">时间：</span>
@@ -582,6 +721,20 @@
         routes.news.render(el);
       })
     );
+    // 视图切换：按源 / 按时间 / 已收藏
+    el.querySelectorAll("[data-view]").forEach((t) =>
+      t.addEventListener("click", () => {
+        newsView = t.dataset.view;
+        routes.news.render(el);
+      })
+    );
+    // 全局搜索（timeline/saved 视图）：防抖后重渲染
+    const gq = el.querySelector("#globalQ");
+    if (gq)
+      gq.addEventListener("input", debounce(() => {
+        globalQ = gq.value;
+        routes.news.render(el);
+      }, 250));
     // 时间范围 / 只看未读：纯前端过滤缓存，不重新抓取
     el.querySelectorAll("[data-range]").forEach((t) =>
       t.addEventListener("click", () => {
@@ -601,10 +754,26 @@
         routes.news.render(el);
       });
 
-    // 资讯卡片区域事件委托：点 ☆ 收藏入库（阻止跳转）；点卡片记已读（不阻止默认跳转）
+    // 资讯卡片区域事件委托：收藏 / 取消收藏 / 阅读 / 记已读
     const body = el.querySelector("#newsBody");
     if (body)
       body.addEventListener("click", async (e) => {
+        // 取消收藏（saved 视图）
+        const unsave = e.target.closest('[data-act="unsave"]');
+        if (unsave) {
+          e.preventDefault();
+          e.stopPropagation();
+          const id = unsave.dataset.id;
+          const rec = savedList.find((m) => m.id === id);
+          if (!confirm("取消收藏这篇文章？")) return;
+          try { await repo("bookmarks").delete(id); } catch (err) { /* 忽略 */ }
+          if (rec) savedSet.delete(rec.url);
+          savedList = savedList.filter((m) => m.id !== id);
+          WB.showToast("已取消收藏", "info");
+          routes.news.render(el);
+          return;
+        }
+        // 收藏
         const fav = e.target.closest("[data-fav]");
         if (fav) {
           e.preventDefault();
@@ -620,16 +789,37 @@
             createdAt: new Date().toISOString(),
           });
           savedSet.add(link);
+          savedList = savedList.concat([{ id: "", url: link, title: fav.dataset.title }]);
           fav.classList.add("on");
           fav.textContent = "★";
           fav.title = "已收藏";
           WB.showToast("已收藏到「沉淀 · 链接收藏」", "success");
           return;
         }
+        // 「站内阅读」按钮：只开阅读器，不落已读之外的副作用
+        const rd = e.target.closest(".news-read");
+        if (rd) {
+          e.preventDefault();
+          e.stopPropagation();
+          openReader(rd.dataset.link, rd.dataset.title);
+          return;
+        }
+        // 卡片主体（排除收藏星 / 阅读按钮 / 打开原文链接）：打开阅读器 + 记已读
+        if (e.target.closest(".news-origin")) return; // 原文链接自行跳转
         const card = e.target.closest(".news-card");
-        if (card && card.dataset.link && !readMap[card.dataset.link]) {
-          card.classList.add("read"); // 即时灰化，落盘异步进行不阻塞新标签打开
-          markRead(card.dataset.link);
+        if (card && card.dataset.link) {
+          if (!readMap[card.dataset.link]) {
+            card.classList.add("read");
+            markRead(card.dataset.link);
+          }
+          openReader(card.dataset.link, card.dataset.title);
+          return;
+        }
+        // 时间视图条目：点标题打开阅读器 + 记已读
+        const tln = e.target.closest(".tl-news") || e.target.closest(".tl-news-title");
+        if (tln && tln.dataset.link) {
+          if (!readMap[tln.dataset.link]) markRead(tln.dataset.link);
+          openReader(tln.dataset.link, tln.dataset.title);
         }
       });
 
