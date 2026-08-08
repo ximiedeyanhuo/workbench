@@ -499,12 +499,16 @@
 
     const box = modal.querySelector(".reader-body");
     const close = () => modal.remove();
+    // 关闭：用户点关闭/遮罩/ESC → closeOverlay（history.back 同步栈）；手机返回键 → popstate 自动调 close
+    const userClose = () => WB.closeOverlay("newsReader");
     modal.addEventListener("click", (e) => {
-      if (e.target === modal || e.target.closest(".reader-close")) close();
+      if (e.target === modal || e.target.closest(".reader-close")) userClose();
     });
     document.addEventListener("keydown", function onEsc(e) {
-      if (e.key === "Escape") { close(); document.removeEventListener("keydown", onEsc); }
+      if (e.key === "Escape") { userClose(); document.removeEventListener("keydown", onEsc); }
     });
+    // 登记到历史栈：手机返回键能先关浮层
+    WB.openOverlay("newsReader", close);
 
     if (!window.WB.USE_API) {
       box.innerHTML = '<div class="empty">离线模式无法抓取正文，<a class="reader-origin" href="' + safeUrl(link) + '" target="_blank" rel="noopener noreferrer">去源站阅读 →</a></div>';

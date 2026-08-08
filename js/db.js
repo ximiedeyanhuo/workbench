@@ -601,6 +601,46 @@
       };
       return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || ""}</svg>`;
     },
+
+    /* ===== 弹层返回键管理（SPA 内浮层/模态进 history，手机返回键先关弹层再退路由） =====
+     * openOverlay(marker, closeFn) 在打开浮层时调用：pushState 推标记状态，并在全局 popstate
+     *   上登记关闭回调。效果：
+     *   - 手机上按返回键 → popstate → 自动执行顶层浮层 closeFn（不退出页面）
+     *   - 浮层用其它方式关闭时，先调用 closeOverlay(marker)（会 history.back() 恢复栈）
+     * 浮层可叠加（栈式）；marker 区分来源。history.back() 触发的 popstate 用 _suppressPop 抑制，
+     *   避免误关下层浮层。 */
+    _overlays: [], // [{marker, close}]
+    _overlayBound: false,
+    _suppressPop: false,
+    openOverlay(marker, closeFn) {
+      const self = this;
+      if (!self._overlayBound) {
+        self._overlayBound = true;
+        window.addEventListener("popstate", () => {
+          if (self._suppressPop) { self._suppressPop = false; return; }
+          const top = self._overlays[self._overlays.length - 1];
+          if (top) {
+            self._overlays.pop();
+            try { top.close(); } catch (e) { /* 忽略 */ }
+          }
+        });
+      }
+      self._overlays.push({ marker, close: closeFn });
+      try { history.pushState({ wbOverlay: marker }, ""); } catch (e) { /* 忽略 */ }
+    },
+    closeOverlay(marker) {
+      const self = this;
+      const idx = self._overlays.map((o) => o.marker).lastIndexOf(marker);
+      if (idx < 0) return;
+      const was = self._overlays[idx];
+      self._overlays.splice(idx, 1);
+      // 若是顶层浮层：history.back() 恢复历史栈，popstate 被抑制避免误关下层
+      if (idx === self._overlays.length) {
+        self._suppressPop = true;
+        try { history.back(); } catch (e) { self._suppressPop = false; }
+      }
+      try { was.close(); } catch (e) { /* 忽略 */ }
+    },
     clearAllData,
     ai,
     jump: {}, // 全局搜索 → 目标模块的一次性跳转句柄（如 { taskId, noteId }）

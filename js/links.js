@@ -54,9 +54,10 @@
     document.body.appendChild(modal);
 
     const close = () => modal.remove();
+    const userClose = () => window.WB.closeOverlay("cred");
     modal.addEventListener("click", (e) => {
       const t = e.target;
-      if (t.classList.contains("cred-close") || t.classList.contains("cred-modal")) return close();
+      if (t.classList.contains("cred-close") || t.classList.contains("cred-modal")) return userClose();
       const btn = t.closest(".cred-copy");
       if (btn) {
         const val = btn.parentElement.querySelector(".cred-value").value;
@@ -65,10 +66,12 @@
     });
     document.addEventListener("keydown", function onEsc(e) {
       if (e.key === "Escape") {
-        close();
+        userClose();
         document.removeEventListener("keydown", onEsc);
       }
     });
+    // 登记到历史栈：手机返回键能先关浮层
+    window.WB.openOverlay("cred", close);
   }
 
   routes.links = {
