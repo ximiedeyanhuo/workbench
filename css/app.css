@@ -1933,6 +1933,45 @@ mark.news-kw {
 }
 .reader-body p { margin: 0 0 14px; }
 
+/* ============ 资讯页 · 移动端适配 ============ */
+@media (max-width: 767px) {
+  /* 控制区压薄：减小各过滤行间距与字号 */
+  .news-filter { margin-top: 10px; gap: 8px; }
+  .news-filter-lab { font-size: 11.5px; }
+  .news-note { margin-top: 10px; font-size: 11.5px; line-height: 1.6; }
+
+  /* 顶部控制行：分类 tab 独占整行横向滚动，操作按钮换行到下方并紧凑 */
+  .news-ctl-row { flex-wrap: wrap; }
+  .news-ctl-row .tabs.grow { flex-basis: 100%; }
+  .news-ctl-row .btn { padding: 5px 10px; font-size: 12px; }
+
+  /* 视图/时间 tab 标签：紧凑 */
+  .news-view-tabs .tab, .news-filter .tab { padding: 5px 10px; font-size: 12px; }
+  .news-filter #globalQ { font-size: 14px; }
+
+  /* 卡片更紧凑：减小内边距与间距 */
+  .news-card { border-radius: var(--radius-sm); }
+  .news-body { padding: 11px 12px 12px; gap: 6px; }
+  .news-title { font-size: 14px; }
+  .news-sum { font-size: 12px; }
+  .news-grid { gap: 12px; }
+  .news-src-blk { padding: 14px 0; }
+  .news-src-head { margin-bottom: 10px; }
+
+  /* 时间混排视图：行高紧凑，隐藏来源列（640 已有，这里补间距） */
+  .tl-news { padding: 7px 8px; gap: 8px; }
+  .tl-news-date { font-size: 10px; }
+  .tl-news-cat { min-width: 34px; font-size: 10px; }
+
+  /* 阅读器浮层：手机上尽量全屏，正文更易读 */
+  .reader-mask { padding: 0; }
+  .reader-box { max-width: 100%; height: 100vh; border-radius: 0; border: none; }
+  .reader-scroll { padding: 22px 18px 36px; }
+  .reader-title { font-size: 18px; }
+  .reader-body { font-size: 15px; line-height: 1.85; }
+  .reader-close { top: 14px; right: 18px; }
+}
+
 /* 资讯加载骨架屏 */
 .news-skeleton { padding: 6px 0; }
 .news-skeleton .sk-line { margin-bottom: 14px; }

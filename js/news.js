@@ -651,14 +651,14 @@
     return `
       ${offlineBanner}
       <div class="card">
-        <div class="row align-c">
+        <div class="row align-c news-ctl-row">
           <div class="tabs grow">${tabs}</div>
           <button class="${digestBtnClass}" id="digestBtn"${digestBtnAttrs}>${WB.icon("sparkle")} 今日精选</button>
           <button class="btn ghost sm" id="mgBtn">${manageOpen ? "收起管理" : WB.icon("plus") + " 管理源"}</button>
           <button class="${refreshBtnClass}" id="refreshBtn"${refreshBtnAttrs}>${WB.icon("refresh")} 刷新本类</button>
         </div>
         <div class="row news-filter align-c">
-          <div class="tabs" id="newsViewTabs">
+          <div class="tabs news-view-tabs" id="newsViewTabs">
             <button class="tab ${newsView === "source" ? "on" : ""}" data-view="source">按源</button>
             <button class="tab ${newsView === "timeline" ? "on" : ""}" data-view="timeline">按时间</button>
             <button class="tab ${newsView === "saved" ? "on" : ""}" data-view="saved">已收藏</button>
