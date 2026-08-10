@@ -217,8 +217,23 @@
    *  再调 routes.news.render(el) 会把资讯列表写进当前页面，造成「标题是新页、
    *  内容却是资讯」的渲染污染。校验不通过则放弃重渲染（缓存此时已落库，无损失）。 */
   function stillOnNews() {
-    return /^#\/news/.test(location.hash || "");
+    return /^\/#\/news/.test(location.hash || "");
   }
+
+  // 更新侧边栏/底部导航的「资讯」未读角标（跨模块只读，news 页每次渲染时写入）
+  function updateNavUnread(counts) {
+    let total = 0;
+    if (counts) Object.keys(counts).forEach((k) => { total += counts[k]; });
+    document.querySelectorAll("[data-newsbadge]").forEach((b) => {
+      if (total > 0) {
+        b.textContent = total > 99 ? "99+" : String(total);
+        b.hidden = false;
+      } else {
+        b.hidden = true;
+      }
+    });
+  }
+
 
   // ---------- 抓取并写缓存 ----------
   async function refresh(sources) {
@@ -435,6 +450,7 @@
           counts[f.category] = (counts[f.category] || 0) + f.cache.items.filter((it) => !readMap[it.link]).length;
         }
       });
+      updateNavUnread(counts);
 
       // 自动刷新：6 小时内不重复抓取（避免频繁请求 RSS 源站）
       const SIX_HOURS = 6 * 60 * 60 * 1000;

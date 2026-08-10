@@ -274,7 +274,7 @@
 
         <div class="stat-grid">
           <div class="stat" data-go="#/tasks"><div class="s-lab">今日到期 / 逾期</div><div class="s-val">${dueToday} / ${overdue}</div><div class="s-sub">共 ${activeGk.length} 项进行中</div></div>
-          <div class="stat" data-go="#/tasks"><div class="s-lab">本周复习完成率</div><div class="s-val">${weekRate}</div><div class="s-sub">${monStr.slice(5)} ~ ${sunStr.slice(5)}</div></div>
+          <div class="stat" data-go="#/tasks"><div class="s-lab">本周复习完成率</div><div class="s-val">${weekRate}</div><div class="s-sub">${monStr.slice(5)} ~ ${sunStr.slice(5)}</div>${weekTasks.length ? `<div class="mini-bar" style="margin-top:6px"><i style="width:${weekRate === "-" ? 0 : weekRate}"></i></div>` : ""}</div>
           <div class="stat" data-go="#/life"><div class="s-lab">考公习惯今日打卡</div><div class="s-val">${habitDone} / ${gkHabits.length}</div><div class="s-sub">${gkHabits.length === 0 ? "还没有备考习惯" : habitDone >= gkHabits.length ? "全部完成" : "继续加油"}</div></div>
           <div class="stat" data-act="go-exams"><div class="s-lab">最近模考</div><div class="s-val">${latestExamTxt}${latestDelta}</div><div class="s-sub">${latestExam ? esc(latestExam.subject) + " · " + esc(latestExam.date) + (latestPrev ? " · 较上次" : "") : "去下方录入第一次模考"}</div></div>
         </div>

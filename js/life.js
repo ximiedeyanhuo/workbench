@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  const { routes, repo, esc, uid, todayStr, dateStr, fmtMoney, flashInvalid, cssVar, streakOf } = window.WB;
+  const { routes, repo, esc, uid, todayStr, dateStr, fmtMoney, flashInvalid, cssVar, streakOf, weekRange } = window.WB;
   const habitsRepo = repo("habits");
   const healthRepo = repo("health");
 
@@ -44,10 +44,21 @@
               );
             }
             const doneToday = !!ck[today];
+            // 本周打卡进度：本周一至今已打卡次数 / 每周目标（h.goal，默认 7）
+            let weekCnt = 0;
+            const [monStr] = weekRange();
+            for (let i = 0; i < 7; i++) {
+              const ds = dateStr(new Date(new Date(monStr).getTime() + i * 86400000));
+              if (ck[ds]) weekCnt++;
+              if (ds === today) break;
+            }
+            const goal = Number(h.goal) > 0 ? Number(h.goal) : 7;
+            const weekDone = weekCnt >= goal;
             return `<div class="habit-card" data-hid="${h.id}">
               <div class="habit-head">
                 <span class="name"><span class="pri-dot" style="background:${esc(h.color)}"></span>${esc(h.name)}</span>
                 <span class="streak">🔥 连续 ${streakOf(h)} 天</span>
+                <span class="wk-goal ${weekDone ? "done" : ""}" title="本周已打卡 ${weekCnt} 天，目标 ${goal} 天">本周 ${weekCnt}/${goal}</span>
                 <button class="btn sm ${doneToday ? "ghost" : ""}" data-act="check-today" data-hid="${h.id}">${doneToday ? "✓ 今日已打卡" : "今日打卡"}</button>
                 <button class="icon-btn" data-act="del-habit" data-hid="${h.id}" title="删除习惯">${WB.icon("del")}</button>
               </div>
@@ -67,6 +78,7 @@
       </h2>
       <div class="row sp-b-xs">
         <input class="grow" id="habitName" placeholder="新习惯，如：早起 / 背单词 / 运动" maxlength="20" />
+        <input type="number" id="habitGoal" class="w-90" min="1" max="7" value="7" title="每周目标天数（1-7）" />
         <button class="btn sm" id="habitAdd">添加习惯</button>
       </div>
       <div id="habitList">${cards}</div>
@@ -178,10 +190,13 @@
         const nameInput = el.querySelector("#habitName");
         const name = nameInput.value.trim();
         if (!name) return flashInvalid(nameInput);
+        const goalEl = el.querySelector("#habitGoal");
+        const goal = goalEl ? Math.min(7, Math.max(1, Number(goalEl.value) || 7)) : 7;
         await habitsRepo.put({
           id: uid(), name,
           color: HABIT_COLORS[habits.length % HABIT_COLORS.length],
           checkins: {},
+          goal,
         });
         rerender();
       };
