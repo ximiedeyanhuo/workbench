@@ -83,6 +83,7 @@
               ? `<div class="md-preview n-preview">${MD.render(cur.content || "")}</div>`
               : `<textarea id="nContent" rows="16" placeholder="支持 Markdown：# 标题、**粗体**、- 列表、\`代码\`、> 引用、[链接](https://…)">${esc(cur.content)}</textarea>`
           }
+          <div class="n-editor-status"><span id="nWordCount">${(cur.content || "").length} 字</span><span id="nDirty" hidden>· 有未保存修改</span></div>
           <div class="row sp-t-lg">
             <button class="btn sm" id="nSave">${WB.icon("save")} 保存</button>
             <button class="btn ghost sm" id="nPreview">${previewing ? WB.icon("edit") + " 编辑" : WB.icon("eye") + " 预览"}</button>
@@ -110,6 +111,16 @@
     // 编辑器加载完成即视为已保存状态（脏检查基线）
     const ta0 = el.querySelector("#nContent");
     if (ta0) savedContent = ta0.value;
+    // 字数 + 未保存状态栏
+    function updateStatus() {
+      const ta = el.querySelector("#nContent");
+      if (!ta) return;
+      const wc = el.querySelector("#nWordCount");
+      if (wc) wc.textContent = ta.value.length + " 字";
+      const dirty = el.querySelector("#nDirty");
+      if (dirty) dirty.hidden = ta.value === savedContent;
+    }
+    if (ta0) { updateStatus(); ta0.addEventListener("input", updateStatus); }
     const search = el.querySelector("#noteSearch");
     // 防抖：连续输入时只在停顿后过滤一次
     search.addEventListener("input", debounce(() => { noteQ = search.value; refreshListOnly(el); }, 200));

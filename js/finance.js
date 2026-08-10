@@ -22,7 +22,7 @@
  */
 (function () {
   "use strict";
-  const { routes, repo, esc, uid, todayStr, fmtMoney, getSetting, setSetting, flashInvalid, cssVar } = window.WB;
+  const { routes, repo, esc, uid, todayStr, fmtMoney, getSetting, getSettings, setSetting, flashInvalid, cssVar } = window.WB;
   const financeRepo = repo("finance");
 
   // 预置分类（用户可通过分类管理追加自定义分类，存 settings.finCategories）
@@ -1166,14 +1166,11 @@
   routes.finance = {
     title: "记账",
     async render(el) {
-      const [records, target, finCatsCustom, monthBudget, finTemplates, finSchedules] = await Promise.all([
+      const [records, finSt] = await Promise.all([
         financeRepo.list(),
-        getSetting("saveTarget", 60000),
-        getSetting("finCategories", { income: [], expense: [] }),
-        getSetting("monthBudget", 0),
-        getSetting("finTemplates", []),
-        getSetting("finSchedules", []),
+        getSettings({ saveTarget: 60000, finCategories: { income: [], expense: [] }, monthBudget: 0, finTemplates: [], finSchedules: [] }),
       ]);
+      const target = finSt.saveTarget, finCatsCustom = finSt.finCategories, monthBudget = finSt.monthBudget, finTemplates = finSt.finTemplates, finSchedules = finSt.finSchedules;
       const cats = mergeCats(finCatsCustom);
       const txs = records.map(normalizeTx);
 
