@@ -1170,8 +1170,8 @@ button.tab:focus-visible { outline-offset: 0; }
 .md-preview hr { border: none; border-top: 1px dashed var(--rule); margin: 20px 0; }
 .md-preview a { color: var(--accent); border-bottom: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent); }
 .md-preview a:hover { border-bottom-color: var(--accent); }
-.md-preview table { border-collapse: collapse; margin: 14px 0; font-size: 13.5px; }
-.md-preview th, .md-preview td { border: 1px solid var(--line); padding: 6px 10px; }
+.md-preview table { border-collapse: collapse; margin: 14px 0; font-size: 13.5px; display: block; overflow-x: auto; max-width: 100%; }
+.md-preview th, .md-preview td { border: 1px solid var(--line); padding: 6px 10px; white-space: nowrap; }
 .md-preview th { background: var(--card2); }
 
 /* ============ 生活 / 习惯 ============ */
@@ -1522,6 +1522,10 @@ button.tab:focus-visible { outline-offset: 0; }
   background: var(--card); border: 1px solid var(--rule);
   border-radius: var(--radius); box-shadow: var(--shadow-md);
 }
+/* 窄屏：建议浮层不超出视口右缘（否则被 overflow-x:hidden 裁切） */
+@media (max-width: 767px) {
+  .stk-sug { position: fixed; left: 12px; right: 12px; min-width: 0; }
+}
 .stk-sug-item {
   display: flex; justify-content: space-between; gap: 12px;
   padding: 8px 12px; cursor: pointer; font-size: 13px;
@@ -1634,6 +1638,10 @@ button.tab:focus-visible { outline-offset: 0; }
   .tx-year-table td, .tx-year-table th { padding: 6px 5px; }
   .tx-detail span { width: 62px; }
   .tx-filter-sum { gap: 8px; font-size: 11.5px; }
+}
+/* 641–767px（小平板/横放大屏）：记账指标卡也由 5 列降为 2 列，避免拥挤截断 */
+@media (max-width: 767px) and (min-width: 641px) {
+  .tx-cards { grid-template-columns: repeat(2, 1fr); }
 }
 
 /* ============ 快捷入口 ============ */
@@ -2132,6 +2140,14 @@ mark.news-kw {
   .tab { padding: 8px 14px; font-size: 13px; }
   .item { padding: 12px 10px; }
   .theme-btn.mini { padding: 8px 12px; }
+
+  /* —— 补充小触控目标加大 —— */
+  .heat-cell { aspect-ratio: 1.2; font-size: 12px; }   /* 热力图格子加高，增大点按区 */
+  .heat-grid { gap: 5px; }
+  .news-fav { padding: 8px 10px; font-size: 17px; }      /* 收藏星热区 */
+  .news-read { padding: 8px; }                          /* 站内阅读按钮热区 */
+  .file-preview-btn { padding: 8px 12px; font-size: 13px; } /* 网盘预览按钮 */
+  .tx-cat-del { padding: 6px 8px; }
 
   /* —— 分类 tabs：单行横向滑动，不再撑破页面 —— */
   .row .tabs, .tabs.grow { flex: 1 1 100%; min-width: 0; }
@@ -2785,6 +2801,14 @@ mark.news-kw {
 /* 优先级副注 */
 .reports-pri-sub {
   font-size: 11px; color: var(--muted);
+}
+/* 统计页移动端：窄屏三列改单列，避免拥挤 */
+@media (max-width: 640px) {
+  .reports-health-meta { grid-template-columns: 1fr; gap: 8px; }
+  .reports-health-meta-item { padding: 8px; }
+  .reports-pri-grid { grid-template-columns: 1fr; gap: 10px; }
+  .reports-pri-card { padding: 12px; display: flex; align-items: center; justify-content: space-between; text-align: left; }
+  .reports-pri-num { margin: 0; }
 }
 
 /* ============================================================
