@@ -593,6 +593,10 @@
   function renderShell(list, loading, counts) {
     const c = CATS.find((x) => x.k === cat) || CATS[0];
     const hasUnread = !!counts && !!counts[cat] && counts[cat] > 0;
+    // 全部分类未读总数（用于"全部已读"按钮）
+    let totalUnread = 0;
+    if (counts) Object.keys(counts).forEach((k) => { totalUnread += counts[k]; });
+    const otherUnread = totalUnread - (counts && counts[cat] || 0);
     const tabs = CATS.map(
       (x) => `<button class="tab ${x.k === cat ? "on" : ""}" data-cat="${x.k}">${x.icon} ${x.label}${counts && counts[x.k] ? ` <b class="tab-cnt" style="background:${x.color}">${counts[x.k]}</b>` : ""}</button>`
     ).join("");
@@ -674,6 +678,7 @@
           <div class="tabs">${ranges}</div>
           <label class="news-unread-tg"><input type="checkbox" id="unreadOnly" ${unreadOnly ? "checked" : ""} /> 只看未读</label>
           ${hasUnread && list.length ? `<button class="btn ghost sm mla" id="markAllRead" title="把当前分类全部标为已读">${WB.icon("check")} 全部已读</button>` : ""}
+          ${otherUnread > 0 && !hasUnread ? `<button class="btn ghost sm" id="markAllReadAll" title="把全部分类的未读都标为已读（${totalUnread} 条）">${WB.icon("check")} 全部已读(${totalUnread})</button>` : ""}
         </div>
         <div class="row news-filter align-c">
           <span class="news-filter-lab">关注词：</span>
@@ -976,6 +981,30 @@
           try { await setSetting("newsRead", readMap); } catch (err) { /* 忽略 */ }
         }
         WB.showToast(n ? `已将 ${n} 条标为已读` : "当前没有未读条目", "success");
+        routes.news.render(el);
+      });
+
+    // 全部已读：把全部分类未读都标为已读（跨分类）
+    const marAll = el.querySelector("#markAllReadAll");
+    if (marAll)
+      marAll.addEventListener("click", async () => {
+        if (!confirm("把全部分类的未读条目都标为已读？")) return;
+        const all = await feedRepo.list();
+        let n = 0;
+        all.forEach((f) => {
+          (f.cache && f.cache.items || []).forEach((it) => {
+            if (it.link && !readMap[it.link]) { readMap[it.link] = new Date().toISOString(); n++; }
+          });
+        });
+        if (n) {
+          const keys = Object.keys(readMap);
+          if (keys.length > 500) {
+            keys.sort((a, b) => readMap[a].localeCompare(readMap[b]));
+            keys.slice(0, keys.length - 500).forEach((k) => delete readMap[k]);
+          }
+          try { await setSetting("newsRead", readMap); } catch (err) { /* 忽略 */ }
+        }
+        WB.showToast(n ? `已全部标为已读（${n} 条）` : "当前没有未读条目", "success");
         routes.news.render(el);
       });
 

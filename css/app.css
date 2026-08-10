@@ -363,6 +363,11 @@ button.offline-disabled {
 .gs-item:hover { background: var(--card2); }
 .gs-item .gs-txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gs-item .gs-sub { font-size: 11px; color: var(--muted); white-space: nowrap; font-family: var(--mono); }
+.gs-more {
+  padding: 8px 12px; font-size: 11.5px; color: var(--muted);
+  cursor: pointer; border-radius: var(--radius-xs);
+}
+.gs-more:hover { color: var(--accent); background: var(--card2); }
 .gs-empty { padding: 24px 12px; font-size: 13px; color: var(--muted); text-align: center; }
 
 /* 底部 tab（移动端） */
@@ -840,6 +845,7 @@ button.tab:focus-visible { outline-offset: 0; }
 }
 .dash-banner.over { color: var(--danger); border-color: var(--danger); border-left-color: var(--danger); background: color-mix(in srgb, var(--danger) 7%, var(--card)); }
 .dash-banner.warn { color: #C77E00; border-color: #F59E0B; border-left-color: #F59E0B; background: color-mix(in srgb, #F59E0B 8%, var(--card)); }
+.dash-banner.ok { color: var(--ok); border-color: var(--ok); border-left-color: var(--ok); background: color-mix(in srgb, var(--ok) 7%, var(--card)); }
 .dash-banner:hover { box-shadow: var(--shadow); }
 .dash-banner .c-accent { color: var(--accent); margin-left: auto; font-weight: 700; }
 
@@ -2951,6 +2957,28 @@ mark.news-kw {
 .cal-ctrl-title {
   font-size: 17px; font-weight: 800; color: var(--ink);
 }
+
+/* 本月概览条：打卡/任务/结余/预算进度 */
+.cal-overview {
+  display: flex; align-items: stretch; gap: 8px;
+  margin-bottom: 14px; flex-wrap: wrap;
+}
+.cal-ov {
+  flex: 1; min-width: 110px;
+  background: var(--card2); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.cal-ov-lab { font-size: 11px; color: var(--muted); letter-spacing: 0.03em; }
+.cal-ov-val { font-family: var(--mono); font-size: 16px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.cal-ov-bar { height: 5px; background: var(--line); border-radius: 3px; overflow: hidden; margin-top: 2px; }
+.cal-ov-bar i { display: block; height: 100%; background: var(--ok); border-radius: 3px; }
+.cal-ov-tag { font-size: 11px; font-weight: 700; }
+.cal-ov-budget.ok .cal-ov-tag { color: var(--ok); }
+.cal-ov-budget.warn .cal-ov-tag { color: var(--warn); }
+.cal-ov-budget.over { border-color: var(--danger); }
+.cal-ov-budget.over .cal-ov-tag { color: var(--danger); }
+@media (max-width: 640px) { .cal-ov { min-width: calc(50% - 4px); } }
 
 /* 日期格内任务数徽标（小药丸，默认琥珀底） */
 .cal-task-badge {

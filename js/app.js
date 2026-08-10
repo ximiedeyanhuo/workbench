@@ -127,13 +127,16 @@
     async function doSearch() {
       const q = input.value.trim().toLowerCase();
       if (!q) return close();
-      const [tasks, notes, marks, links] = await Promise.all([
+      const [tasks, notes, marks, links, finances, habits] = await Promise.all([
         repo("tasks").list(), repo("notes").list(), repo("bookmarks").list(), repo("quicklinks").list(),
-      ]).catch(() => [[], [], [], []]);
+        repo("finance").list(), repo("habits").list(),
+      ]).catch(() => [[], [], [], [], [], []]);
       const hit = (s) => String(s || "").toLowerCase().includes(q);
       const groups = [
         { name: "✅ 任务", type: "task", rows: tasks.filter((t) => hit(t.title) || hit(t.note) || (t.tags || []).some(hit)) },
         { name: "📚 笔记", type: "note", rows: notes.filter((n) => hit(n.title) || hit(n.content) || hit(n.folder)) },
+        { name: "💰 记账", type: "fin", rows: finances.filter((f) => hit(f.note) || hit(f.category)) },
+        { name: "🌱 习惯", type: "habit", rows: habits.filter((h) => hit(h.name)) },
         { name: "🔖 收藏", type: "url", rows: marks.filter((m) => hit(m.title) || hit(m.url) || (m.tags || []).some(hit)) },
         { name: "🚀 快捷入口", type: "url", rows: links.filter((l) => hit(l.name) || hit(l.url)) },
       ].filter((g) => g.rows.length);
@@ -143,23 +146,32 @@
         panel.hidden = false;
         return;
       }
-      // 每组最多展示 5 条，避免下拉过长
+      // 每组最多展示 5 条，超出的折叠成"更多 N 条"
+      const MAX = 5;
       panel.innerHTML = groups
-        .map(
-          (g) =>
-            `<div class="gs-group">${g.name}</div>` +
-            g.rows
-              .slice(0, 5)
-              .map((r) => {
-                const title = esc(r.title || r.name || "(无标题)");
-                if (g.type === "task")
-                  return `<div class="gs-item" data-t="task" data-id="${r.id}"><span class="gs-txt">${title}</span><span class="gs-sub">${esc(r.dueDate || "")}</span></div>`;
-                if (g.type === "note")
-                  return `<div class="gs-item" data-t="note" data-id="${r.id}"><span class="gs-txt">${title}</span><span class="gs-sub">${esc(r.folder || "")}</span></div>`;
-                return `<div class="gs-item" data-t="url" data-url="${esc(r.url)}"><span class="gs-txt">${title}</span><span class="gs-sub">打开 ↗</span></div>`;
-              })
-              .join("")
-        )
+        .map((g) => {
+          const rows = g.rows.slice(0, MAX);
+          const more = g.rows.length - rows.length;
+          const moreHtml = more > 0
+            ? `<div class="gs-more" data-group="${g.name}" data-type="${g.type}">… 还有 ${more} 条，点此跳转该页查看</div>`
+            : "";
+          const body = rows.map((r) => {
+            const title = esc(r.title || r.name || "(无标题)");
+            if (g.type === "task")
+              return `<div class="gs-item" data-t="task" data-id="${r.id}"><span class="gs-txt">${title}</span><span class="gs-sub">${esc(r.dueDate || "")}</span></div>`;
+            if (g.type === "note")
+              return `<div class="gs-item" data-t="note" data-id="${r.id}"><span class="gs-txt">${title}</span><span class="gs-sub">${esc(r.folder || "")}</span></div>`;
+            if (g.type === "fin") {
+              const sign = r.type === "expense" ? "-" : r.type === "income" ? "+" : "";
+              const amt = r.type === "expense" ? "支出" : r.type === "income" ? "收入" : "储蓄";
+              return `<div class="gs-item" data-t="fin" data-id="${r.id}"><span class="gs-txt">${esc(r.note || r.category || "记账")}</span><span class="gs-sub">${amt} ${sign}${Number(r.amount || 0)} · ${esc(r.date || "")}</span></div>`;
+            }
+            if (g.type === "habit")
+              return `<div class="gs-item" data-t="habit" data-id="${r.id}"><span class="gs-txt">${title}</span><span class="gs-sub">连续 ${esc(r.streak || "") || "打卡"}</span></div>`;
+            return `<div class="gs-item" data-t="url" data-url="${esc(r.url)}"><span class="gs-txt">${title}</span><span class="gs-sub">打开 ↗</span></div>`;
+          }).join("");
+          return `<div class="gs-group">${g.name}</div>${body}${moreHtml}`;
+        })
         .join("");
       panel.hidden = false;
     }
@@ -171,10 +183,24 @@
 
     panel.addEventListener("click", (e) => {
       const item = e.target.closest(".gs-item");
-      if (!item) return;
-      if (item.dataset.t === "task") { WB.jump.taskId = item.dataset.id; go("#/tasks"); }
-      else if (item.dataset.t === "note") { WB.jump.noteId = item.dataset.id; go("#/notes"); }
-      else window.open(safeUrl(item.dataset.url), "_blank", "noopener");
+      if (item) {
+        if (item.dataset.t === "task") { WB.jump.taskId = item.dataset.id; go("#/tasks"); }
+        else if (item.dataset.t === "note") { WB.jump.noteId = item.dataset.id; go("#/notes"); }
+        else if (item.dataset.t === "fin") { go("#/finance"); }
+        else if (item.dataset.t === "habit") { go("#/life"); }
+        else window.open(safeUrl(item.dataset.url), "_blank", "noopener");
+        return;
+      }
+      // "更多 N 条"：点击跳转对应页面（不带关键词时直接展示全部）
+      const more = e.target.closest(".gs-more");
+      if (more) {
+        const type = more.dataset.type;
+        if (type === "task") go("#/tasks");
+        else if (type === "note") go("#/notes");
+        else if (type === "fin") go("#/finance");
+        else if (type === "habit") go("#/life");
+        else if (type === "url") { /* 收藏/入口混合，跳入口页 */ go("#/links"); }
+      }
     });
   }
 
@@ -403,6 +429,15 @@
           ? `<div class="dash-banner warn" data-go="#/finance">⚠ 按当前日均推算整月 ${fmtMoney(proj)}，将超出预算 ${fmtMoney(monthBudget)} 约 ${fmtMoney(proj - monthBudget)} 元 · <span class="c-accent">去记账页</span></div>`
           : "";
 
+      // 储蓄目标临近提醒：设了目标且已存够 90% 时提示（达成则庆祝）
+      const saveBanner = target > 0 && saved > 0
+        ? saved >= target
+          ? `<div class="dash-banner ok" data-go="#/finance">🎉 年度储蓄目标已达成：${fmtMoney(saved)} / ${fmtMoney(target)} · <span class="c-accent">去记账页</span></div>`
+          : saved >= target * 0.9
+            ? `<div class="dash-banner ok" data-go="#/finance">🏆 储蓄目标快达标了：已存 ${pct}%（${fmtMoney(saved)} / ${fmtMoney(target)}），再存 ${fmtMoney(target - saved)} 就达成 · <span class="c-accent">去记账页</span></div>`
+            : ""
+        : "";
+
       // 净资产总览：累计储蓄 + 持仓市值（股票行情 / 基金净值异步补齐，先按成本价兜底显示）
       // 按 code 聚合流水（含旧快照迁移：无 action 视为买入，price=cost）；holding=Σ买-Σ卖，avgCost=Σ买额/Σ买量
       const aggregateStocks = (txs) => {
@@ -505,6 +540,7 @@
           focus.length ? " · 今天有 " + focus.length + " 件事需要关注" : " · 今天没有到期事项，安心推进"
         }${notifyBtnHtml}</div>
         ${gkBanner}
+        ${saveBanner}
         ${budgetBanner}
         <div class="stat-grid">
           <div class="stat" data-go="#/tasks"><div class="s-lab">今日到期 / 逾期</div><div class="s-val">${dueToday.length} / ${overdue.length}</div><div class="s-sub">共 ${active.length} 项进行中</div></div>

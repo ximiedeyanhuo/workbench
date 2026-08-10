@@ -105,6 +105,42 @@
       (showToday ? '<button class="btn sm ghost" id="calToday">\u56DE\u5230\u4ECA\u5929</button>' : '') +
       '</div>';
   }
+  /** 本月概览条：本月支出 vs 预算、打卡次数、完成任务数 */
+  function overviewHtml(dailyIdx, finances, budget) {
+    var monthKey = ymd(calYear, calMonth, 1).slice(0, 7);
+    // 支出合计（本月全部记账）
+    var exp = 0, inc = 0;
+    finances.forEach(function (f) {
+      if ((f.date || "").slice(0, 7) !== monthKey) return;
+      if (f.type === "expense") exp += Number(f.amount || 0);
+      else if (f.type === "income") inc += Number(f.amount || 0);
+    });
+    // 打卡次数 + 完成任务数（从 dailyIdx 聚合本月的）
+    var checkins = 0, doneTasks = 0;
+    dailyIdx.forEach(function (entry, key) {
+      if (key.slice(0, 7) !== monthKey) return;
+      checkins += entry.checkins ? entry.checkins.length : 0;
+      if (entry.tasks) doneTasks += entry.tasks.filter(function (t) { return t.done; }).length;
+    });
+    var budgetHtml = "";
+    if (budget > 0) {
+      var pct = Math.min(100, Math.round((exp / budget) * 100));
+      var over = exp > budget;
+      var cls = over ? "over" : (pct >= 80 ? "warn" : "ok");
+      budgetHtml = '<div class="cal-ov cal-ov-budget ' + cls + '">' +
+        '<span class="cal-ov-lab">\u672C\u6708\u652F\u51FA</span>' +
+        '<span class="cal-ov-val">' + fmtMoney(exp) + ' / ' + fmtMoney(budget) + '</span>' +
+        '<span class="cal-ov-bar"><i style="width:' + pct + '%;' + (over ? 'background:var(--danger)' : (pct >= 80 ? 'background:var(--warn)' : '')) + '"></i></span>' +
+        (over ? '<span class="cal-ov-tag over">\u8D85\u652F ' + fmtMoney(exp - budget) + '</span>' : '<span class="cal-ov-tag">' + pct + '%</span>') +
+        '</div>';
+    }
+    return '<div class="cal-overview">' +
+      '<div class="cal-ov"><span class="cal-ov-lab">\u672C\u6708\u6253\u5361</span><span class="cal-ov-val">' + checkins + ' \u6B21</span></div>' +
+      '<div class="cal-ov"><span class="cal-ov-lab">\u5B8C\u6210\u4EFB\u52A1</span><span class="cal-ov-val">' + doneTasks + ' \u4E2A</span></div>' +
+      '<div class="cal-ov"><span class="cal-ov-lab">\u672C\u6708\u7ED3\u4F59</span><span class="cal-ov-val" style="color:' + (inc - exp >= 0 ? 'var(--ok)' : 'var(--danger)') + '">' + fmtMoney(inc - exp) + '</span></div>' +
+      budgetHtml +
+      '</div>';
+  }
   function gridHtml(dailyIdx) {
     var days = daysInMonth(calYear, calMonth);
     var lead = firstWeekday(calYear, calMonth);
@@ -248,15 +284,16 @@
       var tasksPromise = tasksRepo.list();
       var financesPromise = financeRepo.list();
       var habitsPromise = habitsRepo.list();
+      var budgetPromise = getSetting("monthBudget", 0);
 
-      var all = await Promise.all([tasksPromise, financesPromise, habitsPromise]);
-      var tasks = all[0], finances = all[1], habits = all[2];
+      var all = await Promise.all([tasksPromise, financesPromise, habitsPromise, budgetPromise]);
+      var tasks = all[0], finances = all[1], habits = all[2], monthBudget = all[3];
 
       if (!el.isConnected) return;
 
       var dailyIdx = buildDayIndex(tasks, finances, habits);
 
-      el.innerHTML = ctrlHtml() + gridHtml(dailyIdx) + detailHtml(dailyIdx);
+      el.innerHTML = ctrlHtml() + overviewHtml(dailyIdx, finances, monthBudget) + gridHtml(dailyIdx) + detailHtml(dailyIdx);
 
       var rerender = function () { routes.calendar.render(el); };
 
