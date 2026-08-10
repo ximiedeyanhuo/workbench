@@ -15,7 +15,7 @@
  */
 (function () {
   "use strict";
-  const { routes, repo, esc, uid, todayStr, dateStr, cssVar, streakOf } = window.WB;
+  const { routes, repo, esc, uid, todayStr, dateStr, cssVar, streakOf, getSetting, setSetting, ai, icon } = window.WB;
   const financeRepo = repo("finance");
   const habitsRepo = repo("habits");
   const healthRepo = repo("health");
@@ -606,6 +606,105 @@
       }
     }
   }
+
+  // ========== AI 月报 ==========
+  /** 把四类数据聚合成"当月 + 上月"的可读摘要，作为 prompt 输入 */
+  function buildMonthDigest(finance, habits, health, tasks, ymKey) {
+    const monthTx = finance.filter((t) => (t.date || "").slice(0, 7) === ymKey);
+    const lastY = Number(ymKey.slice(0, 4));
+    const lastM = Number(ymKey.slice(5, 7));
+    const prevDate = new Date(lastY, lastM - 2, 1);
+    const prevKey = prevDate.getFullYear() + "-" + String(prevDate.getMonth() + 1).padStart(2, "0");
+    const prevTx = finance.filter((t) => (t.date || "").slice(0, 7) === prevKey);
+    const sum = (arr, type) => arr.filter((t) => t.type === type).reduce((s, t) => s + Number(t.amount || 0), 0);
+    const inc = sum(monthTx, "income"), exp = sum(monthTx, "expense"), sav = sum(monthTx, "saving");
+    const pInc = sum(prevTx, "income"), pExp = sum(prevTx, "expense"), pSav = sum(prevTx, "saving");
+    // 分类 top 3（支出）
+    const catMap = {};
+    monthTx.filter((t) => t.type === "expense").forEach((t) => { catMap[t.category || "other-e"] = (catMap[t.category || "other-e"] || 0) + Number(t.amount || 0); });
+    const topCats = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, v]) => `${k}:${v.toFixed(0)}`).join(", ");
+    // 习惯：当前月打卡总数
+    let checkinTotal = 0, habitCount = habits.length;
+    habits.forEach((h) => {
+      if (!h.checkins) return;
+      Object.keys(h.checkins).forEach((d) => { if (d.slice(0, 7) === ymKey) checkinTotal++; });
+    });
+    // 任务：当月完成 / 新建
+    const done = tasks.filter((t) => t.done && t.doneAt && t.doneAt.slice(0, 7) === ymKey).length;
+    const created = tasks.filter((t) => (t.createdAt || "").slice(0, 7) === ymKey).length;
+    // 健康：取近 30 天体重/步数均值（如有）
+    const hs = health.filter((h) => h.date && h.date.slice(0, 7) === ymKey);
+    const weights = hs.map((h) => Number(h.weight || 0)).filter((n) => n > 0);
+    const steps = hs.map((h) => Number(h.steps || 0)).filter((n) => n > 0);
+    const avg = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
+    return {
+      ymKey, prevKey,
+      inc, exp, sav, pInc, pExp, pSav,
+      topCats, habitCount, checkinTotal, done, created,
+      avgWeight: avg(weights).toFixed(1), avgSteps: Math.round(avg(steps)),
+    };
+  }
+
+  /** 渲染 AI 月报 tab 面板：状态机 (未配置 / 无数据 / 加载中 / 已生成) */
+  async function renderAiReportPanel(panel, sets) {
+    const st = await ai.status();
+    if (!st.configured) {
+      panel.innerHTML = '<div class="card"><div class="empty">未配置 AI（智谱 API key）。请在服务器 .env 或 zhipu.key 写入 ZHIPU_API_KEY 后重启服务。</div></div>';
+      return;
+    }
+    const now = new Date();
+    const ymKey = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+    const digest = buildMonthDigest(sets.finance, sets.habits, sets.health, sets.tasks, ymKey);
+    if (digest.inc === 0 && digest.exp === 0 && digest.habitCount === 0 && digest.done === 0 && sets.health.length === 0) {
+      panel.innerHTML = '<div class="card"><div class="empty">' + ymKey + ' 暂无可汇总数据</div></div>';
+      return;
+    }
+    const cache = (await getSetting("aiMonthlyReport", null)) || {};
+    const cached = cache[ymKey] || null;
+    panel.innerHTML = '<div class="card">' +
+      '<h2>✨ AI 月报<span class="count">' + ymKey + ' · 由智谱生成</span></h2>' +
+      '<div class="rpt-ai-grid">' +
+        '<div class="rpt-ai-kpi"><div class="lab">本月收入</div><div class="val" style="color:var(--ok)">+' + fmtYuan(digest.inc) + '</div><div class="sub">较上月 ' + (digest.pInc ? (digest.inc >= digest.pInc ? '+' : '') + ((digest.inc - digest.pInc) / digest.pInc * 100).toFixed(1) + '%' : '—') + '</div></div>' +
+        '<div class="rpt-ai-kpi"><div class="lab">本月支出</div><div class="val" style="color:var(--danger)">-' + fmtYuan(digest.exp) + '</div><div class="sub">较上月 ' + (digest.pExp ? (digest.exp >= digest.pExp ? '+' : '') + ((digest.exp - digest.pExp) / digest.pExp * 100).toFixed(1) + '%' : '—') + '</div></div>' +
+        '<div class="rpt-ai-kpi"><div class="lab">本月储蓄</div><div class="val">+' + fmtYuan(digest.sav) + '</div><div class="sub">结余 ' + fmtYuan(digest.inc - digest.exp) + '</div></div>' +
+        '<div class="rpt-ai-kpi"><div class="lab">任务完成</div><div class="val">' + digest.done + ' / ' + digest.created + '</div><div class="sub">习惯打卡 ' + digest.checkinTotal + ' 次</div></div>' +
+      '</div>' +
+      '<div class="rpt-ai-top">支出 Top 分类：' + (digest.topCats || '—') + '</div>' +
+      '<div id="rptAiBody">' + (cached ? '<div class="ai-panel">' + MD.render(cached.text) + '</div>' : '') + '</div>' +
+      '<div class="row sp-t-md">' +
+        '<button class="btn" id="rptAiGen">' + (cached ? '重新生成' : '✨ 生成月报') + '</button>' +
+        (cached ? '<span class="rpt-ai-meta">生成于 ' + esc(cached.at || '') + '</span>' : '') +
+      '</div></div>';
+    const genBtn = panel.querySelector("#rptAiGen");
+    if (genBtn) {
+      genBtn.addEventListener("click", async () => {
+        const body = panel.querySelector("#rptAiBody");
+        body.innerHTML = '<div class="ai-loading">AI 正在生成月报，请稍候…</div>';
+        genBtn.disabled = true;
+        try {
+          const sys = "你是个人效率助理，帮用户写一份简洁的中文月度复盘。基于用户提供的当月和上月数据，给出 4-6 条要点（财务/任务/习惯/健康各 1-2 条），不夸大、不奉承，能指出明显问题（如某分类暴涨、打卡骤降）。输出使用 markdown 列表，每条不超过 60 字。不要寒暄。";
+          const prompt = "当月：" + ymKey + "\n上月：" + digest.prevKey + "\n\n当月数据：\n- 收入 " + digest.inc + " 元 / 支出 " + digest.exp + " 元 / 储蓄 " + digest.sav + " 元\n- 结余 " + (digest.inc - digest.exp) + " 元\n- 支出分类 Top: " + (digest.topCats || "无") + "\n- 任务完成 " + digest.done + " / 新建 " + digest.created + "\n- 习惯 " + digest.habitCount + " 个 / 打卡 " + digest.checkinTotal + " 次\n- 平均体重 " + digest.avgWeight + " kg / 日均步数 " + digest.avgSteps + "\n\n上月数据：\n- 收入 " + digest.pInc + " 元 / 支出 " + digest.pExp + " 元 / 储蓄 " + digest.pSav + " 元";
+          const text = await ai.chat(sys, prompt, 0.5);
+          const cache2 = (await getSetting("aiMonthlyReport", null)) || {};
+          cache2[ymKey] = { text, at: new Date().toLocaleString("zh-CN") };
+          await setSetting("aiMonthlyReport", cache2);
+          body.innerHTML = '<div class="ai-panel">' + MD.render(text) + '</div>';
+          // 刷新按钮文案
+          genBtn.textContent = "重新生成";
+          // 补时间戳
+          const meta = panel.querySelector(".rpt-ai-meta") || document.createElement("span");
+          meta.className = "rpt-ai-meta";
+          meta.textContent = "生成于 " + cache2[ymKey].at;
+          if (!panel.querySelector(".rpt-ai-meta")) genBtn.parentNode.appendChild(meta);
+        } catch (e) {
+          body.innerHTML = '<div class="empty" style="color:var(--danger)">AI 生成失败：' + esc(e.message) + '</div>';
+        } finally {
+          genBtn.disabled = false;
+        }
+      });
+    }
+  }
+
   // ========== 主渲染 ==========
   routes.reports = {
     title: "数据统计",
@@ -631,6 +730,7 @@
         { k: "habits", label: "习惯" },
         { k: "health", label: "健康" },
         { k: "tasks", label: "任务" },
+        { k: "ai", label: "✨ AI 月报" },
       ];
       var tabHtml = tabs.map(function (t) {
         return '<button class="tab' + (t.k === reportTab ? " on" : "") + '" data-rpt-tab="' + t.k + '">' + t.label + "</button>";
@@ -648,6 +748,7 @@
       else if (reportTab === "habits") renderHabitsPanel(panel, habits);
       else if (reportTab === "health") renderHealthPanel(panel, health);
       else if (reportTab === "tasks") renderTasksPanel(panel, tasks);
+      else if (reportTab === "ai") renderAiReportPanel(panel, { finance: finance, habits: habits, health: health, tasks: tasks });
 
       // Tab 切换事件
       var tabContainer = el.querySelector("#rptTabs");

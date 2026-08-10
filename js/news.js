@@ -678,6 +678,7 @@
         <div class="row news-filter align-c">
           <span class="news-filter-lab">关注词：</span>
           <input id="newsKw" class="grow" placeholder="关键词用逗号分隔，如：国考, 陕西, AI —— 命中标题的条目会置顶并高亮" maxlength="120" value="${esc(keywords.join(", "))}" />
+          <button class="btn ghost sm" id="newsKwLearn" title="基于你最近点开过的标题，AI 提取关键词建议">✨ 学</button>
         </div>
         <div class="news-note">资讯由服务端代理抓取（RSS 源效果最好）；点开过的条目自动置为已读灰化，点 ☆ 可收藏到「沉淀 · 链接收藏」。</div>
       </div>
@@ -757,6 +758,70 @@
         await setSetting("newsKeywords", keywords);
         routes.news.render(el);
       });
+
+    // ✨ 自动学习关注词：拿最近 30 条点开过的标题，去除停用词后频次统计，AI 提炼 3-5 个高价值关键词
+    // 离线/未配置 AI 时退回本地频次方案
+    const learnBtn = el.querySelector("#newsKwLearn");
+    if (learnBtn) {
+      if (!window.WB.USE_API) { learnBtn.disabled = true; learnBtn.classList.add("offline-disabled"); learnBtn.title = "离线中不可用"; }
+      learnBtn.addEventListener("click", async () => {
+        learnBtn.disabled = true;
+        const old = learnBtn.innerHTML;
+        learnBtn.innerHTML = "分析中…";
+        try {
+          // 收集最近 30 条已读标题（按时间倒序）
+          const readEntries = Object.entries(readMap || {}).sort((a, b) => (b[1] || "").localeCompare(a[1] || "")).slice(0, 30);
+          // 用当前分类的 items 补 link→title 映射（已读存的是 url）
+          const link2title = {};
+          items.forEach((it) => { link2title[it.url] = it.title; });
+          // 兜底：bookmarks store 也能找到
+          let extraTitles = [];
+          try {
+            const saved = await repo("bookmarks").list();
+            saved.slice(0, 30).forEach((b) => { if (b.title) extraTitles.push(b.title); });
+          } catch (e) { /* 忽略 */ }
+          const titles = readEntries.map(([u]) => link2title[u]).filter(Boolean).concat(extraTitles);
+          if (titles.length < 3) { window.WB.showToast("点开/收藏的文章不足 3 条，无法学习", "info"); return; }
+          // 本地兜底词频（2-6 字中文词 + 英文单词）
+          const stop = new Set(["的", "了", "是", "在", "和", "与", "或", "也", "都", "就", "还", "及", "等", "对", "我", "你", "他", "她", "它", "我们", "你们", "他们", "今天", "昨天", "明天", "今年", "去年", "明年", "一个", "一些", "这个", "那个", "什么", "怎么", "如何", "为什么", "最新", "刚刚", "官方", "报道", "消息", "公布", "发布", "宣布", "将", "已", "正", "或", "及", "并", "或"]);
+          const freq = new Map();
+          titles.forEach((t) => {
+            // 抽 2-6 字中文串
+            const cn = t.match(/[\u4e00-\u9fa5]{2,6}/g) || [];
+            cn.forEach((w) => { if (!stop.has(w)) freq.set(w, (freq.get(w) || 0) + 1); });
+            // 抽 3+ 字母英文词
+            const en = t.match(/[A-Za-z]{3,}/g) || [];
+            en.forEach((w) => { const lw = w.toLowerCase(); if (!stop.has(lw)) freq.set(lw, (freq.get(lw) || 0) + 1); });
+          });
+          const localTop = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([w]) => w);
+          let suggested = localTop;
+          // 有 AI 配置就用 AI 提炼
+          const st = await WB.ai.status();
+          if (st.configured) {
+            try {
+              const text = await WB.ai.chat(
+                "你是关键词提炼助手。基于用户最近点开/收藏的文章标题，找出最能代表其阅读兴趣的 3-6 个中文或英文关键词。仅输出 JSON：[\"词1\",\"词2\",...]，不要解释。",
+                "用户最近阅读/收藏的标题（前 30 条）：\n" + titles.slice(0, 30).map((t, i) => (i + 1) + ". " + t).join("\n") + "\n\n本地候选词频（已去除停用词）：" + localTop.join(", "),
+                0.3
+              );
+              const arr = WB.ai.parseJson(text);
+              if (Array.isArray(arr) && arr.length) suggested = arr.map(String).filter(Boolean).slice(0, 6);
+            } catch (e) { /* AI 失败用本地 */ }
+          }
+          // 合并去重：当前 keywords 保留，新词放最前，最多 10 个
+          const merged = [...new Set([...suggested, ...keywords])].slice(0, 10);
+          keywords = merged;
+          await setSetting("newsKeywords", keywords);
+          window.WB.showToast("✨ 已学习：" + suggested.join("、"), "info");
+          routes.news.render(el);
+        } catch (err) {
+          window.WB.showToast("学习失败：" + err.message, "error");
+        } finally {
+          learnBtn.disabled = false;
+          learnBtn.innerHTML = old;
+        }
+      });
+    }
 
     // 资讯卡片区域事件委托：收藏 / 取消收藏 / 阅读 / 记已读
     const body = el.querySelector("#newsBody");

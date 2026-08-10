@@ -210,6 +210,23 @@
       finance.filter((r) => r.type === "expense" && (r.date || "").slice(0, 7) === m).reduce((s, r) => s + Number(r.amount || 0), 0)
     );
 
+    // ①⁺ 净资产趋势：近 12 月末累计储蓄（saving 类型按月累加），最后一点叠加当前持仓市值
+    const nwMonths = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(mNow.getFullYear(), mNow.getMonth() - i, 1);
+      nwMonths.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"));
+    }
+    const savedByM = nwMonths.map((m) =>
+      finance.filter((r) => r.type === "saving" && (r.date || "").slice(0, 7) <= m).reduce((s, r) => s + Number(r.amount || 0), 0)
+    );
+    // 当前市值同步估算：本地无历史股价，按持仓成本为最新点叠加值（与净资产卡"持仓市值"块一致）
+    const liveMarketVal = stockCostVal || 0;
+    const nwSeries = savedByM.map((s, i) => (i === nwMonths.length - 1 ? s + liveMarketVal : s));
+    const nwDelta = nwSeries.length > 1 ? nwSeries[nwSeries.length - 1] - nwSeries[0] : 0;
+    const nwHint = nwDelta === 0
+      ? "近 12 月无变化"
+      : `${nwDelta > 0 ? "+" : ""}${fmtMoney(nwDelta)}（较 12 月前）`;
+
     // ②③ 近 14 天：打卡数 / 任务完成数
     const days = [];
     for (let i = 13; i >= 0; i--) {
@@ -239,6 +256,36 @@
       data: { labels: dayLabs, datasets: [{ data: doneByD, borderColor: accent, backgroundColor: accent, tension: 0.35, pointRadius: 2.5 }] },
       options: baseOpt,
     });
+    // ①⁺ 净资产趋势（独立坐标轴，柱条 + 平滑折线复合，强调"储蓄积累"语义）
+    const nwLine = nwSeries[nwSeries.length - 1] - nwSeries[0] >= 0 ? ok : danger;
+    const nwFill = nwLine === ok ? "rgba(74, 158, 99, 0.10)" : "rgba(204, 102, 102, 0.10)";
+    mk("chartNetWorth", {
+      type: "line",
+      data: {
+        labels: nwMonths.map((m) => m.slice(2)),
+        datasets: [{
+          data: nwSeries,
+          borderColor: nwLine,
+          backgroundColor: nwFill,
+          fill: true,
+          tension: 0.35,
+          pointRadius: 2.5,
+          pointHoverRadius: 5,
+          borderWidth: 2,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => "净资产 " + fmtMoney(c.parsed.y) } } },
+        scales: {
+          x: { ticks: { color: muted, font: { size: 10 }, maxRotation: 0, autoSkipPadding: 12 }, grid: { display: false } },
+          y: { ticks: { color: muted, font: { size: 10 }, precision: 0, callback: (v) => v >= 10000 ? (v / 10000).toFixed(1) + "万" : v }, grid: { color: line } },
+        },
+      },
+    });
+    const hintEl = el.querySelector("#nwTrendHint");
+    if (hintEl) hintEl.textContent = nwHint;
   }
 
   routes.dashboard = {
@@ -345,6 +392,16 @@
       const budgetHint = monthBudget > 0
         ? ` · 预算 ${fmtMoney(monthBudget)}${overBudget ? ` <b style="color:var(--danger)">已超支 ${fmtMoney(mExpense - monthBudget)}</b>` : ""}`
         : "";
+      // 仪表盘预算横幅：超支/按日均预测将超支/无预算 三档；只在「需提醒」场景出现
+      const passedD = Math.max(1, now.getDate());
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const proj = monthBudget > 0 ? Math.round((mExpense / passedD) * daysInMonth) : 0;
+      const projOver = monthBudget > 0 && !overBudget && proj > monthBudget * 1.1;
+      const budgetBanner = overBudget
+        ? `<div class="dash-banner over" data-go="#/finance">⚠ 本月支出 ${fmtMoney(mExpense)} 已超预算 ${fmtMoney(monthBudget)} · 超支 ${fmtMoney(mExpense - monthBudget)} 元 · <span class="c-accent">去记账页</span></div>`
+        : projOver
+          ? `<div class="dash-banner warn" data-go="#/finance">⚠ 按当前日均推算整月 ${fmtMoney(proj)}，将超出预算 ${fmtMoney(monthBudget)} 约 ${fmtMoney(proj - monthBudget)} 元 · <span class="c-accent">去记账页</span></div>`
+          : "";
 
       // 净资产总览：累计储蓄 + 持仓市值（股票行情 / 基金净值异步补齐，先按成本价兜底显示）
       // 按 code 聚合流水（含旧快照迁移：无 action 视为买入，price=cost）；holding=Σ买-Σ卖，avgCost=Σ买额/Σ买量
@@ -379,6 +436,7 @@
               <div class="stat" data-go="#/stocks"><div class="s-lab">今日盈亏</div><div class="s-val c-muted" id="nwDay">—</div><div class="s-sub">股票涨跌 + 基金净值差</div></div>
               <div class="stat"><div class="s-lab">净资产合计</div><div class="s-val" id="nwTotal">${fmtMoney(saved + stockCostVal)}</div><div class="s-sub">储蓄 + 市值</div></div>
             </div>
+            <div class="nw-trend"><canvas id="chartNetWorth" height="90"></canvas><div class="nw-trend-hint" id="nwTrendHint"></div></div>
           </div>`
         : "";
 
@@ -447,6 +505,7 @@
           focus.length ? " · 今天有 " + focus.length + " 件事需要关注" : " · 今天没有到期事项，安心推进"
         }${notifyBtnHtml}</div>
         ${gkBanner}
+        ${budgetBanner}
         <div class="stat-grid">
           <div class="stat" data-go="#/tasks"><div class="s-lab">今日到期 / 逾期</div><div class="s-val">${dueToday.length} / ${overdue.length}</div><div class="s-sub">共 ${active.length} 项进行中</div></div>
           <div class="stat" data-go="#/tasks"><div class="s-lab">本周待办</div><div class="s-val">${weekCnt}</div><div class="s-sub">${monStr.slice(5)} ~ ${sunStr.slice(5)}</div></div>

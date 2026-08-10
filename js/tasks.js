@@ -21,9 +21,11 @@
   const repeatLab = (k) => (REPEAT.find((r) => r.key === k) || REPEAT[0]).label;
 
   // 模块内状态（跨渲染保留）
-  let view = "list"; // list | calendar
+  let view = "list"; // list | calendar | kanban
   let filter = "all"; // all | today | week | done
   let editingId = null; // 正在行内编辑的任务 id
+  let aiSortOrder = null; // AI 排序结果：{ ids: [...], reason: "...", at: ts, signature: "ids 拼接" }；signature 失效就重排
+  let aiSortExpires = 0; // 缓存过期时间戳（30 分钟）
   const now = new Date();
   let calYear = now.getFullYear();
   let calMonth = now.getMonth(); // 0-based
@@ -81,6 +83,16 @@
     else if (filter === "week") list = tasks.filter((t) => !t.done && t.dueDate && t.dueDate >= monStr && t.dueDate <= sunStr);
     else if (filter === "done") list = tasks.filter((t) => t.done);
     list = sortTasks(list);
+    // AI 排序覆盖：只对未完成 + 有 _aiOrd 的项生效，已完成保持 sortTasks 结果
+    if (aiSortOrder) {
+      const ord = new Map(aiSortOrder.ids.map((id, i) => [id, i]));
+      list = list.slice().sort((a, b) => {
+        const ao = a.done ? Infinity : (ord.has(a.id) ? ord.get(a.id) : 99999);
+        const bo = b.done ? Infinity : (ord.has(b.id) ? ord.get(b.id) : 99999);
+        if (ao !== bo) return ao - bo;
+        return 0;
+      });
+    }
     if (!list.length) return '<div class="empty">这里空空如也～</div>';
     return list.map((t) => taskItemHtml(t, today)).join("");
   }
@@ -150,6 +162,55 @@
       ${dayPanel}`;
   }
 
+  // ---------- 看板视图：按优先级分列，方便一眼看"该先做哪件" ----------
+  // 每列最多 8 条 + "更多"展开剩余（避免列过长）；已完成任务不进看板
+  // expandPri: 传入"high/mid/low" 时取消该列上限，列出全部
+  function renderKanban(tasks, today, expandPri) {
+    const active = tasks.filter((t) => !t.done);
+    if (!active.length) return '<div class="empty">没有进行中的任务，去上面新建一个吧</div>';
+    const cols = [
+      { key: "high", title: "高优先", icon: "🔥", color: "var(--danger)" },
+      { key: "mid", title: "中优先", icon: "🌿", color: "var(--warn)" },
+      { key: "low", title: "低优先", icon: "🪨", color: "var(--primary)" },
+    ];
+    const sorted = (arr) => arr.slice().sort((a, b) => {
+      // 逾期 > 今天 > 之后 > 无日期；同档内按创建时间
+      const ad = a.dueDate || "9999-99-99";
+      const bd = b.dueDate || "9999-99-99";
+      if (ad !== bd) return ad.localeCompare(bd);
+      return (a.createdAt || "").localeCompare(b.createdAt || "");
+    });
+    const colHtml = cols.map((c) => {
+      const list = sorted(active.filter((t) => (t.priority || "mid") === c.key));
+      const head = `<div class="kb-col-head"><span class="kb-ico">${c.icon}</span><span class="kb-tt" style="color:${c.color}">${c.title}</span><span class="kb-cnt">${list.length}</span></div>`;
+      if (!list.length) return `<div class="kb-col"><div class="kb-col-head"><span class="kb-ico">${c.icon}</span><span class="kb-tt" style="color:${c.color}">${c.title}</span><span class="kb-cnt">0</span></div><div class="kb-empty">这列空了</div></div>`;
+      const limit = expandPri === c.key ? 999 : 8;
+      const visible = list.slice(0, limit);
+      const more = list.length - visible.length;
+      const cards = visible.map((t) => {
+        const p = priOf(t.priority);
+        const overdue = t.dueDate && t.dueDate < today;
+        const todayDue = t.dueDate === today;
+        const due = t.dueDate ? (overdue ? "逾期 " + t.dueDate.slice(5) : todayDue ? "今天" : t.dueDate.slice(5)) : "无截止";
+        const dueCls = overdue ? "b-danger" : todayDue ? "b-warn" : "b-muted";
+        const tags = (t.tags || []).slice(0, 2).map((tg) => `<span class="tag">${esc(tg)}</span>`).join("");
+        return `<li class="kb-card ${overdue ? "over" : ""}" data-id="${t.id}">
+          <div class="kb-card-row"><span class="chk" data-act="toggle">${t.done ? "✓" : ""}</span><span class="pri-dot" style="background:${p.color}"></span><span class="kb-title">${esc(t.title)}</span></div>
+          <div class="kb-card-meta">${tags}<span class="badge ${dueCls}">${due}</span>${t.repeat ? `<span class="tag" title="完成后自动生成下一期">🔁</span>` : ""}</div>
+        </li>`;
+      }).join("");
+      const moreBtn = more > 0 ? `<button class="kb-more" data-act="kb-show" data-pri="${c.key}">展开剩余 ${more} 条</button>` : "";
+      return `<div class="kb-col"><div class="kb-col-head"><span class="kb-ico">${c.icon}</span><span class="kb-tt" style="color:${c.color}">${c.title}</span><span class="kb-cnt">${list.length}</span></div><ul class="kb-list">${cards}</ul>${moreBtn}</div>`;
+    }).join("");
+    return `<div class="kb-board" id="kbBoard">${colHtml}</div>
+      <div class="kb-foot">看板仅展示未完成任务；切换到「已完成」可看历史</div>`;
+  }
+
+  // 看板展开整列后的渲染：复用 renderKanban（传 expandPri 让该列不限条数）
+  function renderKanbanExpanded(tasks, today, pri) {
+    return renderKanban(tasks, today, pri);
+  }
+
   // ---------- 主渲染 ----------
   routes.tasks = {
     title: "事务",
@@ -190,6 +251,7 @@
             <input id="tTags" placeholder="标签（逗号分隔）" class="w-150" maxlength="60" />
             <button class="btn in-card-btn" id="tAdd">添加</button>
             <button class="btn ghost in-card-btn" id="tAiSplit" title="AI 把大任务拆成可执行小任务">${WB.icon("sparkle")} AI 拆解</button>
+            <button class="btn ghost in-card-btn" id="tAiSort" title="AI 按紧急+重要给未完成任务排序">${WB.icon("sparkle")} AI 排序</button>
           </div>
           <div id="tAiPanel"></div>
         </div>
@@ -208,10 +270,11 @@
               ${view === "list" && overdueTasks.length ? `<button class="btn ghost sm" id="tPostpone" title="把所有逾期未完成任务的截止日改为今天">${WB.icon("forward")} 逾期顺延到今天（${overdueTasks.length}）</button>` : ""}
               <button class="tab ${view === "list" ? "on" : ""}" data-v="list">${WB.icon("list")} 列表</button>
               <button class="tab ${view === "calendar" ? "on" : ""}" data-v="calendar">${WB.icon("calendar")} 日历</button>
+              <button class="tab ${view === "kanban" ? "on" : ""}" data-v="kanban" title="按优先级分列的看板视图">看板</button>
             </div>
           </div>
           <div id="taskBody">
-            ${view === "list" ? `<ul class="list">${renderList(tasks, today)}</ul>` : renderCalendar(tasks, today)}
+            ${view === "list" ? `${aiSortOrder ? `<div class="ai-panel" style="margin-bottom:10px;font-size:12.5px"><b>✨ AI 排序建议：</b>${esc(aiSortOrder.reason || "已按 AI 评分重排")} · <button class="btn ghost sm" id="aiSortClear">恢复默认</button></div>` : ""}<ul class="list">${renderList(tasks, today)}</ul>` : view === "calendar" ? renderCalendar(tasks, today) : renderKanban(tasks, today)}
           </div>
         </div>`;
 
@@ -316,6 +379,64 @@
         }
       });
 
+      // AI 智能排序：把未完成任务的 id 列表提交给 AI，按"紧急+重要"返回新顺序
+      // 缓存 30 分钟；任务数变化（增删/勾选）使 signature 失效，自动重排
+      const sortBtn = el.querySelector("#tAiSort");
+      if (sortBtn) {
+        if (!window.WB.USE_API) {
+          sortBtn.disabled = true;
+          sortBtn.classList.add("offline-disabled");
+          sortBtn.title = "离线中，AI 不可用";
+        }
+        sortBtn.addEventListener("click", async () => {
+          if (!window.WB.USE_API) return window.WB.showToast("离线中，AI 排序不可用", "error");
+          const st = await WB.ai.status();
+          if (!st.configured) return window.WB.showToast("未配置智谱 API Key", "error");
+          const active = tasks.filter((t) => !t.done);
+          if (active.length < 2) return window.WB.showToast("未完成任务不足 2 条，无需排序", "info");
+          const signature = active.map((t) => t.id).sort().join(",");
+          const fresh = aiSortOrder && aiSortOrder.signature === signature && Date.now() < aiSortExpires;
+          if (fresh) {
+            applyAiSort();
+            return window.WB.showToast("已按 AI 排序（缓存）", "info");
+          }
+          sortBtn.disabled = true;
+          const oldHtml = sortBtn.innerHTML;
+          sortBtn.innerHTML = "排序中…";
+          try {
+            const list = active.map((t) => {
+              const overdue = t.dueDate && t.dueDate < today ? "⚠逾期" : (t.dueDate === today ? "📅今天" : (t.dueDate ? "截止" + t.dueDate.slice(5) : "无截止"));
+              const tags = (t.tags || []).join("/");
+              return `${t.id} | ${t.title} | ${t.priority || "mid"} | ${overdue}${tags ? " | 标签:" + tags : ""}`;
+            }).join("\n");
+            const sys = "你是个人任务排序助手。基于截止日/优先级/标签给出的【重要-紧急】维度，返回新的处理顺序（更靠前 = 更该先做）。只输出 JSON：{\"order\": [\"id1\",\"id2\",...], \"reason\": \"一句话说明排序思路，30 字内\"}。不要解释。";
+            const prompt = "请按【应优先完成】顺序重排这些任务，输出 JSON：\n" + list;
+            const text = await WB.ai.chat(sys, prompt, 0.3);
+            const obj = WB.ai.parseJson(text);
+            if (!obj || !Array.isArray(obj.order) || !obj.order.length) throw new Error("模型返回格式异常");
+            // 容错：剔除不在当前任务列表的 id；剩下的保持原顺序补齐末尾（防 AI 漏掉）
+            const valid = new Set(active.map((t) => t.id));
+            const ordered = obj.order.filter((id) => valid.has(id));
+            const missed = active.map((t) => t.id).filter((id) => !ordered.includes(id));
+            aiSortOrder = { ids: ordered.concat(missed), reason: String(obj.reason || "").slice(0, 60), at: Date.now(), signature };
+            aiSortExpires = Date.now() + 30 * 60 * 1000;
+            applyAiSort();
+            window.WB.showToast("✨ AI 已排序：" + aiSortOrder.reason, "info");
+          } catch (err) {
+            window.WB.showToast("AI 排序失败：" + err.message, "error");
+          } finally {
+            sortBtn.disabled = false;
+            sortBtn.innerHTML = oldHtml;
+          }
+        });
+      }
+      function applyAiSort() {
+        if (!aiSortOrder) return;
+        view = "list";
+        filter = "all";
+        rerender();
+      }
+
       // 筛选 / 视图切换
       el.querySelectorAll("[data-f]").forEach((t) =>
         t.addEventListener("click", () => { filter = t.dataset.f; rerender(); })
@@ -323,6 +444,10 @@
       el.querySelectorAll("[data-v]").forEach((t) =>
         t.addEventListener("click", () => { view = t.dataset.v; rerender(); })
       );
+
+      // AI 排序"恢复默认"按钮
+      const sortClear = el.querySelector("#aiSortClear");
+      if (sortClear) sortClear.addEventListener("click", () => { aiSortOrder = null; rerender(); });
 
       // 任务操作（勾选/编辑/删除）——事件委托
       el.querySelector("#taskBody").addEventListener("click", async (e) => {
@@ -365,6 +490,15 @@
               await tasksRepo.put(t);
             }
             editingId = null;
+          } else if (actEl.dataset.act === "kb-show") {
+            // 看板列展开剩余：临时把限制放到 999，重新渲染
+            const pri = actEl.dataset.pri;
+            const tb = el.querySelector("#taskBody");
+            const newHtml = `<div class="kb-board" id="kbBoard">${renderKanbanExpanded(tasks, today, pri)}</div>
+              <div class="kb-foot">已展开全部 · <button class="btn ghost sm" id="kbCollapse">收起</button></div>`;
+            tb.innerHTML = newHtml;
+            tb.querySelector("#kbCollapse").addEventListener("click", () => rerender());
+            return;
           }
           rerender();
           return;

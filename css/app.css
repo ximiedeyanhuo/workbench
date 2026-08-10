@@ -687,6 +687,29 @@ input.invalid, select.invalid, textarea.invalid {
 
 /* —— tab 即按钮：使 <button class="tab"> 与 <span class="tab"> 渲染一致 —— */
 button.tab { font-family: inherit; letter-spacing: inherit; }
+
+/* 任务看板：按优先级 3 列（高/中/低） */
+.kb-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 4px; }
+.kb-col { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 12px 10px; min-height: 120px; box-shadow: var(--shadow-sm); }
+.kb-col-head { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px dashed var(--line); }
+.kb-ico { font-size: 14px; }
+.kb-tt { flex: 1; }
+.kb-cnt { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 1px 8px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.kb-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.kb-card { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); transition: border-color .12s, transform .12s; }
+.kb-card:hover { border-color: var(--rule); }
+.kb-card.over { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 5%, var(--bg)); }
+.kb-card-row { display: flex; align-items: center; gap: 6px; }
+.kb-title { flex: 1; font-size: 13.5px; font-weight: 600; line-height: 1.35; }
+.kb-card-meta { display: flex; align-items: center; gap: 4px; margin-top: 6px; flex-wrap: wrap; font-size: 11px; }
+.kb-card-meta .tag { font-size: 10.5px; padding: 1px 5px; }
+.kb-card-meta .badge { font-size: 10.5px; padding: 1px 5px; }
+.kb-empty { color: var(--muted); font-size: 12px; padding: 14px 4px; text-align: center; }
+.kb-more { width: 100%; margin-top: 8px; background: transparent; border: 1px dashed var(--line); border-radius: 6px; padding: 6px; color: var(--muted); font-size: 12px; cursor: pointer; }
+.kb-more:hover { border-color: var(--rule); color: var(--ink); }
+.kb-foot { margin-top: 10px; color: var(--muted); font-size: 11.5px; text-align: center; }
+@media (max-width: 1023px) { .kb-board { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 640px) { .kb-board { grid-template-columns: 1fr; gap: 10px; } .kb-col { padding: 10px; } }
 button.tab:focus-visible { outline-offset: 0; }
 .tab svg { width: 13px; height: 13px; display: inline-block; vertical-align: -0.15em; margin-right: 3px; }
 
@@ -806,6 +829,24 @@ button.tab:focus-visible { outline-offset: 0; }
 .dash-gk.urgent { border-color: var(--danger); border-left-color: var(--danger); background: color-mix(in srgb, var(--danger) 7%, var(--card)); }
 .dash-gk.urgent .dash-gk-day b { color: var(--danger); }
 
+/* 仪表盘：预算预警横幅（超支/预测超支） */
+.dash-banner {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 16px; margin: -10px 0 18px;
+  border: 1px solid var(--line); border-left-width: 3px; border-radius: var(--radius);
+  font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: border-color .15s;
+  box-shadow: var(--shadow-sm);
+}
+.dash-banner.over { color: var(--danger); border-color: var(--danger); border-left-color: var(--danger); background: color-mix(in srgb, var(--danger) 7%, var(--card)); }
+.dash-banner.warn { color: #C77E00; border-color: #F59E0B; border-left-color: #F59E0B; background: color-mix(in srgb, #F59E0B 8%, var(--card)); }
+.dash-banner:hover { box-shadow: var(--shadow); }
+.dash-banner .c-accent { color: var(--accent); margin-left: auto; font-weight: 700; }
+
+/* 月度预算卡：超支/预测超支时整张卡片红/橙边框 */
+.card.card-over { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 4%, var(--card)); }
+.card.card-warn { border-color: #F59E0B; background: color-mix(in srgb, #F59E0B 4%, var(--card)); }
+
 /* 仪表盘·每周回顾：本周关键数据逐行展示 */
 .wr-stats { display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; line-height: 1.7; color: var(--ink); }
 
@@ -911,6 +952,12 @@ button.tab:focus-visible { outline-offset: 0; }
 }
 .chart-tt::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 2px; background: var(--accent); margin-right: 7px; transform: rotate(45deg); }
 .chart-box canvas { width: 100% !important; }
+
+/* 净资产趋势（净资产总览卡内嵌 sparkline） */
+.nw-trend { margin-top: 14px; position: relative; }
+.nw-trend canvas { display: block; width: 100% !important; height: 90px !important; }
+.nw-trend-hint { font-size: 11.5px; color: var(--muted); margin-top: 4px; text-align: right; }
+@media (max-width: 640px) { .nw-trend canvas { height: 70px !important; } }
 
 .dash-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
 .dash-col { display: flex; flex-direction: column; gap: 16px; }
@@ -1489,6 +1536,19 @@ button.tab:focus-visible { outline-offset: 0; }
   margin-top: 10px; font-size: 12px; color: var(--muted);
 }
 
+/* 年账视图：今年 vs 去年月度支出对比 */
+.tx-year-cmp { margin-top: 18px; padding: 14px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+.tx-year-cmp-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 8px; flex-wrap: wrap; }
+.tx-year-cmp-tt { font-size: 12.5px; font-weight: 700; color: var(--ink); }
+.tx-year-cmp-tag { font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 10px; font-variant-numeric: tabular-nums; }
+.tag-ok { color: var(--ok); background: rgba(74,158,99,0.10); }
+.tag-warn { color: #C77E00; background: rgba(245,158,11,0.12); }
+.tag-danger { color: var(--danger); background: rgba(204,102,102,0.10); }
+.tx-year-cmp canvas { width: 100% !important; height: 160px !important; }
+.tx-year-cmp-legend { margin-top: 8px; font-size: 11.5px; color: var(--muted); }
+.lg-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+@media (max-width: 640px) { .tx-year-cmp canvas { height: 140px !important; } }
+
 /* 股票：持仓表 + 搜索建议 */
 .stk-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .stk-table {
@@ -1898,6 +1958,54 @@ mark.news-kw {
   .tl-news-cat { min-width: 36px; }
 }
 
+/* ===== 番茄钟（专注计时器） ===== */
+/* 悬浮按钮 + 浮层面板；右下角固定，跨路由存在 */
+.focus-fab {
+  position: fixed; right: 18px; bottom: 18px; z-index: 90;
+  padding: 10px 16px; border-radius: 999px;
+  background: var(--accent); color: #1a1206; border: none; cursor: pointer;
+  font-size: 13px; font-weight: 700;
+  box-shadow: var(--shadow), 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent);
+  transition: transform .15s, box-shadow .15s;
+  font-family: var(--mono);
+  letter-spacing: 0.04em;
+}
+.focus-fab:hover { transform: translateY(-1px); box-shadow: var(--shadow), 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent); }
+.focus-fab.running { background: var(--danger); color: #fff; animation: focusPulse 1.6s ease-in-out infinite; }
+.focus-fab.paused { background: var(--warn); color: #1a1206; }
+.focus-fab.finished { background: var(--ok); color: #fff; }
+@keyframes focusPulse { 0%,100% { box-shadow: var(--shadow), 0 0 0 0 color-mix(in srgb, var(--danger) 60%, transparent); } 50% { box-shadow: var(--shadow), 0 0 0 12px color-mix(in srgb, var(--danger) 0%, transparent); } }
+
+.focus-panel {
+  position: fixed; right: 18px; bottom: 72px; z-index: 91;
+  width: 320px; max-width: calc(100vw - 24px);
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: var(--shadow), var(--card-lit);
+  padding: 0; overflow: hidden;
+  animation: focusIn .18s ease-out;
+}
+@keyframes focusIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.focus-head { display: flex; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.focus-tt { font-size: 14px; font-weight: 800; flex: 1; }
+.focus-body { padding: 16px 14px; text-align: center; }
+.focus-ring {
+  --pct: 0; width: 140px; height: 140px; margin: 4px auto 10px;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) calc(var(--pct) * 1%), var(--line) 0);
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.focus-ring::before { content: ""; position: absolute; inset: 8px; background: var(--card); border-radius: 50%; box-shadow: inset 0 0 0 1px var(--line); }
+.focus-time { position: relative; font-family: var(--mono); font-size: 30px; font-weight: 800; color: var(--ink); letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+.focus-meta { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+.focus-type select { width: 100%; padding: 7px 10px; font-size: 13px; }
+.focus-acts { display: flex; gap: 6px; margin-top: 10px; }
+.focus-acts .btn { flex: 1; }
+.focus-stat { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--ink); }
+.focus-stat b { color: var(--accent); font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 16px; }
+.focus-stat-tip { font-size: 11px; color: var(--muted); margin-top: 2px; }
+@media (max-width: 640px) { .focus-fab { right: 12px; bottom: 12px; padding: 8px 12px; font-size: 12px; } .focus-panel { right: 8px; bottom: 58px; width: calc(100vw - 16px); } }
+
 /* ---------- 站内阅读器浮层 ---------- */
 .reader-mask {
   position: fixed; inset: 0; z-index: 9999;
@@ -2038,6 +2146,17 @@ mark.news-kw {
 }
 
 /* ============ AI 面板 ============ */
+/* AI 月报 tab：4 个 KPI + 顶部支出 Top + AI 文本 */
+.rpt-ai-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 10px; }
+.rpt-ai-kpi { background: var(--card2); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 10px; text-align: center; }
+.rpt-ai-kpi .lab { font-size: 11.5px; color: var(--muted); }
+.rpt-ai-kpi .val { font-family: var(--mono); font-size: 22px; font-weight: 800; margin: 6px 0 4px; font-variant-numeric: tabular-nums; }
+.rpt-ai-kpi .sub { font-size: 11px; color: var(--muted); }
+.rpt-ai-top { margin-top: 14px; font-size: 12.5px; color: var(--ink-2); padding: 8px 12px; background: var(--card2); border-radius: var(--radius); }
+.rpt-ai-meta { align-self: center; font-size: 12px; color: var(--muted); }
+.ai-loading { padding: 18px; text-align: center; color: var(--muted); font-size: 13px; }
+@media (max-width: 640px) { .rpt-ai-grid { grid-template-columns: repeat(2, 1fr); } }
+
 .ai-panel {
   margin-top: 14px;
   padding: 14px 16px;

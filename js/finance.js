@@ -196,16 +196,23 @@
     const pct = has ? Math.min(100, Math.round((exp / budget) * 100)) : 0;
     const over = has && exp > budget;
     const warn80 = has && !over && exp >= budget * 0.8;
+    // 按本月已过天数推算"日均 × 全月天数 = 整月预计"；给"节奏失控"用户一个早期信号
+    const todayD = new Date();
+    const daysInMonth = new Date(todayD.getFullYear(), todayD.getMonth() + 1, 0).getDate();
+    const passed = Math.max(1, todayD.getDate());
+    const dailyAvg = exp / passed;
+    const projFull = Math.round(dailyAvg * daysInMonth);
+    const projOver = has && projFull > budget;
     const tip = !has
       ? '<div class="tx-budget-tip">设个预算，支出进度一目了然（仪表盘也会同步提醒）</div>'
       : over
         ? `<div class="tx-budget-tip over">⚠ 本月已超支 ${fmtYuan(exp - budget)} 元，注意控制开销</div>`
         : warn80
-          ? `<div class="tx-budget-tip warn">已用掉预算的 ${pct}%，剩余 ${fmtYuan(budget - exp)} 元</div>`
-          : `<div class="tx-budget-tip">剩余 ${fmtYuan(budget - exp)} 元，节奏健康</div>`;
-    return `<div class="card">
+          ? `<div class="tx-budget-tip warn">已用掉预算的 ${pct}%，剩余 ${fmtYuan(budget - exp)} 元${projOver ? `；按当前日均 ${fmtYuan(dailyAvg)} 推算整月 ${fmtYuan(projFull)}，会超 ${fmtYuan(projFull - budget)}` : ""}</div>`
+          : `<div class="tx-budget-tip">剩余 ${fmtYuan(budget - exp)} 元，节奏健康${has ? ` · 日均 ${fmtYuan(dailyAvg)}` : ""}</div>`;
+    return `<div class="card ${over ? "card-over" : projOver ? "card-warn" : ""}" id="finBudgetCard">
       <h2>月度预算<span class="count">${finYear}年${finMonth + 1}月</span></h2>
-      ${has ? `<div class="progress-top"><span>已支出 ${fmtYuan(exp)} / ${fmtYuan(budget)}</span><b style="${over ? "color:var(--danger)" : ""}">${pct}%</b></div>
+      ${has ? `<div class="progress-top"><span>已支出 ${fmtYuan(exp)} / ${fmtYuan(budget)}</span><b style="${over ? "color:var(--danger)" : projOver ? "color:var(--warn)" : ""}">${pct}%</b></div>
       <div class="bar"><i style="width:${pct}%;${over ? "background:var(--danger)" : warn80 ? "background:var(--warn)" : ""}"></i></div>` : ""}
       ${tip}
       <div class="tx-goal-edit">
@@ -576,7 +583,35 @@
       <thead><tr><th>年份</th><th>收入</th><th>支出</th><th>结余</th><th>笔数</th><th></th></tr></thead>
       <tbody>${rows.join("")}</tbody>
     </table></div>
-    <div class="tx-year-tip">点收入/支出金额跳该年明细 · 点年份行看该年月账</div>`;
+    <div class="tx-year-tip">点收入/支出金额跳该年明细 · 点年份行看该年月账</div>
+    ${yearCompareHtml(txs)}`;
+  }
+
+  /** 年账视图辅助：今年 vs 去年月度支出对比柱图 + 同比变化文案 */
+  function yearCompareHtml(txs) {
+    const thisYear = now.getFullYear();
+    const lastYear = thisYear - 1;
+    const months = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"));
+    const byM = (y) => months.map((m) => txs.filter((t) => t.type === "expense" && (t.date || "").slice(0, 7) === `${y}-${m}`).reduce((s, t) => s + Number(t.amount || 0), 0));
+    const cur = byM(thisYear), prev = byM(lastYear);
+    const sumCur = cur.reduce((a, b) => a + b, 0), sumPrev = prev.reduce((a, b) => a + b, 0);
+    if (sumCur === 0 && sumPrev === 0) return ""; // 双年都没数据就不渲染
+    const delta = sumCur - sumPrev;
+    const pct = sumPrev > 0 ? (delta / sumPrev) * 100 : (sumCur > 0 ? 100 : 0);
+    const tone = delta <= 0 ? "ok" : delta > sumPrev * 0.1 ? "danger" : "warn";
+    const arrow = delta > 0 ? "↑" : delta < 0 ? "↓" : "—";
+    const sign = delta > 0 ? "+" : "";
+    return `<div class="tx-year-cmp" id="finYearCmp">
+      <div class="tx-year-cmp-head">
+        <span class="tx-year-cmp-tt">${lastYear} 年 vs ${thisYear} 年 · 月度支出对比</span>
+        <span class="tx-year-cmp-tag tag-${tone}">同比 ${arrow} ${sign}${pct.toFixed(1)}%</span>
+      </div>
+      <canvas id="chartYearCmp" height="160"></canvas>
+      <div class="tx-year-cmp-legend">
+        <span class="lg-dot" style="background:var(--muted)"></span>${lastYear} 年 · 合计 ${fmtYuan(sumPrev)}
+        <span class="lg-dot" style="background:var(--danger);margin-left:14px"></span>${thisYear} 年 · 合计 ${fmtYuan(sumCur)}
+      </div>
+    </div>`;
   }
 
   /** 分类管理面板 */
@@ -812,7 +847,41 @@
     }));
   }
 
-  // ---------- 导出 ----------
+  /** 年账视图辅助：今年 vs 去年月度支出对比柱图 */
+  function renderYearCmpChart(el, txs) {
+    if (typeof Chart === "undefined") return;
+    const cv = el.querySelector("#chartYearCmp");
+    if (!cv) return;
+    const thisYear = now.getFullYear();
+    const lastYear = thisYear - 1;
+    const months = ["01","02","03","04","05","06","07","08","09","10","11","12"];
+    const byM = (y) => months.map((m) => txs.filter((t) => t.type === "expense" && (t.date || "").slice(0, 7) === `${y}-${m}`).reduce((s, t) => s + Number(t.amount || 0), 0));
+    const cur = byM(thisYear), prev = byM(lastYear);
+    if (cur.every((v) => v === 0) && prev.every((v) => v === 0)) return;
+    const muted = cssVar("--muted"), line = cssVar("--line"), danger = cssVar("--danger");
+    finCharts.push(new Chart(cv, {
+      type: "bar",
+      data: {
+        labels: ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"],
+        datasets: [
+          { label: `${lastYear} 年`, data: prev, backgroundColor: muted, borderRadius: 4 },
+          { label: `${thisYear} 年`, data: cur, backgroundColor: danger, borderRadius: 4 },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "top", labels: { color: muted, font: { size: 11 }, boxWidth: 10, boxHeight: 10, padding: 8 } },
+          tooltip: { callbacks: { label: (c) => ` ${c.dataset.label} ${fmtYuan(c.parsed.y)} 元` } },
+        },
+        scales: {
+          x: { ticks: { color: muted, font: { size: 10 } }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { color: muted, font: { size: 10 } }, grid: { color: line } },
+        },
+      },
+    }));
+  }
   /** 通用 CSV 下载（\uFEFF BOM：让 Excel 正确识别 UTF-8 中文） */
   function downloadCsv(filename, rows, cats) {
     const head = "日期,类型,分类,金额,备注";
@@ -1141,6 +1210,7 @@
 
       renderFinChart(el, mtx, cats);
       renderTrendChart(el, txs);
+      renderYearCmpChart(el, txs);
 
       const rerender = () => routes.finance.render(el);
       const $ = (sel) => el.querySelector(sel);
