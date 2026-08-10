@@ -320,6 +320,7 @@
         <div class="dash-actions">
           <div class="card">
             <h2>复习进度<span class="count">${undoneSorted.length} 项待完成</span></h2>
+            ${gkTasks.length ? `<div class="mini-bar" style="margin-bottom:10px"><i style="width:${Math.round(gkTasks.filter((t) => t.done).length / gkTasks.length * 100)}%"></i></div><div class="mini-bar-lab" style="margin-bottom:10px">总体复习 ${gkTasks.filter((t) => t.done).length} / ${gkTasks.length}（${Math.round(gkTasks.filter((t) => t.done).length / gkTasks.length * 100)}%）</div>` : ""}
             <div class="row sp-b-md">
               <input class="grow" id="gkTaskTitle" placeholder="快速添加复习任务，自动打上「考公」标签" maxlength="100" />
               <input type="date" id="gkTaskDue" value="${today}" />
@@ -361,6 +362,7 @@
 
         <div class="card" id="gkChecklistCard">
           <h2>备考清单<span class="count">${checklist.filter((it) => it.done).length} / ${checklist.length}</span></h2>
+          ${checklist.length ? `<div class="mini-bar" style="margin-bottom:10px"><i style="width:${Math.round(checklist.filter((it) => it.done).length / checklist.length * 100)}%"></i></div>` : ""}
           <div class="row sp-b-md">
             <input class="grow" id="gkCheckText" placeholder="添加考前待办，如：准备证件照" maxlength="80" />
             <button class="btn sm" id="gkCheckAdd">添加</button>
