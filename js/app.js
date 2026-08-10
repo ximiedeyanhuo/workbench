@@ -39,20 +39,32 @@
 
   // ================= 主题 =================
   const THEME_KEY = "wb2_theme"; // localStorage 仅作即时缓存防闪烁，正式值在 settings
+  // 主题循环顺序：亮 → 暗 → 森林(明) → 深夜(暗) → 亮…
+  const THEMES = [
+    { key: "light", icon: "☀️", text: "亮色模式" },
+    { key: "dark", icon: "🌙", text: "暗色模式" },
+    { key: "forest", icon: "🌲", text: "森林模式" },
+    { key: "midnight", icon: "🌌", text: "深夜模式" },
+  ];
   function applyTheme(theme) {
     document.documentElement.setAttribute("data-theme", theme);
-    const label = theme === "dark" ? "☀️" : "🌙";
-    const text = theme === "dark" ? "亮色模式" : "暗色模式";
+    const m = THEMES.find((x) => x.key === theme) || THEMES[0];
+    const label = m.icon, text = m.text;
     const btn = document.getElementById("themeBtn");
     const btnTop = document.getElementById("themeBtnTop");
     if (btn) btn.innerHTML = label + " <span>" + text + "</span>";
     if (btnTop) btnTop.textContent = label;
+    // 同步 meta theme-color，让移动端状态栏/地址栏跟随主题
+    const mc = document.querySelector('meta[name="theme-color"]');
+    if (mc) mc.setAttribute("content", theme === "dark" || theme === "midnight" ? "#0b1116" : "#f3eee2");
   }
   function toggleTheme() {
-    const cur = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
-    applyTheme(cur);
-    try { localStorage.setItem(THEME_KEY, cur); } catch (e) { /* 隐私模式忽略 */ }
-    setSetting("theme", cur);
+    const cur = document.documentElement.getAttribute("data-theme");
+    const idx = THEMES.findIndex((x) => x.key === cur);
+    const next = THEMES[(idx + 1) % THEMES.length].key;
+    applyTheme(next);
+    try { localStorage.setItem(THEME_KEY, next); } catch (e) { /* 隐私模式忽略 */ }
+    setSetting("theme", next);
   }
   function initTheme() {
     let t = "light";
