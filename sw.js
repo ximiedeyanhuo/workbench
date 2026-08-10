@@ -1,5 +1,5 @@
 /**
- * sw.js — 个人工作台 Service Worker
+ * sw.js — 我的仪表盘 Service Worker
  *
  * 缓存策略：
  * - 静态资源（CSS/JS/lib/图标）：stale-while-revalidate（先回缓存保速度，后台拉新版更新缓存，下次刷新即最新，不依赖手动升版本号）
@@ -7,7 +7,7 @@
  * - 离线时：展示缓存的页面，API 部分降级提示
  */
 
-const CACHE = "workbench-v87";
+const CACHE = "workbench-v88";
 const STATIC = [
   "/",
   "/index.html",

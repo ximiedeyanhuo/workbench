@@ -1,6 +1,6 @@
 {
-  "name": "个人工作台",
-  "short_name": "工作台",
+  "name": "我的仪表盘",
+  "short_name": "仪表盘",
   "description": "自托管个人效率仪表盘 — 任务、笔记、习惯、财务、资讯",
   "start_url": "/",
   "display": "standalone",

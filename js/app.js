@@ -86,7 +86,7 @@
     const route = routes[name];
     const token = ++navSeq;
     document.getElementById("pageTitle").textContent = route.title;
-    document.title = route.title + " · 个人工作台";
+    document.title = route.title + " · 我的仪表盘";
     document.querySelectorAll("[data-route]").forEach((a) => {
       a.classList.toggle("active", a.dataset.route === name);
     });
@@ -730,7 +730,7 @@
       // 到期任务浏览器通知：每天首次打开仪表盘时提醒一次（频控用 localStorage，按设备而非账号）
       const NOTIFY_KEY = "wb2_notify_day";
       function sendDueNotice() {
-        const title = "个人工作台 · 任务提醒";
+        const title = "我的仪表盘 · 任务提醒";
         const body = `今天到期 ${dueToday.length} 项、已逾期 ${overdue.length} 项，点开处理一下吧`;
         try {
           const n = new Notification(title, { body, tag: "wb-due" });
@@ -925,7 +925,7 @@
           <h2>关于</h2>
           <div style="font-size:13px;color:var(--muted);line-height:1.9">
             不会用？看 <a href="#/help">使用帮助</a>（小白向操作手册，也可直接打开项目根目录的 HELP.md）<br />
-            个人工作台 v2 · 原生前端 + Python(FastAPI) + SQLite · 多账号登录，数据按账号隔离<br />
+            我的仪表盘 v2 · 原生前端 + Python(FastAPI) + SQLite · 多账号登录，数据按账号隔离<br />
             每个账号一个独立库文件（管理员 workbench.db，其他 workbench_用户名.db），备份 = 复制该文件；启动命令 python server.py。<br />
             存储层已做 Repository 抽象，db.js 中 USE_API=false 可整体回退纯浏览器模式。<br />
             调试：<a href="/api/docs" target="_blank" rel="noopener">API 文档（Swagger）</a>

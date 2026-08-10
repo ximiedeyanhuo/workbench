@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>个人工作台</title>
+<title>我的仪表盘 · WORKBENCH</title>
 <script>
 /* 防主题闪烁（FOUC）：在首帧绘制前同步应用本地缓存的主题，
    避免暗色模式用户刷新时先闪一帧亮色再切暗色。与 app.js 的
@@ -21,7 +21,7 @@
 </head>
 <body>
 <!-- 设计契约 · 「车站 · 到发时刻」· 二轮打磨
-THESIS: 个人工作台是一座自托管的小站——任务即车次，打卡即检票，今日焦点即到发时刻表。拒绝“灰底卡片+蓝色 SaaS”仪表盘。
+THESIS: 我的仪表盘是一座自托管的小站——任务即车次，打卡即检票，今日焦点即到发时刻表。拒绝"灰底卡片+蓝色 SaaS"仪表盘。
 OWN-WORLD: 白天是印刷时刻表（奶油纸+石墨墨线+深琥珀车票），夜晚是候车厅翻牌屏（墨蓝黑板+翻牌琥珀数字+信号灯）。琥珀=唯一系统强调色；正点绿/晚点红/预警金取自站台信号。数据一律等宽数字。隐喻收敛：撕票虚线只出现在真正“撕票”的地方。
 STORY: 每天进站：看一眼时刻表上的今日车次，检票完成事项，盖章打卡，正点出发。
 FIRST VIEWPORT: 墨色站牌侧栏 · 发车广播式欢迎语 · 四张车票形统计卡（staggered 入场）· 今日焦点=到发时刻表。
@@ -58,7 +58,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
     <div class="login-logo">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/></svg>
     </div>
-    <h2>登录工作台</h2>
+    <h2>登录仪表盘</h2>
     <p class="login-sub" id="loginSub">请使用已分配的账号登录</p>
     <div class="login-board" aria-hidden="true">
       <div class="lb-line"><span>进站口</span><b>PLATFORM · 01</b></div>
@@ -81,7 +81,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       <span class="brand-ic">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/></svg>
       </span>
-      <span class="brand-txt">个人工作台<small>WORKBENCH</small></span>
+      <span class="brand-txt">我的仪表盘<small>WORKBENCH</small></span>
     </div>
     <nav class="nav" id="sideNav">
       <a href="#/dashboard" data-route="dashboard"><span class="nic"><svg class="ic"><use href="#i-home"/></svg></span><span>仪表盘</span></a>
