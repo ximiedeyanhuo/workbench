@@ -1269,6 +1269,10 @@ button.tab:focus-visible { outline-offset: 0; }
   border: 1px solid var(--line); border-radius: var(--radius-pill);
 }
 .habit-head .wk-goal.done { color: var(--ok); border-color: var(--ok); background: color-mix(in srgb, var(--ok) 8%, var(--card2)); }
+@media (max-width: 640px) {
+  .habit-head { flex-wrap: wrap; gap: 8px; }
+  .habit-head .name { flex-basis: 100%; }
+}
 .heat-grid {
   display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
 }

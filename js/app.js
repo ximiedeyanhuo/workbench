@@ -3,7 +3,7 @@
  */
 (function () {
   "use strict";
-  const { routes, repo, esc, uid, todayStr, fmtMoney, safeUrl, getSetting, setSetting, exportAll, importAll, debounce, flashInvalid, clearAllData, cssVar } = window.WB;
+  const { routes, repo, esc, uid, todayStr, fmtMoney, safeUrl, getSetting, getSettings, setSetting, exportAll, importAll, debounce, flashInvalid, clearAllData, cssVar } = window.WB;
 
   // ========== 全局 Loading / Toast 提示 ==========
   function showLoading(text = "加载中...") {
@@ -317,19 +317,17 @@
   routes.dashboard = {
     title: "仪表盘",
     async render(el) {
-      const [tasks, habits, finance, notes, nickname, target, gkTargets, monthBudget, stocks, exams, weeklyCache] = await Promise.all([
+      const [tasks, habits, finance, notes, stocks, exams, st] = await Promise.all([
         repo("tasks").list(),
         repo("habits").list(),
         repo("finance").list(),
         repo("notes").list(),
-        getSetting("nickname", "朋友"),
-        getSetting("saveTarget", 60000),
-        getSetting("gongkao_targets", []),
-        getSetting("monthBudget", 0),
         repo("stocks").list(),
         repo("mockexams").list(),
-        getSetting("weeklyReview", null),
+        // 一次批量读全部 settings，避免 5 次独立 API 往返
+        getSettings({ nickname: "朋友", saveTarget: 60000, gongkao_targets: [], monthBudget: 0, weeklyReview: null }),
       ]);
+      const nickname = st.nickname, target = st.saveTarget, gkTargets = st.gongkao_targets, monthBudget = st.monthBudget, weeklyCache = st.weeklyReview;
 
       const today = todayStr();
       const now = new Date();

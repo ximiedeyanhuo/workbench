@@ -279,6 +279,18 @@
   function setSetting(key, value) {
     return repo("settings").put({ key, value });
   }
+  /** 批量读多个 settings：一次 list() 拿全量再取值，避免多次 API 往返（服务器模式下尤其省）
+   *  返回 { key: value }；缺省用 defaults[key] 或 undefined */
+  async function getSettings(keys) {
+    const defs = keys && typeof keys === "object" && !Array.isArray(keys) ? keys : {};
+    const keyList = Array.isArray(keys) ? keys : Object.keys(defs);
+    const rows = await repo("settings").list().catch(() => []);
+    const map = {};
+    rows.forEach((r) => { if (r && r.key !== undefined) map[r.key] = r.value; });
+    const out = {};
+    keyList.forEach((k) => { out[k] = map[k] === undefined ? (defs[k] === undefined ? undefined : defs[k]) : map[k]; });
+    return out;
+  }
 
   // ---------- 全量导出 / 导入 ----------
   async function exportAll() {
@@ -527,6 +539,7 @@
     auth,
     repo,
     getSetting,
+    getSettings,
     setSetting,
     exportAll,
     importAll,
