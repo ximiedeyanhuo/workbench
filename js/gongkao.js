@@ -9,7 +9,7 @@
  */
 (function () {
   "use strict";
-  const { routes, repo, esc, uid, todayStr, dateStr, getSetting, setSetting, flashInvalid, cssVar, daysDiff, weekRange, streakOf, sortTasks } = window.WB;
+  const { routes, repo, esc, uid, todayStr, dateStr, getSetting, getSettings, setSetting, flashInvalid, cssVar, daysDiff, weekRange, streakOf, sortTasks } = window.WB;
   const tasksRepo = repo("tasks");
   const notesRepo = repo("notes");
   const habitsRepo = repo("habits");
@@ -78,12 +78,30 @@
       return { label: s, data, borderColor: color, backgroundColor: color, tension: 0.35, pointRadius: 3, spanGaps: true };
     });
 
+    // 进面线基准线：单科目筛选且该科目有进面线记录时，画一条水平虚线（取该科目最近一次 cutoff）
+    let cutoffDataset = null;
+    if (subjects.length === 1) {
+      const sub = subjects[0];
+      const withCut = list.filter((e) => e.subject === sub && Number(e.cutoff) > 0);
+      if (withCut.length) {
+        const latest = withCut.sort((a, b) => (b.date || "").localeCompare(a.date || ""))[0];
+        const cv0 = Number(latest.cutoff);
+        cutoffDataset = {
+          label: `进面线 ${cv0}`,
+          data: dates.map(() => cv0),
+          borderColor: cssVar("--danger"), borderDash: [6, 4],
+          borderWidth: 1.5, pointRadius: 0, fill: false,
+        };
+      }
+    }
+    const allDatasets = cutoffDataset ? datasets.concat([cutoffDataset]) : datasets;
+
     mk("chartMock", {
       type: "line",
-      data: { labels: dates.map((d) => d.slice(5)), datasets },
+      data: { labels: dates.map((d) => d.slice(5)), datasets: allDatasets },
       options: {
         ...baseOpt,
-        plugins: { legend: { display: datasets.length > 1, labels: { color: muted, boxWidth: 8, font: { size: 10 } } } },
+        plugins: { legend: { display: allDatasets.length > 1, labels: { color: muted, boxWidth: 8, font: { size: 10 } } } },
       },
     });
 
@@ -206,14 +224,14 @@
   routes.gongkao = {
     title: "考公",
     async render(el) {
-      const [tasksAll, notesAll, habitsAll, examsAll, targets, checklist] = await Promise.all([
+      const [tasksAll, notesAll, habitsAll, examsAll, gkSt] = await Promise.all([
         tasksRepo.list(),
         notesRepo.list(),
         habitsRepo.list(),
         examsRepo.list(),
-        getSetting("gongkao_targets", []),
-        getSetting("gongkao_checklist", []),
+        getSettings({ gongkao_targets: [], gongkao_checklist: [] }),
       ]);
+      const targets = gkSt.gongkao_targets, checklist = gkSt.gongkao_checklist;
 
       const today = todayStr();
       const gkTasks = tasksAll.filter(isGongkaoTask);
