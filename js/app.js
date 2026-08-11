@@ -603,58 +603,22 @@
             .join("")
         : '<div class="empty">还没有笔记，去 <a href="#/notes">沉淀</a> 页开始记录</div>';
 
-      // 贴图复刻：仪表盘用品牌"打工小账本"形态重写
-      // - 顶部品牌区：大标题 + 日期 + 虚线分隔 + 副标题"今天也要算清楚" + 插画位
-      // - 黄色提醒条（提醒还没设置月度总结）
-      // - 三张大色卡：薄荷绿(真实时薪)、浅粉(本月支出)、奶油黄(储蓄进度)
-      const PAGE_TITLE = "今日驾驶舱";  // 贴图里的"今日驾驶舱"标头
-      const PLAQUE = {
-        title: "今天也要算清楚",
-        sub: "不是为了苛责每一笔钱，而是让每一小时更接近你想要的生活。",
-      };
-      const LACK_MONTH = "这个月还没有月度总结。可以先随手记账，月底再补完整收入和支出。";
-      // 计算"真实时薪"（本月净收入 / 已工作小时数，默认日均 8h × 已过天数）
-      const daysPassed = Math.max(1, now.getDate());
-      const workedHours = daysPassed * 8;
-      const realHourly = workedHours > 0 ? mNet / workedHours : 0;
-      const MONTH_BUDGET = monthBudget || 60000;
-
+      // v96：回退到紧凑 hero 架构（不再做大色卡 + 插画）。
+      // hero 区保留 v94 的小数字条（4 格），但本次只做调色与质感，
+      // 不再加新结构。skill-v96 = 「米黄纸 + 奶油白 + 细描边」记账 App 质感。
       el.innerHTML = `
         <div class="dash-hero">
           <div class="dh-head">
-            <div class="dh-title">${esc(PAGE_TITLE)}</div>
-            <div class="dh-date">${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 · 星期${wk}</div>
-            <div class="dh-divider"></div>
-            <div class="dh-plaque">
-              <div class="dh-plaque-txt">
-                <div class="dh-plaque-title">${esc(PLAQUE.title)}</div>
-                <div class="dh-plaque-sub">${esc(PLAQUE.sub)}</div>
-              </div>
-              <div class="dh-plaque-illu" aria-hidden="true">🐷</div>
-            </div>
+            <div class="hero-greet">${greet}，${esc(nickname)}！</div>
+            <div class="hero-date">${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 · 星期${wk}${
+              focus.length ? " · 今天有 " + focus.length + " 件事需要关注" : " · 今天没有到期事项，安心推进"
+            }${notifyBtnHtml}</div>
           </div>
-          <div class="dh-hint">💡 ${esc(LACK_MONTH)}</div>
-          <div class="dh-cards">
-            <div class="dh-card dh-mint" data-go="#/finance">
-              <div class="dh-card-deco"></div>
-              <div class="dh-card-ico">🕐</div>
-              <div class="dh-card-lab">真实时薪</div>
-              <div class="dh-card-val">¥${realHourly.toFixed(2)}<span class="dh-card-unit">/时</span></div>
-              <div class="dh-card-sub">本月净 ${netSign}${fmtMoney(Math.abs(mNet))} · 工作 ${workedHours} 小时</div>
-            </div>
-            <div class="dh-card dh-pink" data-go="#/finance">
-              <div class="dh-card-ico">💳</div>
-              <div class="dh-card-lab">本月支出</div>
-              <div class="dh-card-val" style="color:#C2503E">¥${fmtMoney(mExpense)}</div>
-              <div class="dh-card-sub">今日 ¥0 · 预算 ¥${fmtMoney(MONTH_BUDGET)}</div>
-            </div>
-            <div class="dh-card dh-yellow" data-go="#/finance">
-              <div class="dh-card-ico">🎯</div>
-              <div class="dh-card-lab">自由基金进度</div>
-              <div class="dh-card-val">${pct}%</div>
-              <div class="dh-bar"><i style="width:${pct}%"></i></div>
-              <div class="dh-card-sub">${fmtMoney(saved)} / ${fmtMoney(target)}</div>
-            </div>
+          <div class="dh-stats" id="dashHeroStats">
+            <div class="dh-cell" data-go="#/finance" title="去记账页"><span class="dh-lab">本月结余</span><span class="dh-val" style="color:${netColor}">${netSign}${fmtMoney(Math.abs(mNet))}</span><span class="dh-sub">收 ${fmtMoney(mIncome)} · 支 ${fmtMoney(mExpense)}</span></div>
+            <div class="dh-cell" data-go="#/finance" title="去记账页"><span class="dh-lab">本月支出</span><span class="dh-val">${fmtMoney(mExpense)}</span><span class="dh-sub">${monthBudget > 0 ? "预算 " + fmtMoney(monthBudget) : "未设预算"}</span></div>
+            <div class="dh-cell" data-go="#/tasks" title="去事务页"><span class="dh-lab">今日待办</span><span class="dh-val">${dueToday.length} / ${overdue.length}</span><span class="dh-sub">到期 / 逾期 · 共 ${active.length} 项</span></div>
+            <div class="dh-cell" data-go="#/life" title="去生活页"><span class="dh-lab">储蓄进度</span><span class="dh-val">${pct}%</span><span class="dh-sub">${fmtMoney(saved)} / ${fmtMoney(target)}</span></div>
           </div>
         </div>
         ${gkBanner}
