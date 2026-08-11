@@ -39,19 +39,22 @@
 
   // ================= 主题 =================
   const THEME_KEY = "wb2_theme"; // localStorage 仅作即时缓存防闪烁，正式值在 settings
-  // 主题循环顺序：亮 → 暗 → 森林(明) → 深夜(暗) → 终端 → 报纸 → 亮…
+  // 主题循环顺序：亮 → 暗 → 奶系绿(明) → 奶系绿(暗) → 亮…
+  // 老主题（forest/midnight/terminal/newsprint）CSS 块仍保留作 fallback，
+  // 但不再列入循环——保留老值能正常渲染，新值不会再被设置到这里。
   const THEMES = [
     { key: "light", icon: "☀️", text: "亮色模式" },
     { key: "dark", icon: "🌙", text: "暗色模式" },
-    { key: "forest", icon: "🌲", text: "森林模式" },
-    { key: "midnight", icon: "🌌", text: "深夜模式" },
-    { key: "terminal", icon: "🖥️", text: "终端模式" },
-    { key: "newsprint", icon: "📰", text: "报纸模式" },
+    { key: "mint", icon: "🌿", text: "奶系绿" },
+    { key: "mint-dark", icon: "🌳", text: "奶系绿(暗)" },
   ];
-  // 深色系主题的浏览器状态栏颜色（terminal 纯黑、其余墨蓝）
+  // 浏览器状态栏配色：每个主题独立（区分亮/暗/奶系明/奶系暗）
   const THEME_BAR = {
-    light: "#f3eee2", dark: "#0b1116", forest: "#f3eee2",
-    midnight: "#0b1116", terminal: "#050505", newsprint: "#f3eee2",
+    light: "#f3eee2", dark: "#0b1116",
+    mint: "#EDF1E8", "mint-dark": "#1B2A24",
+    // 老主题 fallback（即使不再循环，旧值仍能渲染）
+    forest: "#f3eee2", midnight: "#0b1116",
+    terminal: "#050505", newsprint: "#f3eee2",
   };
   function applyTheme(theme) {
     document.documentElement.setAttribute("data-theme", theme);

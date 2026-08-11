@@ -222,6 +222,76 @@
   --radius-pill: 0;
 }
 
+/* ---- 奶系绿主题：mint（明）—— 奶油薄荷绿 + 圆角大 + 柔和阴影 ---- */
+[data-theme="mint"] {
+  --bg:            #EDF1E8;   /* 奶油薄荷纸 */
+  --card:          #FAFCF6;   /* 卡片白绿 */
+  --card2:         #E1E9D6;   /* 内衬更深绿 */
+  --ink:           #2C5F45;   /* 深森绿主字 */
+  --ink-2:         #447156;
+  --muted:         #7E947D;
+  --muted-2:       #9CAB99;
+  --line:          #C7D5BC;   /* 柔和描边 */
+  --rule:          #A6BBA0;
+  --accent:        #5BA37B;   /* 嫩芽绿强调 */
+  --accent-strong: #3F8862;
+  --accent-hover:  #2E7553;
+  --accent-soft:   rgba(91, 163, 123, 0.13);
+  --primary:       #2C5F45;
+  --danger:        #C2503E;
+  --warn:          #C9963B;
+  --ok:            #5BA37B;
+  --purple:        #9985C2;
+  --rise:          #C2503E;
+  --fall:          #5BA37B;
+  --shadow-sm: 0 1px 2px rgba(60, 90, 70, 0.06);
+  --shadow-md: 0 2px 6px rgba(60, 90, 70, 0.05), 0 12px 28px -16px rgba(60, 90, 70, 0.12);
+  --shadow-lg: 0 4px 10px rgba(60, 90, 70, 0.06), 0 24px 48px -22px rgba(60, 90, 70, 0.18);
+  --card-lit:      inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  --grain:         0.18;       /* 轻微纸纹 */
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius:    16px;
+  --radius-lg: 24px;
+  --radius-pill: 999px;
+  --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Segoe UI", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+}
+
+/* ---- 奶系绿主题：mint-dark（暗）—— 深森林 + 圆角 + 柔和投影 ---- */
+[data-theme="mint-dark"] {
+  --bg:            #1B2A24;
+  --card:          #243730;
+  --card2:         #2E4239;
+  --ink:           #DDE6D9;
+  --ink-2:         #B8C8B3;
+  --muted:         #889A85;
+  --muted-2:       #6F8071;
+  --line:          #384B41;
+  --rule:          #506656;
+  --accent:        #82C19A;   /* 暗下嫩芽绿（提亮） */
+  --accent-strong: #5BA37B;
+  --accent-hover:  #9CD2B1;
+  --accent-soft:   rgba(130, 193, 154, 0.15);
+  --primary:       #DDE6D9;
+  --danger:        #E67864;
+  --warn:          #E0B863;
+  --ok:            #82C19A;
+  --purple:        #B19CDF;
+  --rise:          #E67864;
+  --fall:          #82C19A;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.32), 0 12px 28px -16px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 4px 10px rgba(0, 0, 0, 0.35), 0 24px 48px -22px rgba(0, 0, 0, 0.55);
+  --card-lit:      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --grain:         0.12;
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius:    16px;
+  --radius-lg: 24px;
+  --radius-pill: 999px;
+  --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Segoe UI", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+}
+
 /* ============ 基础 ============ */
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 /* 全局兜底：作者样式可能覆盖 UA 的 [hidden]，强制显式隐藏（AGENTS.md 已知坑） */
@@ -313,6 +383,10 @@ a:hover { color: var(--accent); }
 [data-theme="dark"] .brand-txt, [data-theme="midnight"] .brand-txt { color: #e9e7dc; }
 [data-theme="terminal"] .brand-txt { color: #33ff66; }
 [data-theme="terminal"] .brand-txt small { color: #33ff66; opacity: 0.7; }
+/* 奶系绿主题：品牌 logo 用嫩芽绿渐变，文字跟随 --ink（已是深森绿，自然清晰） */
+[data-theme="mint"] .brand-ic { background: linear-gradient(135deg, #82C19A, #5BA37B); color: #1B2A24; }
+[data-theme="mint-dark"] .brand-ic { background: linear-gradient(135deg, #82C19A, #5BA37B); color: #1B2A24; }
+[data-theme="mint"] .login-logo, [data-theme="mint-dark"] .login-logo { background: linear-gradient(135deg, #82C19A, #5BA37B); color: #1B2A24; }
 .sidebar::after {
   /* 站牌底部打孔线 */
   content: ""; display: block; flex-shrink: 0;
@@ -3359,3 +3433,21 @@ mark.news-kw {
 [data-theme="terminal"] .item.done .chk { border-radius: 0; }
 /* 报纸主题：正文左对齐衬线更报纸味；表格数字保留等宽 */
 [data-theme="newsprint"] body { -webkit-font-smoothing: antialiased; }
+
+/* 奶系绿主题覆盖 */
+[data-theme="mint"] body, [data-theme="mint-dark"] body {
+  background: var(--bg);
+  background-image: none;
+}
+/* 奶系：全局纸纹减弱（卡感更"干净柔"），但保留薄层纹理 */
+[data-theme="mint"] body::before, [data-theme="mint-dark"] body::before { mix-blend-mode: multiply; }
+[data-theme="mint-dark"] body::before { mix-blend-mode: screen; }
+/* 奶系主题：导航激活态用嫩芽绿柔和底，不要琥珀发光 */
+[data-theme="mint"] .nav a.active { background: rgba(91, 163, 123, 0.15); box-shadow: inset 3px 0 0 var(--accent), 0 0 18px -10px rgba(91, 163, 123, 0.6); }
+[data-theme="mint"] .nav a.active .nic { color: var(--accent); }
+[data-theme="mint-dark"] .nav a.active { background: rgba(130, 193, 154, 0.18); box-shadow: inset 3px 0 0 var(--accent), 0 0 18px -10px rgba(130, 193, 154, 0.6); }
+[data-theme="mint-dark"] .nav a.active .nic { color: var(--accent); }
+/* 奶系：今天日期格子嫩芽绿底（不要琥珀） */
+[data-theme="mint"] .cal-cell.today, [data-theme="mint-dark"] .cal-cell.today { background: var(--accent); color: #fff; border-color: var(--accent); }
+[data-theme="mint"] .cal-cell.today .d-num, [data-theme="mint-dark"] .cal-cell.today .d-num { color: #fff; }
+[data-theme="mint"] .cal-cell.today::after, [data-theme="mint-dark"] .cal-cell.today::after { background: #fff; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4); }
