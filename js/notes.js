@@ -368,6 +368,23 @@
         WB.jump.noteId = null;
         if (target) { subtab = "notes"; currentId = target.id; previewing = true; curFolder = ""; noteQ = ""; }
       }
+      // 灵感速记「转为笔记」：直接新建一篇以速记为标题的笔记并选中
+      if (WB.jump.noteTitle) {
+        const t = WB.jump.noteTitle;
+        WB.jump.noteTitle = null;
+        const folder = curFolder && curFolder !== "__unfiled__" ? curFolder : "";
+        const n = { id: uid(), title: t, content: "", tags: [], folder, updatedAt: new Date().toISOString() };
+        await notesRepo.put(n);
+        subtab = "notes";
+        currentId = n.id;
+        previewing = false;
+        curFolder = "";
+        noteQ = "";
+        // 重新拉列表，保证左侧目录里能立即看到新笔记
+        const fresh = await notesRepo.list();
+        notes.length = 0;
+        fresh.forEach((x) => notes.push(x));
+      }
 
       el.innerHTML = `
         <div class="tabs sp-b-xl">

@@ -329,7 +329,7 @@
   routes.dashboard = {
     title: "仪表盘",
     async render(el) {
-      const [tasks, habits, finance, notes, stocks, exams, st] = await Promise.all([
+      const [tasks, habits, finance, notes, stocks, exams, st, reminders, anniv] = await Promise.all([
         repo("tasks").list(),
         repo("habits").list(),
         repo("finance").list(),
@@ -337,7 +337,9 @@
         repo("stocks").list(),
         repo("mockexams").list(),
         // 一次批量读全部 settings，避免 5 次独立 API 往返
-        getSettings({ nickname: "朋友", saveTarget: 60000, gongkao_targets: [], monthBudget: 0, weeklyReview: null }),
+        getSettings({ nickname: "朋友", saveTarget: 60000, gongkao_targets: [], monthBudget: 0, weeklyReview: null, reminderDone: {} }),
+        repo("reminders").list().catch(() => []),
+        repo("anniv").list().catch(() => []),
       ]);
       const nickname = st.nickname, target = st.saveTarget, gkTargets = st.gongkao_targets, monthBudget = st.monthBudget, weeklyCache = st.weeklyReview;
 
@@ -422,6 +424,52 @@
           <span class="dash-gk-day">${gkDiff === 0 ? "就在今天" : `还有 <b>${gkDiff}</b> 天`}</span>
         </div>`;
       }
+
+      // 倒数日横幅：最近一个未过去（含今天）的纪念日/倒计时挂首页（与倒数日页同一份数据）
+      const annivDays = (a) => {
+        const [yy, mm, dd] = (a.date || "2000-01-01").split("-").map(Number);
+        const base = new Date(today + "T00:00:00");
+        if (a.yearly === false) return Math.round((new Date(a.date + "T00:00:00") - base) / 86400000);
+        for (let off = 0; off < 370; off++) {
+          const dt = new Date(base.getTime() + off * 86400000);
+          if (dt.getMonth() + 1 === mm && dt.getDate() === dd) return off;
+        }
+        return 999;
+      };
+      const upAnniv = (anniv || [])
+        .map((a) => ({ a, d: annivDays(a) }))
+        .filter((x) => x.d >= 0)
+        .sort((p, q) => p.d - q.d)[0];
+      let annivBanner = "";
+      if (upAnniv) {
+        const an = upAnniv.a, anDiff = upAnniv.d;
+        const anEmoji = { birthday: "🎂", wedding: "💍", exam: "🎯", payday: "💰", trip: "✈️", other: "📌" }[an.category] || "📌";
+        annivBanner = `<div class="dash-gk ${anDiff <= 7 ? "urgent" : ""}" data-go="#/anniv" title="去倒数日页">
+          <span class="dash-gk-ico">${anEmoji}</span>
+          <span class="dash-gk-name">${esc(an.title)}<small>${esc(an.date)}</small></span>
+          <span class="dash-gk-day">${anDiff === 0 ? "就在今天" : `还有 <b>${anDiff}</b> 天`}</span>
+        </div>`;
+      }
+
+      // 今日自定义提醒：按周期今天该做且今天还没完成
+      const rmDue = (reminders || []).filter((r) => window.WB.remindDue(r, today));
+      const rmDone = st.reminderDone || {};
+      const rmPending = rmDue.filter((r) => !rmDone[r.id]);
+      const rmDoneCount = rmDue.length - rmPending.length;
+      const remindersHtml = rmDue.length
+        ? `<div class="card">
+            <h2>今日提醒<span class="count">${rmPending.length} 待做</span></h2>
+            <ul class="list">
+              ${rmDue.map((r) => {
+                const done = !!rmDone[r.id];
+                return `<li class="item ${done ? "done" : ""}">
+                  <span class="chk" data-rm-done="${r.id}" title="${done ? "已完成（点一下撤销）" : "点一下标记完成"}"></span>
+                  <span class="txt" ${done ? 'style="color:var(--muted);text-decoration:line-through"' : ""}>${esc(r.title)}</span>
+                  <button class="btn sm ghost" data-go="#/reminders">去提醒页</button>
+                </li>`;
+              }).join("")}
+            </ul>
+          </div>` : "";
 
       // 月度预算提醒：设了预算才展示，超支标红（预算在记账页设置）
       const overBudget = monthBudget > 0 && mExpense > monthBudget;
@@ -550,6 +598,7 @@
           focus.length ? " · 今天有 " + focus.length + " 件事需要关注" : " · 今天没有到期事项，安心推进"
         }${notifyBtnHtml}</div>
         ${gkBanner}
+        ${annivBanner}
         ${saveBanner}
         ${budgetBanner}
         <div class="stat-grid">
@@ -565,6 +614,7 @@
             ${doneToday.length ? '<div class="tl-sep"><span>已检票 · 今日完成</span></div>' + doneToday.slice(0, 8).map((t) => tlRow(t, true)).join("") : ""}
           </div>
         </div>
+        ${remindersHtml}
         <div class="dash-actions">
           <div class="card">
             <h2>今日打卡<span class="count">${habitDone} / ${habits.length}</span></h2>
@@ -689,6 +739,17 @@
         WB.jump.noteId = li.dataset.nid;
         location.hash = "#/notes";
       });
+
+      // 今日自定义提醒：勾选切换当天完成状态（与提醒页同一份 settings）
+      el.querySelectorAll("[data-rm-done]").forEach((chk) =>
+        chk.addEventListener("click", async () => {
+          const id = chk.dataset.rmDone;
+          const done = (await getSettings({ reminderDone: {} })).reminderDone || {};
+          if (done[id]) delete done[id]; else done[id] = true;
+          await setSetting("reminderDone", done);
+          navigate();
+        })
+      );
 
       // 净资产：异步拉行情把成本价兜底值替换成实时市值（失败保持兜底显示）
       // 股票走 /api/stock/quote，基金走 /api/fund/nav（净值），合并计算市值与当日盈亏

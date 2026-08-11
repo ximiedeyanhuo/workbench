@@ -147,7 +147,17 @@
   const MOCKEXAMS_DB = "workbench_mockexams";
   const MOCKEXAMS_VERSION = 1;
   const MOCKEXAMS_STORES = ["mockexams"];
-  const ALL_STORES = STORES.concat(FEEDS_STORES, HEALTH_STORES, STOCKS_STORES, MOCKEXAMS_STORES); // 导入导出覆盖全部业务数据
+  // quicknotes（灵感速记）/ anniv（倒数日） / reminders（自定义提醒）同理独立建库，避免主库升级阻塞
+  const QUICK_DB = "workbench_quick";
+  const QUICK_VERSION = 1;
+  const QUICK_STORES = ["quicknotes"];
+  const ANNIV_DB = "workbench_anniv";
+  const ANNIV_VERSION = 1;
+  const ANNIV_STORES = ["anniv"];
+  const REMIND_DB = "workbench_remind";
+  const REMIND_VERSION = 1;
+  const REMIND_STORES = ["reminders"];
+  const ALL_STORES = STORES.concat(FEEDS_STORES, HEALTH_STORES, STOCKS_STORES, MOCKEXAMS_STORES, QUICK_STORES, ANNIV_STORES, REMIND_STORES); // 导入导出覆盖全部业务数据
   const EXPORT_VERSION = 1;
 
   const dbCache = {};
@@ -184,6 +194,9 @@
     if (HEALTH_STORES.indexOf(store) !== -1) return open(HEALTH_DB, HEALTH_VERSION, HEALTH_STORES);
     if (STOCKS_STORES.indexOf(store) !== -1) return open(STOCKS_DB, STOCKS_VERSION, STOCKS_STORES);
     if (MOCKEXAMS_STORES.indexOf(store) !== -1) return open(MOCKEXAMS_DB, MOCKEXAMS_VERSION, MOCKEXAMS_STORES);
+    if (QUICK_STORES.indexOf(store) !== -1) return open(QUICK_DB, QUICK_VERSION, QUICK_STORES);
+    if (ANNIV_STORES.indexOf(store) !== -1) return open(ANNIV_DB, ANNIV_VERSION, ANNIV_STORES);
+    if (REMIND_STORES.indexOf(store) !== -1) return open(REMIND_DB, REMIND_VERSION, REMIND_STORES);
     return open(DB_NAME, DB_VERSION, STORES);
   }
 
@@ -611,6 +624,9 @@
         external: '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>',
         clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
         check: '<polyline points="20 6 9 17 4 12"/>',
+        close: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+        pen: '<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>',
+        trash: '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>',
       };
       return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || ""}</svg>`;
     },

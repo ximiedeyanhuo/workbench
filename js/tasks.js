@@ -24,6 +24,7 @@
   let view = "list"; // list | calendar | kanban
   let filter = "all"; // all | today | week | done
   let editingId = null; // 正在行内编辑的任务 id
+  let pendingTaskTitle = null; // 灵感速记「转为任务」待填入新建输入框的文本
   let aiSortOrder = null; // AI 排序结果：{ ids: [...], reason: "...", at: ts, signature: "ids 拼接" }；signature 失效就重排
   let aiSortExpires = 0; // 缓存过期时间戳（30 分钟）
   const now = new Date();
@@ -226,12 +227,19 @@
         WB.jump.taskId = null;
         if (target) { view = "list"; filter = target.done ? "done" : "all"; editingId = target.id; }
       }
+      // 灵感速记「转为任务」：把速记文本填入新建任务输入框（一次性消费）
+      if (WB.jump.taskTitle) {
+        pendingTaskTitle = WB.jump.taskTitle;
+        WB.jump.taskTitle = null;
+      }
+      const taskTitleDraft = pendingTaskTitle || "";
+      pendingTaskTitle = null;
 
       el.innerHTML = `
         <div class="card">
           <h2>新建任务</h2>
           <div class="row">
-            <input class="grow" id="tTitle" placeholder="要做什么事…" maxlength="100" />
+            <input class="grow" id="tTitle" placeholder="要做什么事…" maxlength="100" value="${esc(taskTitleDraft)}" />
             <input type="date" id="tDue" title="截止日期" />
             <span class="due-quick">
               <button class="btn ghost sm" data-due="today">今天</button>
