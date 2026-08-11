@@ -222,39 +222,55 @@
   --radius-pill: 0;
 }
 
-/* ---- 奶系绿主题：mint（明）—— 奶油薄荷绿 + 圆角大 + 柔和阴影 ---- */
+/* ---- 打工小账本主题：mint（明）—— 米黄纸底 + 深绿字 + 三色大卡 ----
+   对应参考图（ref-1）：背景米黄 #F5F2E5 + 极淡绿点纹理；卡=薄荷绿/浅粉/奶油黄；
+   主字墨绿 #1F4D3A；强调橙黄 #E89F2A（橙色"！"提示条）。
+   这是形态级：3 张大色卡 + 插画位 + 顶部提醒条 + 大标语。 */
 [data-theme="mint"] {
-  --bg:            #EDF1E8;   /* 奶油薄荷纸 */
-  --card:          #FAFCF6;   /* 卡片白绿 */
-  --card2:         #E1E9D6;   /* 内衬更深绿 */
-  --ink:           #2C5F45;   /* 深森绿主字 */
-  --ink-2:         #447156;
-  --muted:         #7E947D;
-  --muted-2:       #9CAB99;
-  --line:          #C7D5BC;   /* 柔和描边 */
-  --rule:          #A6BBA0;
-  --accent:        #5BA37B;   /* 嫩芽绿强调 */
-  --accent-strong: #3F8862;
-  --accent-hover:  #2E7553;
-  --accent-soft:   rgba(91, 163, 123, 0.13);
-  --primary:       #2C5F45;
+  --bg:            #F5F2E5;   /* 米黄纸底（贴图取色） */
+  --card:          #FFFFFF;   /* 白卡 */
+  --card2:         #ECEAD8;   /* 内衬米色 */
+  --ink:           #1F4D3A;   /* 深森绿主字（贴图取色） */
+  --ink-2:         #2E6650;
+  --muted:         #8A9385;   /* 灰绿副文 */
+  --muted-2:       #A8B0A4;
+  --line:          #DDD9C4;   /* 米色描边 */
+  --rule:          #B8B496;
+  --accent:        #2F7A5C;   /* 森绿强调（按钮/链接） */
+  --accent-strong: #1F4D3A;   /* 深绿按钮底 */
+  --accent-hover:  #2A6C50;
+  --accent-soft:   rgba(47, 122, 92, 0.10);
+  --primary:       #1F4D3A;
   --danger:        #C2503E;
-  --warn:          #C9963B;
-  --ok:            #5BA37B;
+  --warn:          #E89F2A;   /* 橙黄（贴图"！"提示条） */
+  --ok:            #2F7A5C;
   --purple:        #9985C2;
   --rise:          #C2503E;
-  --fall:          #5BA37B;
-  --shadow-sm: 0 1px 2px rgba(60, 90, 70, 0.06);
-  --shadow-md: 0 2px 6px rgba(60, 90, 70, 0.05), 0 12px 28px -16px rgba(60, 90, 70, 0.12);
-  --shadow-lg: 0 4px 10px rgba(60, 90, 70, 0.06), 0 24px 48px -22px rgba(60, 90, 70, 0.18);
-  --card-lit:      inset 0 1px 0 rgba(255, 255, 255, 0.55);
-  --grain:         0.18;       /* 轻微纸纹 */
-  --radius-xs: 8px;
-  --radius-sm: 12px;
-  --radius:    16px;
-  --radius-lg: 24px;
+  --fall:          #2F7A5C;
+  /* 三张大色卡（贴图取色） */
+  --mint-card:     #C9E8DA;   /* 薄荷绿卡 */
+  --mint-card-deep:#9DD3BD;
+  --pink-card:     #FBD9D3;   /* 浅粉卡 */
+  --yellow-card:   #FCEAA0;   /* 奶油黄卡 */
+  --shadow-sm: 0 1px 2px rgba(70, 60, 30, 0.04);
+  --shadow-md: 0 2px 8px rgba(70, 60, 30, 0.05), 0 12px 28px -16px rgba(70, 60, 30, 0.10);
+  --shadow-lg: 0 4px 10px rgba(70, 60, 30, 0.06), 0 24px 48px -22px rgba(70, 60, 30, 0.16);
+  --card-lit:      inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  --grain:         0;          /* 不用噪点，改用 radial dot 纹理 */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius:    14px;
+  --radius-lg: 20px;
   --radius-pill: 999px;
   --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Segoe UI", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+}
+/* mint 背景：米黄 + 极淡绿点阵纹理 */
+[data-theme="mint"] body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(rgba(47, 122, 92, 0.10) 1.2px, transparent 1.2px);
+  background-size: 18px 18px;
+  background-position: 0 0;
 }
 
 /* ---- 奶系绿主题：mint-dark（暗）—— 深森林 + 圆角 + 柔和投影 ---- */
@@ -3918,3 +3934,137 @@ mark.news-kw {
 [data-theme="glass"] .rg-fg { stroke: #A9C0FF; stroke-width: 3.6; filter: drop-shadow(0 0 4px rgba(124, 156, 255, 0.7)); }
 [data-theme="glass"] .rg-bg { stroke: rgba(255, 255, 255, 0.15); }
 [data-theme="glass"] .rg-txt b { color: #A9C0FF; }
+
+/* ==========================================================================
+   打工小账本（ref-1）骨架级复刻组件
+   ========================================================================== */
+/* 顶部品牌区 */
+.dh-title { font-size: 32px; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
+.dh-date { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.dh-divider {
+  margin: 18px 0 24px;
+  border: none;
+  border-top: 1.5px dashed var(--rule);
+}
+.dh-plaque {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;
+  margin-bottom: 28px;
+}
+.dh-plaque-title {
+  font-size: 36px; font-weight: 800; color: var(--ink); letter-spacing: -0.025em; line-height: 1.15;
+}
+.dh-plaque-sub {
+  font-size: 14px; color: var(--ink-2); margin-top: 10px; max-width: 480px; line-height: 1.6;
+}
+.dh-plaque-illu {
+  font-size: 80px; line-height: 1; flex-shrink: 0;
+  filter: hue-rotate(-15deg) saturate(1.1);
+}
+/* 黄色提示条（贴图"这个月还没有月度总结"） */
+.dh-hint {
+  padding: 18px 24px; margin-bottom: 22px;
+  background: var(--yellow-card); color: #8A6B0F;
+  border-radius: 18px; font-size: 14.5px; font-weight: 500;
+  border: 1px solid rgba(232, 159, 42, 0.18);
+}
+
+/* 三张大色卡 */
+.dh-cards {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px;
+}
+.dh-cards .dh-card:nth-child(3) { grid-column: 1 / -1; }
+.dh-card {
+  position: relative; padding: 22px 24px;
+  border-radius: 22px; cursor: pointer; overflow: hidden;
+  border: 1px solid transparent;
+  transition: transform .15s, box-shadow .15s;
+}
+.dh-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.dh-card-ico {
+  position: absolute; top: 18px; right: 18px;
+  width: 38px; height: 38px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, 0.55);
+  font-size: 18px;
+}
+/* 顶部小色条装饰（贴图薄荷绿卡上的小黄条） */
+.dh-card-deco {
+  position: absolute; top: 8px; right: 80px;
+  width: 28px; height: 4px; border-radius: 4px;
+  background: var(--yellow-card);
+}
+.dh-card-lab { font-size: 13px; color: var(--ink-2); font-weight: 600; }
+.dh-card-val {
+  font-size: 34px; font-weight: 800; color: var(--ink);
+  letter-spacing: -0.02em; line-height: 1.1; margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.dh-card-val[style*="C2503E"] { color: #C2503E !important; }
+.dh-card-unit { font-size: 18px; color: var(--ink-2); font-weight: 600; margin-left: 2px; }
+.dh-card-sub { font-size: 12px; color: var(--ink-2); margin-top: 6px; }
+.dh-bar { height: 8px; border-radius: 999px; background: rgba(255,255,255,0.4); margin: 10px 0 6px; overflow: hidden; }
+.dh-bar i { display: block; height: 100%; background: #2F7A5C; border-radius: 999px; }
+
+/* 三色卡的实际配色 */
+.dh-mint { background: var(--mint-card); color: #1F4D3A; }
+.dh-mint .dh-card-ico { background: rgba(255, 255, 255, 0.7); color: #1F4D3A; }
+.dh-mint .dh-card-deco { background: var(--yellow-card); }
+.dh-pink { background: var(--pink-card); color: #8B3A2C; }
+.dh-pink .dh-card-ico { background: rgba(255, 255, 255, 0.7); color: #8B3A2C; }
+.dh-yellow { background: var(--yellow-card); color: #8A6B0F; }
+.dh-yellow .dh-card-ico { background: rgba(255, 255, 255, 0.7); color: #8A6B0F; }
+
+/* 移动端 */
+@media (max-width: 640px) {
+  .dh-cards { grid-template-columns: 1fr; }
+  .dh-plaque-title { font-size: 28px; }
+  .dh-plaque { flex-direction: column; align-items: flex-start; }
+  .dh-plaque-illu { font-size: 60px; }
+  .dh-title { font-size: 26px; }
+}
+
+/* ==========================================================================
+   打工小账本：侧栏品牌区 + 菜单项风格（贴图复刻）
+   ========================================================================== */
+[data-theme="mint"] .sidebar {
+  background: #F5F2E5;  /* 与 body 同米黄底 */
+  border-right: 1px dashed #DDD9C4;
+  box-shadow: none;
+}
+[data-theme="mint"] .brand { flex-direction: column; align-items: flex-start; gap: 10px; padding: 22px 16px 18px; }
+[data-theme="mint"] .brand-ic {
+  width: 56px; height: 56px; border-radius: 18px;  /* 圆角方头像 */
+  background: linear-gradient(135deg, #C9E8DA, #9DD3BD);
+  color: #1F4D3A;
+  box-shadow: 0 4px 12px rgba(91, 163, 123, 0.25);
+}
+[data-theme="mint"] .brand-ic svg { width: 28px; height: 28px; }
+[data-theme="mint"] .brand-txt {
+  flex-direction: column; gap: 2px;
+  font-size: 18px; font-weight: 800; color: #1F4D3A; letter-spacing: -0.01em;
+}
+[data-theme="mint"] .brand-txt small {
+  font-size: 12px; font-weight: 500; color: #8A9385;
+  letter-spacing: 0.05em; font-family: var(--sans);
+  background: none; padding: 0; margin: 0; border: none;
+}
+/* 侧栏菜单项：贴图风格——白底圆角 + 文字深绿；选中态=薄荷绿描边胶囊 + 浅绿底 */
+[data-theme="mint"] .nav a, [data-theme="mint"] .nav-parent {
+  background: #FFFFFF; color: #1F4D3A; border: 1px solid #DDD9C4;
+  border-radius: 14px; margin-bottom: 6px; padding: 10px 14px;
+  font-weight: 600;
+}
+[data-theme="mint"] .nav a:hover { background: #FFFFFF; border-color: #9DD3BD; color: #1F4D3A; }
+[data-theme="mint"] .nav a.active {
+  background: #DCEFE3; color: #1F4D3A;
+  border: 2px solid #2F7A5C; border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(47, 122, 92, 0.15);
+}
+[data-theme="mint"] .nav a .nic, [data-theme="mint"] .nav-parent .nic { color: #2F7A5C; }
+[data-theme="mint"] .nav-group .nav-sub-inner a {
+  background: transparent !important; border: none !important;
+  padding-left: 28px; border-radius: 10px !important;
+}
+[data-theme="mint"] .nav-group .nav-sub-inner a.active {
+  background: #DCEFE3 !important; border: 2px solid #2F7A5C !important;
+}
