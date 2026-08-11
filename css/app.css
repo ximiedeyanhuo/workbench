@@ -3451,3 +3451,358 @@ mark.news-kw {
 [data-theme="mint"] .cal-cell.today, [data-theme="mint-dark"] .cal-cell.today { background: var(--accent); color: #fff; border-color: var(--accent); }
 [data-theme="mint"] .cal-cell.today .d-num, [data-theme="mint-dark"] .cal-cell.today .d-num { color: #fff; }
 [data-theme="mint"] .cal-cell.today::after, [data-theme="mint-dark"] .cal-cell.today::after { background: #fff; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4); }
+
+/* ==========================================================================
+   打工小账本主题（mint）骨架层 —— 奶油绿 + 双列大数字卡 + 大圆角分层卡片
+   形态差异点：stat-grid 两列大卡、卡片顶部色条、菜单圆形底、圆角进度条
+   ========================================================================== */
+[data-theme="mint"] body {
+  background:
+    radial-gradient(rgba(91, 163, 123, 0.10) 1.5px, transparent 1.5px) 0 0 / 24px 24px,
+    var(--bg);
+}
+[data-theme="mint"] .hero-greet {
+  font-size: 30px; font-weight: 800; color: var(--ink);
+  letter-spacing: -0.02em; line-height: 1.2;
+}
+[data-theme="mint"] .hero-greet::after { display: none; }
+[data-theme="mint"] .hero-date { font-size: 13px; color: var(--muted); }
+
+/* 双列大数字卡 */
+[data-theme="mint"] .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+[data-theme="mint"] .stat {
+  border-radius: 22px; padding: 20px 24px;
+  border: 1px solid rgba(91, 163, 123, 0.22);
+  box-shadow: var(--shadow-md), var(--card-lit);
+  overflow: hidden;
+}
+[data-theme="mint"] .stat::before {
+  content: ""; position: absolute; left: 0; top: 24px; bottom: 24px;
+  width: 4px; border-radius: 0 4px 4px 0; background: var(--accent);
+}
+[data-theme="mint"] .stat:nth-child(2)::before { background: var(--purple); }
+[data-theme="mint"] .stat:nth-child(3)::before { background: var(--warn); }
+[data-theme="mint"] .stat:nth-child(4)::before { background: var(--danger); }
+[data-theme="mint"] .stat .s-lab { font-size: 12px; }
+[data-theme="mint"] .stat .s-lab::before { border-radius: 50%; transform: none; width: 7px; height: 7px; background: var(--accent); }
+[data-theme="mint"] .stat .s-val { font-size: 36px; font-family: var(--sans); }
+[data-theme="mint"] .stat .s-sub { font-size: 11.5px; }
+
+/* 卡片：大圆角 + 顶部色条 */
+[data-theme="mint"] .card {
+  border-radius: 24px; border: 1px solid rgba(91, 163, 123, 0.18);
+  box-shadow: var(--shadow-md), var(--card-lit);
+  position: relative;
+}
+[data-theme="mint"] .card::before {
+  content: ""; position: absolute; left: 24px; right: 24px; top: 0;
+  height: 4px; border-radius: 0 0 6px 6px;
+  background: linear-gradient(90deg, var(--accent-strong), var(--accent));
+}
+[data-theme="mint"] .card h2 { font-size: 16px; font-weight: 800; padding-bottom: 14px; }
+[data-theme="mint"] .card h2 .count { border-radius: 999px; }
+
+/* 圆角渐变进度条 */
+[data-theme="mint"] .mini-bar { height: 10px; border-radius: 999px; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); }
+[data-theme="mint"] .mini-bar i {
+  background: linear-gradient(90deg, var(--accent-strong), var(--accent));
+  border-radius: 999px;
+}
+
+/* 导航：圆角菜单 + 嫩绿激活 */
+[data-theme="mint"] .nav a, [data-theme="mint"] .nav-parent { border-radius: 14px; }
+[data-theme="mint"] .nav a.active {
+  background: var(--accent-soft);
+  box-shadow: none;
+  border-radius: 14px;
+}
+[data-theme="mint"] .nav a.active .nic { color: var(--accent); }
+
+/* 按钮：胶囊 */
+[data-theme="mint"] .btn { border-radius: 999px; }
+[data-theme="mint"] .btn.sm { border-radius: 999px; }
+[data-theme="mint"] .btn.ghost { border-radius: 999px; }
+
+/* 横幅：大圆角 + 柔和投影 */
+[data-theme="mint"] .dash-gk { border-radius: 18px; box-shadow: var(--shadow-md), var(--card-lit); }
+[data-theme="mint"] .dash-banner { border-radius: 16px; }
+
+/* 列表项：圆角卡感 */
+[data-theme="mint"] .item { border-radius: 14px; }
+[data-theme="mint"] .list .item:hover { background: var(--card2); }
+
+/* 日历格：圆角 */
+[data-theme="mint"] .cal-cell { border-radius: 12px; }
+
+/* Tab：圆角 */
+[data-theme="mint"] .tab { border-radius: 999px; }
+
+/* 倒计时/提醒卡：大圆角 */
+[data-theme="mint"] .anniv-card { border-radius: 18px; }
+
+/* ==========================================================================
+   日常集主题（daily）—— 米黄纸 + 纯黑衬线大标题 + 深紫主卡 + 细线分隔
+   形态差异点：全站衬线字体、大标题、2px 粗描边卡片、右上彩色块、
+   无圆角（直角报刊风）、列表用细线分隔（无卡片感）
+   ========================================================================== */
+[data-theme="daily"] {
+  --bg:            #F5EFE1;
+  --card:          #FFFDF5;
+  --card2:         #EFE7D3;
+  --ink:           #27211A;
+  --ink-2:         #3D362C;
+  --muted:         #6E6352;
+  --muted-2:       #847869;
+  --line:          #D8CDB4;
+  --rule:          #B7A98A;
+  --accent:        #5B4A8A;
+  --accent-strong: #4A3B74;
+  --accent-hover:  #6C5AA0;
+  --accent-soft:   rgba(91, 74, 138, 0.10);
+  --primary:       #27211A;
+  --danger:        #B33A32;
+  --warn:          #9C6B1F;
+  --ok:            #3F6F52;
+  --purple:        #5B4A8A;
+  --rise:          #B33A32;
+  --fall:          #3F6F52;
+  --shadow-sm: none;
+  --shadow-md: 0 1px 0 rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 2px 0 rgba(0, 0, 0, 0.06);
+  --card-lit: none;
+  --grain:         0.35;
+  --sans: Georgia, "Songti SC", "Noto Serif SC", "SimSun", serif;
+  --serif: Georgia, "Songti SC", "Noto Serif SC", "SimSun", serif;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius:    10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+}
+[data-theme="daily"] body { background-image: none; }
+[data-theme="daily"] body::before { mix-blend-mode: multiply; opacity: 0.5; }
+
+/* 大标题：衬线 + 黑墨 + 无装饰 */
+[data-theme="daily"] .hero-greet {
+  font-size: 34px; font-weight: 700; color: var(--ink);
+  letter-spacing: -0.01em; font-family: var(--serif);
+}
+[data-theme="daily"] .hero-greet::after { display: none; }
+[data-theme="daily"] .hero-date { font-size: 12.5px; color: var(--muted); font-family: var(--serif); }
+[data-theme="daily"] .page-title { font-family: var(--serif); font-weight: 700; }
+[data-theme="daily"] .page-title::before { display: none; }
+
+/* 双列数字卡：白底 + 2px 粗描边 + 右上小色块 */
+[data-theme="daily"] .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+[data-theme="daily"] .stat {
+  border: 2px solid var(--rule); border-radius: var(--radius);
+  padding: 20px 22px; box-shadow: none; overflow: hidden;
+  background: var(--card);
+}
+[data-theme="daily"] .stat::after {
+  content: ""; position: absolute; right: 0; top: 0;
+  width: 26px; height: 26px;
+  background: var(--accent);
+  clip-path: polygon(100% 0, 100% 100%, 0 0);
+}
+[data-theme="daily"] .stat:nth-child(2)::after { background: var(--warn); }
+[data-theme="daily"] .stat:nth-child(3)::after { background: var(--ok); }
+[data-theme="daily"] .stat:nth-child(4)::after { background: var(--danger); }
+[data-theme="daily"] .stat .s-lab { font-family: var(--serif); font-size: 12px; }
+[data-theme="daily"] .stat .s-lab::before { background: var(--ink); border-radius: 0; transform: none; width: 8px; height: 2px; }
+[data-theme="daily"] .stat .s-val { font-family: var(--serif); font-size: 34px; font-weight: 700; letter-spacing: -0.02em; }
+[data-theme="daily"] .stat .s-sub { font-family: var(--serif); }
+
+/* 卡片：粗描边 + 无阴影，标题下细线 */
+[data-theme="daily"] .card {
+  border: 2px solid var(--rule); border-radius: var(--radius);
+  box-shadow: none; padding: 20px 22px;
+}
+[data-theme="daily"] .card h2 {
+  font-family: var(--serif); font-size: 18px; font-weight: 700;
+  padding-bottom: 10px; border-bottom: 1px solid var(--line);
+}
+[data-theme="daily"] .card h2 .count { border-radius: 4px; border: 1px solid var(--line); background: transparent; }
+
+/* 列表：细线分隔，去卡片感 */
+[data-theme="daily"] .list { gap: 0; }
+[data-theme="daily"] .item {
+  border-radius: 0; border-bottom: 1px dashed var(--line);
+  background: transparent;
+}
+[data-theme="daily"] .item:hover { background: rgba(91, 74, 138, 0.04); }
+
+/* 按钮：墨色或深紫，直角 */
+[data-theme="daily"] .btn { border-radius: 6px; background: var(--accent-strong); color: #fff; box-shadow: none; }
+[data-theme="daily"] .btn.ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+[data-theme="daily"] .btn:hover { background: var(--accent-hover); color: #fff; }
+[data-theme="daily"] .btn.ghost:hover { background: var(--accent-soft); color: var(--accent); }
+
+/* 横幅：粗边框直角 */
+[data-theme="daily"] .dash-gk { border: 2px solid var(--rule); border-left: 4px solid var(--accent); border-radius: 6px; box-shadow: none; }
+[data-theme="daily"] .dash-banner { border-radius: 6px; border: 1.5px solid var(--rule); }
+[data-theme="daily"] .dash-gk-day b { color: var(--accent); }
+
+/* 进度条：细线直角 */
+[data-theme="daily"] .mini-bar { height: 8px; border-radius: 0; }
+[data-theme="daily"] .mini-bar i { border-radius: 0; background: var(--accent-strong); }
+
+/* 导航：直角 + 深紫激活 */
+[data-theme="daily"] .nav a, [data-theme="daily"] .nav-parent { border-radius: 4px; }
+[data-theme="daily"] .nav a.active {
+  background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent);
+  border-radius: 4px;
+}
+[data-theme="daily"] .nav a.active .nic { color: var(--accent); }
+
+/* 日历/倒计时：直角 */
+[data-theme="daily"] .cal-cell { border-radius: 4px; }
+[data-theme="daily"] .anniv-card { border-radius: 8px; }
+[data-theme="daily"] .tab { border-radius: 6px; }
+[data-theme="daily"] .tab.on { background: var(--accent); color: #fff; }
+
+/* 品牌 logo：深紫 */
+[data-theme="daily"] .brand-ic { background: linear-gradient(135deg, #6C5AA0, var(--accent-strong)); color: #fff; }
+[data-theme="daily"] .login-logo { background: linear-gradient(135deg, #6C5AA0, var(--accent-strong)); color: #fff; }
+
+/* ==========================================================================
+   玻璃拟态主题（glass）—— 深蓝灰渐变 + 半透明玻璃卡 + 大圆角 + 多色分类
+   形态差异点：卡片玻璃模糊（backdrop-filter）、导航胶囊玻璃、
+   数字卡多色渐变块、按钮渐变胶囊、背景顶部色斑
+   ========================================================================== */
+[data-theme="glass"] {
+  --bg:            #0E1626;
+  --card:          rgba(255, 255, 255, 0.07);
+  --card2:         rgba(255, 255, 255, 0.05);
+  --ink:           #EAF0FA;
+  --ink-2:         #C7D2E4;
+  --muted:         #8FA0BB;
+  --muted-2:       #74849E;
+  --line:          rgba(255, 255, 255, 0.12);
+  --rule:          rgba(255, 255, 255, 0.2);
+  --accent:        #7C9CFF;
+  --accent-strong: #5E7BEE;
+  --accent-hover:  #93AFFF;
+  --accent-soft:   rgba(124, 156, 255, 0.16);
+  --primary:       #EAF0FA;
+  --danger:        #FF7A76;
+  --warn:          #FFC767;
+  --ok:            #5FD3A0;
+  --purple:        #B28CFF;
+  --rise:          #FF7A76;
+  --fall:          #5FD3A0;
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --card-lit: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --grain:         0;
+  --radius-xs: 12px;
+  --radius-sm: 16px;
+  --radius:    20px;
+  --radius-lg: 28px;
+  --radius-pill: 999px;
+  --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Segoe UI", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+}
+/* 背景：深蓝渐变 + 顶部色斑（玻璃氛围光） */
+[data-theme="glass"] body {
+  background:
+    radial-gradient(900px 500px at 15% -10%, rgba(124, 156, 255, 0.22), transparent 60%),
+    radial-gradient(700px 420px at 95% 5%, rgba(178, 140, 255, 0.16), transparent 60%),
+    radial-gradient(800px 500px at 60% 110%, rgba(95, 211, 160, 0.10), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+/* 卡片：玻璃 + 模糊 + 大圆角 */
+[data-theme="glass"] .card {
+  background: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow: var(--shadow-sm), var(--card-lit);
+  padding: 22px 24px;
+}
+[data-theme="glass"] .card h2 { font-size: 16px; font-weight: 800; }
+[data-theme="glass"] .card h2 .count { border-radius: 999px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); }
+
+/* 数字卡：双列 + 彩色渐变图标块 */
+[data-theme="glass"] .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+[data-theme="glass"] .stat {
+  background: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 22px; padding: 20px 22px;
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow: var(--shadow-sm), var(--card-lit);
+  overflow: hidden;
+}
+/* 左侧渐变圆点 */
+[data-theme="glass"] .stat .s-lab::before {
+  width: 10px; height: 10px; border-radius: 50%; transform: none;
+  background: linear-gradient(135deg, #7C9CFF, #5E7BEE);
+  box-shadow: 0 0 8px rgba(124, 156, 255, 0.5);
+}
+[data-theme="glass"] .stat:nth-child(2) .s-lab::before { background: linear-gradient(135deg, #B28CFF, #8B5CE6); box-shadow: 0 0 8px rgba(178,140,255,0.5); }
+[data-theme="glass"] .stat:nth-child(3) .s-lab::before { background: linear-gradient(135deg, #FFC767, #F59F2E); box-shadow: 0 0 8px rgba(255,199,103,0.5); }
+[data-theme="glass"] .stat:nth-child(4) .s-lab::before { background: linear-gradient(135deg, #5FD3A0, #2EAF80); box-shadow: 0 0 8px rgba(95,211,160,0.5); }
+[data-theme="glass"] .stat .s-val { font-size: 34px; font-family: var(--sans); color: #fff; text-shadow: 0 0 12px rgba(124,156,255,0.4); }
+[data-theme="glass"] .stat .s-sub { color: var(--muted); }
+
+/* 导航：玻璃胶囊菜单 */
+[data-theme="glass"] .nav a, [data-theme="glass"] .nav-parent {
+  border-radius: 999px;
+  margin: 2px 0;
+}
+[data-theme="glass"] .nav a.active {
+  background: rgba(124, 156, 255, 0.18);
+  border: 1px solid rgba(124, 156, 255, 0.25);
+  box-shadow: 0 0 16px rgba(124, 156, 255, 0.2), var(--card-lit);
+}
+[data-theme="glass"] .nav a.active .nic { color: #A9C0FF; }
+
+/* 按钮：渐变胶囊 + 玻璃 */
+[data-theme="glass"] .btn {
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: #fff; border: none;
+  box-shadow: 0 2px 12px rgba(94, 123, 238, 0.4), var(--card-lit);
+}
+[data-theme="glass"] .btn:hover { background: linear-gradient(135deg, var(--accent-hover), var(--accent)); color: #fff; }
+[data-theme="glass"] .btn.ghost { background: rgba(255,255,255,0.06); color: var(--ink); border: 1px solid rgba(255,255,255,0.16); box-shadow: none; }
+[data-theme="glass"] .btn.ghost:hover { background: rgba(255,255,255,0.12); color: var(--ink); }
+[data-theme="glass"] .btn.danger { background: transparent; border: 1px solid var(--danger); }
+
+/* 横幅：玻璃卡 */
+[data-theme="glass"] .dash-gk {
+  background: var(--card);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 18px; box-shadow: var(--shadow-sm);
+}
+[data-theme="glass"] .dash-banner { border-radius: 16px; }
+
+/* 进度条：圆角发光 */
+[data-theme="glass"] .mini-bar { height: 10px; border-radius: 999px; overflow: hidden; }
+[data-theme="glass"] .mini-bar i {
+  background: linear-gradient(90deg, var(--accent-strong), var(--accent));
+  border-radius: 999px;
+  box-shadow: 0 0 10px rgba(124,156,255,0.5);
+}
+
+/* 列表项：玻璃条 */
+[data-theme="glass"] .item {
+  border-radius: 14px; background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+[data-theme="glass"] .item:hover { background: rgba(255,255,255,0.08); }
+
+/* 日历格：圆角玻璃 */
+[data-theme="glass"] .cal-cell { border-radius: 12px; }
+[data-theme="glass"] .tab { border-radius: 999px; }
+[data-theme="glass"] .anniv-card { border-radius: 18px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); }
+
+/* 品牌 logo：蓝紫渐变 */
+[data-theme="glass"] .brand-ic { background: linear-gradient(135deg, #7C9CFF, #8B5CE6); color: #fff; }
+[data-theme="glass"] .login-logo { background: linear-gradient(135deg, #7C9CFF, #8B5CE6); color: #fff; }
