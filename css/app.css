@@ -3806,3 +3806,115 @@ mark.news-kw {
 /* 品牌 logo：蓝紫渐变 */
 [data-theme="glass"] .brand-ic { background: linear-gradient(135deg, #7C9CFF, #8B5CE6); color: #fff; }
 [data-theme="glass"] .login-logo { background: linear-gradient(135deg, #7C9CFF, #8B5CE6); color: #fff; }
+
+/* ==========================================================================
+   仪表盘骨架级新组件（全主题基础样式）
+   ========================================================================== */
+/* hero 区：问候 + 数字条（琥珀主题=紧凑数字小卡） */
+.dash-hero {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px;
+  margin: -4px 0 22px;
+}
+.dash-hero .dh-head { flex: 1 1 300px; }
+.dh-stats {
+  flex: 2 1 420px;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;
+}
+.dh-cell {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 12px 14px; border-radius: var(--radius-sm);
+  background: var(--card); border: 1px solid var(--line);
+  cursor: pointer; transition: border-color .15s, transform .15s, box-shadow .15s;
+  box-shadow: var(--shadow-sm), var(--card-lit);
+}
+.dh-cell:hover { border-color: var(--accent); transform: translateY(-1px); }
+.dh-lab { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: 0.02em; }
+.dh-val { font-size: 22px; font-weight: 800; font-family: var(--mono); font-variant-numeric: tabular-nums; line-height: 1.1; color: var(--ink); letter-spacing: -0.02em; }
+.dh-sub { font-size: 10.5px; color: var(--muted); font-family: var(--mono); }
+
+/* stat 图标位（右上角；琥珀主题隐藏保持旧观感） */
+.s-ico { position: absolute; top: 14px; right: 14px; font-size: 15px; opacity: 0.85; line-height: 1; }
+[data-theme="light"] .stat .s-ico, [data-theme="dark"] .stat .s-ico { display: none; }
+
+/* 储蓄进度环（SVG，--p 为 0-100 百分比） */
+.save-ring { position: relative; width: 52px; height: 52px; margin-top: 8px; }
+.save-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.rg-bg { fill: none; stroke: var(--line); stroke-width: 3.2; }
+.rg-fg {
+  fill: none; stroke: var(--accent); stroke-width: 3.2; stroke-linecap: round;
+  stroke-dasharray: 100; stroke-dashoffset: calc(100 - var(--p, 0));
+  transition: stroke-dashoffset .4s ease;
+}
+.rg-txt { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.rg-txt b { font-size: 13px; font-family: var(--mono); color: var(--accent); line-height: 1; }
+.rg-txt span { font-size: 9px; color: var(--muted); margin-top: 2px; }
+
+@media (max-width: 640px) {
+  .dh-stats { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .dash-hero { gap: 12px; }
+}
+
+/* ---- 打工小账本：hero 整卡 + 2x2 大数字格 + 大图标 + 大环 ---- */
+[data-theme="mint"] .dash-hero {
+  background: var(--card); border: 1px solid rgba(91, 163, 123, 0.22);
+  border-radius: 24px; padding: 26px 26px 20px; margin: -4px 0 22px;
+  box-shadow: var(--shadow-md), var(--card-lit); position: relative; overflow: hidden;
+}
+[data-theme="mint"] .dash-hero::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 5px;
+  background: linear-gradient(90deg, var(--accent-strong), var(--accent));
+}
+[data-theme="mint"] .dash-hero .hero-date { margin-bottom: 6px; padding-bottom: 0; border: none; }
+[data-theme="mint"] .dh-stats { grid-template-columns: repeat(2, 1fr); gap: 12px; width: 100%; }
+[data-theme="mint"] .dh-cell { background: var(--card2); border: none; border-radius: 16px; padding: 14px 16px; box-shadow: var(--card-lit); }
+[data-theme="mint"] .dh-cell .dh-val { font-size: 27px; font-family: var(--sans); }
+[data-theme="mint"] .s-ico { font-size: 22px; opacity: 1; top: 16px; right: 16px; }
+[data-theme="mint"] .save-ring { width: 68px; height: 68px; margin-top: 2px; }
+[data-theme="mint"] .rg-fg { stroke: var(--accent-strong); stroke-width: 4; }
+[data-theme="mint"] .rg-txt b { font-size: 16px; }
+
+/* ---- 日常集：报头式 hero + 表格数字条 + 墨色直角环 ---- */
+[data-theme="daily"] .dash-hero {
+  display: block; border-bottom: 3px double var(--rule);
+  padding-bottom: 18px; margin: -4px 0 22px;
+}
+[data-theme="daily"] .dash-hero .hero-date {
+  margin-bottom: 4px; padding-bottom: 0; border: none;
+  font-family: var(--serif); font-size: 13px;
+}
+[data-theme="daily"] .dh-stats {
+  grid-template-columns: repeat(4, 1fr); gap: 0;
+  margin-top: 18px; border: 1.5px solid var(--rule);
+}
+[data-theme="daily"] .dh-cell {
+  background: transparent; border: none; border-right: 1px dashed var(--line);
+  border-radius: 0; padding: 12px 14px; box-shadow: none;
+}
+[data-theme="daily"] .dh-cell:last-child { border-right: none; }
+[data-theme="daily"] .dh-lab { font-family: var(--serif); letter-spacing: 0; }
+[data-theme="daily"] .dh-val { font-family: var(--serif); font-weight: 700; font-size: 24px; }
+[data-theme="daily"] .dh-sub { font-family: var(--serif); }
+[data-theme="daily"] .s-ico { top: 16px; right: 36px; font-size: 15px; opacity: 1; }
+[data-theme="daily"] .save-ring { width: 46px; height: 46px; margin-top: 4px; }
+[data-theme="daily"] .rg-fg { stroke-linecap: butt; stroke: var(--ink); stroke-width: 4; }
+[data-theme="daily"] .rg-bg { stroke: var(--line); }
+[data-theme="daily"] .rg-txt b { color: var(--ink); font-family: var(--serif); font-size: 12px; }
+
+/* ---- 玻璃拟态：玻璃整卡 + 2x2 数字格 + 发光图标 + 荧光环 ---- */
+[data-theme="glass"] .dash-hero {
+  background: var(--card);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 24px;
+  padding: 22px 24px 18px; margin: -4px 0 22px;
+  box-shadow: var(--shadow-sm), var(--card-lit);
+}
+[data-theme="glass"] .dash-hero .hero-date { margin-bottom: 6px; padding-bottom: 0; border: none; }
+[data-theme="glass"] .dh-stats { grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; }
+[data-theme="glass"] .dh-cell { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; box-shadow: none; }
+[data-theme="glass"] .dh-cell .dh-val { color: #fff; text-shadow: 0 0 12px rgba(124, 156, 255, 0.4); }
+[data-theme="glass"] .s-ico { font-size: 20px; opacity: 1; top: 16px; right: 16px; filter: drop-shadow(0 0 6px rgba(124, 156, 255, 0.5)); }
+[data-theme="glass"] .save-ring { width: 60px; height: 60px; margin-top: 4px; }
+[data-theme="glass"] .rg-fg { stroke: #A9C0FF; stroke-width: 3.6; filter: drop-shadow(0 0 4px rgba(124, 156, 255, 0.7)); }
+[data-theme="glass"] .rg-bg { stroke: rgba(255, 255, 255, 0.15); }
+[data-theme="glass"] .rg-txt b { color: #A9C0FF; }

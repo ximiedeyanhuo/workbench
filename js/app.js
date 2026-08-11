@@ -604,19 +604,29 @@
         : '<div class="empty">还没有笔记，去 <a href="#/notes">沉淀</a> 页开始记录</div>';
 
       el.innerHTML = `
-        <div class="hero-greet">${greet}，${esc(nickname)}！</div>
-        <div class="hero-date">${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 · 星期${wk}${
-          focus.length ? " · 今天有 " + focus.length + " 件事需要关注" : " · 今天没有到期事项，安心推进"
-        }${notifyBtnHtml}</div>
+        <div class="dash-hero">
+          <div class="dh-head">
+            <div class="hero-greet">${greet}，${esc(nickname)}！</div>
+            <div class="hero-date">${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 · 星期${wk}${
+              focus.length ? " · 今天有 " + focus.length + " 件事需要关注" : " · 今天没有到期事项，安心推进"
+            }${notifyBtnHtml}</div>
+          </div>
+          <div class="dh-stats" id="dashHeroStats">
+            <div class="dh-cell" data-go="#/finance" title="去记账页"><span class="dh-lab">本月结余</span><span class="dh-val" style="color:${netColor}">${netSign}${fmtMoney(Math.abs(mNet))}</span><span class="dh-sub">收 ${fmtMoney(mIncome)} · 支 ${fmtMoney(mExpense)}</span></div>
+            <div class="dh-cell" data-go="#/finance" title="去记账页"><span class="dh-lab">本月支出</span><span class="dh-val">${fmtMoney(mExpense)}</span><span class="dh-sub">${monthBudget > 0 ? "预算 " + fmtMoney(monthBudget) : "未设预算"}</span></div>
+            <div class="dh-cell" data-go="#/tasks" title="去事务页"><span class="dh-lab">今日待办</span><span class="dh-val">${dueToday.length} / ${overdue.length}</span><span class="dh-sub">到期 / 逾期 · 共 ${active.length} 项</span></div>
+            <div class="dh-cell" data-go="#/life" title="去生活页"><span class="dh-lab">储蓄进度</span><span class="dh-val">${pct}%</span><span class="dh-sub">${fmtMoney(saved)} / ${fmtMoney(target)}</span></div>
+          </div>
+        </div>
         ${gkBanner}
         ${annivBanner}
         ${saveBanner}
         ${budgetBanner}
         <div class="stat-grid">
-          <div class="stat" data-go="#/tasks"><div class="s-lab">今日到期 / 逾期</div><div class="s-val">${dueToday.length} / ${overdue.length}</div><div class="s-sub">共 ${active.length} 项进行中</div></div>
-          <div class="stat" data-go="#/tasks"><div class="s-lab">本周待办</div><div class="s-val">${weekCnt}</div><div class="s-sub">${monStr.slice(5)} ~ ${sunStr.slice(5)}</div></div>
-          <div class="stat" data-go="#/life"><div class="s-lab">今日打卡</div><div class="s-val">${habitDone} / ${habits.length}</div><div class="s-sub">${habits.length === 0 ? "还没有习惯" : habitDone >= habits.length ? "全部完成" : "继续加油"}</div></div>
-          <div class="stat" data-go="#/finance"><div class="s-lab">本年结余</div><div class="s-val" style="color:${netColor}">${netSign}${fmtMoney(Math.abs(mNet))}</div><div class="s-sub">收入 ${fmtMoney(mIncome)} · 支出 ${fmtMoney(mExpense)}</div></div>
+          <div class="stat" data-go="#/tasks"><span class="s-ico">⏰</span><div class="s-lab">今日到期 / 逾期</div><div class="s-val">${dueToday.length} / ${overdue.length}</div><div class="s-sub">共 ${active.length} 项进行中</div></div>
+          <div class="stat" data-go="#/tasks"><span class="s-ico">📅</span><div class="s-lab">本周待办</div><div class="s-val">${weekCnt}</div><div class="s-sub">${monStr.slice(5)} ~ ${sunStr.slice(5)}</div></div>
+          <div class="stat" data-go="#/life"><span class="s-ico">🌱</span><div class="s-lab">今日打卡</div><div class="s-val">${habitDone} / ${habits.length}</div><div class="s-sub">${habits.length === 0 ? "还没有习惯" : habitDone >= habits.length ? "全部完成" : "继续加油"}</div></div>
+          <div class="stat" data-go="#/finance"><span class="s-ico">💰</span><div class="s-lab">本年结余</div><div class="s-val" style="color:${netColor}">${netSign}${fmtMoney(Math.abs(mNet))}</div><div class="s-sub">收入 ${fmtMoney(mIncome)} · 支出 ${fmtMoney(mExpense)}</div></div>
         </div>
         <div class="card">
           <h2>今日焦点<span class="count">${focus.length} 项</span></h2>
@@ -651,6 +661,13 @@
               </div>
               <div class="mini-bar"><i style="width:${pct}%"></i></div>
               <div class="mini-bar-lab">年度储蓄 ${fmtMoney(saved)} / ${fmtMoney(target)}（${pct}%） · <a href="#/finance" class="c-accent">去记账页</a></div>
+              <div class="save-ring" id="dashRing" style="--p:${pct}" title="年度储蓄目标进度">
+                <svg viewBox="0 0 36 36" aria-hidden="true">
+                  <circle class="rg-bg" cx="18" cy="18" r="15.9"></circle>
+                  <circle class="rg-fg" cx="18" cy="18" r="15.9"></circle>
+                </svg>
+                <div class="rg-txt"><b>${pct}%</b><span>储蓄目标</span></div>
+              </div>
             </div>
             <div class="card">
               <h2>最近沉淀</h2>
