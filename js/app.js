@@ -39,13 +39,20 @@
 
   // ================= 主题 =================
   const THEME_KEY = "wb2_theme"; // localStorage 仅作即时缓存防闪烁，正式值在 settings
-  // 主题循环顺序：亮 → 暗 → 森林(明) → 深夜(暗) → 亮…
+  // 主题循环顺序：亮 → 暗 → 森林(明) → 深夜(暗) → 终端 → 报纸 → 亮…
   const THEMES = [
     { key: "light", icon: "☀️", text: "亮色模式" },
     { key: "dark", icon: "🌙", text: "暗色模式" },
     { key: "forest", icon: "🌲", text: "森林模式" },
     { key: "midnight", icon: "🌌", text: "深夜模式" },
+    { key: "terminal", icon: "🖥️", text: "终端模式" },
+    { key: "newsprint", icon: "📰", text: "报纸模式" },
   ];
+  // 深色系主题的浏览器状态栏颜色（terminal 纯黑、其余墨蓝）
+  const THEME_BAR = {
+    light: "#f3eee2", dark: "#0b1116", forest: "#f3eee2",
+    midnight: "#0b1116", terminal: "#050505", newsprint: "#f3eee2",
+  };
   function applyTheme(theme) {
     document.documentElement.setAttribute("data-theme", theme);
     const m = THEMES.find((x) => x.key === theme) || THEMES[0];
@@ -56,7 +63,7 @@
     if (btnTop) btnTop.textContent = label;
     // 同步 meta theme-color，让移动端状态栏/地址栏跟随主题
     const mc = document.querySelector('meta[name="theme-color"]');
-    if (mc) mc.setAttribute("content", theme === "dark" || theme === "midnight" ? "#0b1116" : "#f3eee2");
+    if (mc) mc.setAttribute("content", THEME_BAR[theme] || "#f3eee2");
   }
   function toggleTheme() {
     const cur = document.documentElement.getAttribute("data-theme");

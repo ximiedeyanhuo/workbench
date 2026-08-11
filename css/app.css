@@ -150,6 +150,78 @@
   --grain:         0.35;
 }
 
+/* ---- 多主题扩展：terminal = 老式终端（纯黑 + 荧光绿 + 全站等宽 + 直角无阴影） ---- */
+[data-theme="terminal"] {
+  --bg:            #050505;   /* 纯黑屏 */
+  --card:          #0d0d0d;   /* 近黑面板 */
+  --card2:         #161616;
+  --ink:           #c9ffd1;   /* 荧光白绿 */
+  --ink-2:         #8fbf9a;
+  --muted:         #5a8f66;
+  --muted-2:       #3f6b4b;
+  --line:          #1c3324;   /* 深绿描边 */
+  --rule:          #2c5c37;
+  --accent:        #33ff66;   /* 荧光绿（一切强调） */
+  --accent-strong: #22d457;
+  --accent-hover:  #5eff8b;
+  --accent-soft:   rgba(51, 255, 102, 0.12);
+  --primary:       #c9ffd1;
+  --danger:        #ff5c5c;
+  --warn:          #ffc44d;
+  --ok:            #33ff66;
+  --purple:        #b066ff;
+  --rise:          #ff5c5c;
+  --fall:          #33ff66;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --card-lit: none;
+  --grain:         0;         /* 去纸纹（终端无颗粒） */
+  --sans: ui-monospace, "Cascadia Mono", Consolas, "Sarasa Mono SC", "Courier New", monospace;
+  --serif: var(--sans);
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius: 0;
+  --radius-lg: 0;
+  --radius-pill: 0;           /* 全直角 */
+}
+
+/* ---- 多主题扩展：newsprint = 报纸排版（米黄纸 + 纯黑墨 + 全站衬线 + 直角无彩） ---- */
+[data-theme="newsprint"] {
+  --bg:            #f4eedd;   /* 旧报纸米黄 */
+  --card:          #fbf7ec;   /* 报面 */
+  --card2:         #ece4cf;
+  --ink:           #16130f;   /* 纯黑墨 */
+  --ink-2:         #2e2a23;
+  --muted:         #5c5549;
+  --muted-2:       #6f6759;
+  --line:          #d9d0ba;
+  --rule:          #a89e86;
+  --accent:        #16130f;   /* 强调=墨黑（报纸无彩色强调） */
+  --accent-strong: #201c16;
+  --accent-hover:  #3a342a;
+  --accent-soft:   rgba(22, 19, 15, 0.07);
+  --primary:       #16130f;
+  --danger:        #8c1f1f;   /* 报头深红 */
+  --warn:          #6e5600;
+  --ok:            #1d5c33;
+  --purple:        #4a3a6b;
+  --rise:          #8c1f1f;
+  --fall:          #1d5c33;
+  --shadow-sm: none;
+  --shadow-md: 0 1px 0 rgba(0, 0, 0, 0.03);
+  --shadow-lg: 0 2px 0 rgba(0, 0, 0, 0.05);
+  --card-lit: none;
+  --grain:         0.55;      /* 增强纸纹 */
+  --sans: Georgia, "Songti SC", "Noto Serif SC", "SimSun", serif;
+  --serif: Georgia, "Songti SC", "Noto Serif SC", "SimSun", serif;
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius: 0;
+  --radius-lg: 0;
+  --radius-pill: 0;
+}
+
 /* ============ 基础 ============ */
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 /* 全局兜底：作者样式可能覆盖 UA 的 [hidden]，强制显式隐藏（AGENTS.md 已知坑） */
@@ -170,11 +242,29 @@ body {
   font-feature-settings: "cv11", "ss01", "kern" 1, "tnum" 0;
   letter-spacing: -0.005em;
 }
+/* 终端主题：去掉琥珀光晕 + 关掉抗锯齿（CRT 扫描线下方叠加） */
+[data-theme="terminal"] body {
+  background: var(--bg);
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: 0.01em;
+}
 /* 纸纹噪点：极淡的印刷颗粒覆盖全页（含卡片表面），让纸面有“触感” */
 body::before {
   content: ""; position: fixed; inset: 0; z-index: 99998; pointer-events: none;
   opacity: var(--grain);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+/* 终端主题：CRT 扫描线 */
+[data-theme="terminal"] body::after {
+  content: ""; position: fixed; inset: 0; z-index: 99997; pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.025) 0px,
+    rgba(255, 255, 255, 0.025) 1px,
+    transparent 1px,
+    transparent 3px
+  );
 }
 button { font-family: inherit; letter-spacing: inherit; }
 a { color: var(--ink); text-decoration: none; }
@@ -217,6 +307,12 @@ a:hover { color: var(--accent); }
   overflow-y: auto;
 }
 [data-theme="dark"] .sidebar, [data-theme="midnight"] .sidebar { background: #0e151b; }
+/* 终端主题：侧栏=纯黑 CRT 面板，品牌字=荧光绿 */
+[data-theme="terminal"] .sidebar { background: #050505; }
+/* 侧栏品牌文字：固定亮色，避免跟随 --bg 翻牌（dark/midnight 下 --bg 变深，品牌名会贴底不可见） */
+[data-theme="dark"] .brand-txt, [data-theme="midnight"] .brand-txt { color: #e9e7dc; }
+[data-theme="terminal"] .brand-txt { color: #33ff66; }
+[data-theme="terminal"] .brand-txt small { color: #33ff66; opacity: 0.7; }
 .sidebar::after {
   /* 站牌底部打孔线 */
   content: ""; display: block; flex-shrink: 0;
@@ -272,7 +368,7 @@ a:hover { color: var(--accent); }
 /* 导航未读角标（如资讯页未读数）：绝对定位到链接右端 */
 .nav-badge {
   position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-  min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px;
+  min-width: 17px; height: 17px; padding: 0 4px; border-radius: var(--radius-pill);
   background: var(--danger); color: #fff;
   font-size: 10px; font-weight: 700; line-height: 17px; text-align: center;
   font-variant-numeric: tabular-nums;
@@ -2074,7 +2170,7 @@ mark.news-kw {
 /* 悬浮按钮 + 浮层面板；右下角固定，跨路由存在 */
 .focus-fab {
   position: fixed; right: 18px; bottom: 18px; z-index: 90;
-  padding: 10px 16px; border-radius: 999px;
+  padding: 10px 16px; border-radius: var(--radius-pill);
   background: var(--accent); color: #1a1206; border: none; cursor: pointer;
   font-size: 13px; font-weight: 700;
   box-shadow: var(--shadow), 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent);
@@ -3090,7 +3186,7 @@ mark.news-kw {
 .cal-task-badge {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 18px; height: 18px; padding: 0 5px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 11px; font-weight: 700; line-height: 1;
   background: var(--accent); color: #fff;
 }
@@ -3174,7 +3270,7 @@ mark.news-kw {
 .quick-fab {
   position: fixed; right: 18px; bottom: 64px; z-index: 90;
   display: inline-flex; align-items: center; gap: 5px;
-  padding: 9px 14px; border-radius: 999px;
+  padding: 9px 14px; border-radius: var(--radius-pill);
   background: var(--card2); color: var(--accent-strong);
   border: 1px solid var(--line); cursor: pointer;
   font-size: 13px; font-weight: 700;
@@ -3205,7 +3301,7 @@ mark.news-kw {
 .quick-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; min-height: 0; }
 .quick-tag {
   font-size: 11px; font-family: var(--mono); color: var(--accent);
-  background: var(--accent-soft); padding: 1px 7px; border-radius: 999px;
+  background: var(--accent-soft); padding: 1px 7px; border-radius: var(--radius-pill);
 }
 .quick-acts { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
 .quick-list {
@@ -3220,7 +3316,7 @@ mark.news-kw {
 
 /* ---------- 自定义提醒（reminders.js） ---------- */
 .rm-weekdays { display: inline-flex; gap: 4px; flex-wrap: wrap; }
-.rm-dow { padding: 4px 9px; font-size: 12px; border-radius: 999px; }
+.rm-dow { padding: 4px 9px; font-size: 12px; border-radius: var(--radius-pill); }
 .rm-dow.on { background: var(--accent-strong); color: #fff; border-color: var(--accent-strong); }
 .rm-title { font-weight: 600; }
 .rm-period { display: block; font-size: 11.5px; color: var(--muted); margin-top: 1px; }
@@ -3252,3 +3348,14 @@ mark.news-kw {
   .quick-panel { right: 8px; bottom: 106px; width: calc(100vw - 16px); }
   .anniv-grid { grid-template-columns: 1fr; }
 }
+
+
+/* 终端主题：等宽数字带 CRT 微光 */
+[data-theme="terminal"] .s-val, [data-theme="terminal"] .dash-gk-day b, [data-theme="terminal"] .anniv-diff {
+  text-shadow: 0 0 6px rgba(51, 255, 102, 0.55);
+}
+[data-theme="terminal"] ::selection { background: #33ff66; color: #050505; }
+[data-theme="terminal"] .chk { border-radius: 0; }
+[data-theme="terminal"] .item.done .chk { border-radius: 0; }
+/* 报纸主题：正文左对齐衬线更报纸味；表格数字保留等宽 */
+[data-theme="newsprint"] body { -webkit-font-smoothing: antialiased; }
