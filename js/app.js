@@ -444,7 +444,7 @@
       if (upAnniv) {
         const an = upAnniv.a, anDiff = upAnniv.d;
         const anEmoji = { birthday: "🎂", wedding: "💍", exam: "🎯", payday: "💰", trip: "✈️", other: "📌" }[an.category] || "📌";
-        annivBanner = `<div class="dash-gk ${anDiff <= 7 ? "urgent" : ""}" data-go="#/anniv" title="去倒数日页">
+        annivBanner = `<div class="dash-gk dash-anniv ${anDiff <= 7 ? "urgent" : ""}" data-go="#/anniv" title="去倒数日页">
           <span class="dash-gk-ico">${anEmoji}</span>
           <span class="dash-gk-name">${esc(an.title)}<small>${esc(an.date)}</small></span>
           <span class="dash-gk-day">${anDiff === 0 ? "就在今天" : `还有 <b>${anDiff}</b> 天`}</span>
