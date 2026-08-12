@@ -494,26 +494,47 @@
     </div>`;
   }
 
-  /** 站内阅读：抓取正文并在浮层内展示（在线走 /api/article），离线/失败给打开原文兜底 */
+  /** 站内阅读：抓取正文并在浮层内展示（在线走 /api/article），离线/失败给打开原文兜底
+   *  增强：字号 3 档 / 阅读主题 3 档（纸白·夜间·米黄）/ 顶部进度条 / 轻排版（图片·引用·短标题）/ 复制全文 */
   function openReader(link, title) {
     let modal = document.getElementById("newsReader");
     if (modal) modal.remove();
     modal = document.createElement("div");
     modal.id = "newsReader";
     modal.className = "reader-mask";
-    modal.innerHTML = `<div class="reader-box">
-      <button class="reader-close" aria-label="关闭">&times;</button>
-      <div class="reader-scroll">
-        <div class="reader-head">
+
+    // 阅读偏好：localStorage 即时 + settings 持久
+    let pref = { font: 2, theme: "paper" };
+    try {
+      const t = localStorage.getItem("wb2_reader_pref");
+      if (t) pref = { ...pref, ...JSON.parse(t) };
+    } catch (e) { /* ignore */ }
+
+    modal.innerHTML = `<div class="reader-box" data-font="${pref.font}" data-theme="${pref.theme}">
+      <div class="reader-progress"><i></i></div>
+      <div class="reader-head">
+        <div class="reader-title-wrap">
           <h2 class="reader-title">${esc(title || "")}</h2>
-          <a class="reader-origin" href="${safeUrl(link)}" target="_blank" rel="noopener noreferrer" title="在新标签打开原文">${WB.icon("external")} 打开原文</a>
+          <span class="reader-meta" id="readerMeta"></span>
         </div>
+        <div class="reader-tools">
+          <button class="icon-btn plain reader-tool" data-rf="-1" title="缩小字号">A−</button>
+          <button class="icon-btn plain reader-tool" data-rf="1" title="放大字号">A+</button>
+          <button class="icon-btn plain reader-tool" data-rt="1" title="切换阅读主题（纸白/夜间/米黄）">🌓</button>
+          <button class="icon-btn plain reader-tool" data-cp="1" title="复制全文">${WB.icon("copy")}</button>
+          <a class="reader-origin" href="${safeUrl(link)}" target="_blank" rel="noopener noreferrer" title="在新标签打开原文">${WB.icon("external")}</a>
+          <button class="reader-close" aria-label="关闭">&times;</button>
+        </div>
+      </div>
+      <div class="reader-scroll">
         <div class="reader-body"><div class="empty">正在加载正文…</div></div>
       </div>
     </div>`;
     document.body.appendChild(modal);
 
     const box = modal.querySelector(".reader-body");
+    const scroll = modal.querySelector(".reader-scroll");
+    const progress = modal.querySelector(".reader-progress i");
     const close = () => modal.remove();
     // 关闭：用户点关闭/遮罩/ESC → closeOverlay（history.back 同步栈）；手机返回键 → popstate 自动调 close
     const userClose = () => WB.closeOverlay("newsReader");
@@ -526,22 +547,81 @@
     // 登记到历史栈：手机返回键能先关浮层
     WB.openOverlay("newsReader", close);
 
+    // 顶部进度条：随滚动更新
+    scroll.addEventListener("scroll", () => {
+      const max = scroll.scrollHeight - scroll.clientHeight;
+      progress.style.width = (max > 0 ? (scroll.scrollTop / max) * 100 : 0) + "%";
+    });
+
+    // 字号 3 档（data-font 1/2/3）
+    const savePref = () => {
+      try { localStorage.setItem("wb2_reader_pref", JSON.stringify(pref)); } catch (e) { /* ignore */ }
+      setSetting("newsReaderPref", pref);
+    };
+    modal.querySelectorAll("[data-rf]").forEach((b) =>
+      b.addEventListener("click", () => {
+        pref.font = Math.min(3, Math.max(1, pref.font + Number(b.dataset.rf)));
+        modal.querySelector(".reader-box").setAttribute("data-font", pref.font);
+        savePref();
+      })
+    );
+    // 主题 3 档循环：paper → night → sepia
+    const THEME_SEQ = ["paper", "night", "sepia"];
+    modal.querySelector("[data-rt]").addEventListener("click", () => {
+      const idx = THEME_SEQ.indexOf(pref.theme);
+      pref.theme = THEME_SEQ[(idx + 1) % THEME_SEQ.length];
+      modal.querySelector(".reader-box").setAttribute("data-theme", pref.theme);
+      savePref();
+    });
+    // 复制全文
+    modal.querySelector("[data-cp]").addEventListener("click", () => {
+      const text = (box.innerText || "").trim();
+      if (!text) return;
+      (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject())
+        .then(() => { try { alert("全文已复制"); } catch (e) { /* ignore */ } })
+        .catch(() => { try { alert("复制失败，请手动选择复制"); } catch (e) { /* ignore */ } });
+    });
+
     if (!window.WB.USE_API) {
       box.innerHTML = '<div class="empty">离线模式无法抓取正文，<a class="reader-origin" href="' + safeUrl(link) + '" target="_blank" rel="noopener noreferrer">去源站阅读 →</a></div>';
       return;
     }
+    // 显示来源域名
+    try { modal.querySelector("#readerMeta").textContent = new URL(link).hostname; } catch (e) { /* ignore */ }
     fetch("/api/article?url=" + encodeURIComponent(link))
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status))))
       .then((data) => {
         if (!data.ok || !data.text) throw new Error("未解析到正文");
-        const paras = String(data.text).split("\n").map((p) => p.trim()).filter(Boolean);
-        box.innerHTML = paras.length
-          ? paras.map((p) => `<p>${esc(p)}</p>`).join("")
-          : '<div class="empty">此页未能提取正文，<a class="reader-origin" href="' + safeUrl(link) + '" target="_blank" rel="noopener noreferrer">去源站阅读 →</a></div>';
+        box.innerHTML = renderParas(String(data.text));
       })
       .catch((err) => {
         box.innerHTML = '<div class="empty">正文加载失败：' + esc((err && err.message) || "未知错误") + '<br/><a class="reader-origin" href="' + safeUrl(link) + '" target="_blank" rel="noopener noreferrer">去源站阅读 →</a></div>';
       });
+  }
+
+  /** 轻排版：纯文本 → 段落/图片/引用/短标题 */
+  function renderParas(text) {
+    const lines = String(text).split("\n").map((p) => p.trim()).filter(Boolean);
+    const out = [];
+    lines.forEach((ln) => {
+      // 图片行：行主体是图片 URL（可能带说明文字）
+      const img = ln.match(/https?:\/\/[^\s"']+\.(?:jpe?g|png|gif|webp)(?:\?[^\s"']*)?/i);
+      if (img && ln.replace(img[0], "").trim().length <= 30) {
+        out.push(`<figure class="reader-fig"><img src="${safeUrl(img[0])}" loading="lazy" alt="" referrerpolicy="no-referrer" /><figcaption>${esc(ln.replace(img[0], "").trim())}</figcaption></figure>`);
+        return;
+      }
+      // 引用
+      if (ln.startsWith(">")) { out.push(`<blockquote>${esc(ln.replace(/^>+\s?/, ""))}</blockquote>`); return; }
+      // 列表项
+      if (/^[-*•]\s/.test(ln)) { out.push(`<p class="reader-li">${esc(ln.replace(/^[-*•]\s/, ""))}</p>`); return; }
+      // 短行无句尾标点 → 小标题（正文纯文本无 markdown，只能启发式）
+      if (ln.length >= 2 && ln.length <= 30 && !/[。！？；，]$/.test(ln) && !/^https?:/i.test(ln)) {
+        out.push(`<h3 class="reader-h">${esc(ln)}</h3>`);
+        return;
+      }
+      out.push(`<p>${esc(ln)}</p>`);
+    });
+    return out.length ? out.join("") : '<div class="empty">此页未能提取正文，<a class="reader-origin" href="' + "" + '" target="_blank" rel="noopener noreferrer">去源站阅读 →</a></div>';
   }
 
   /** 按时间混排视图：把全部已抓取条目跨分类按时间倒序排成列表（RSS 阅读器式） */
