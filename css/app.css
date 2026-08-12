@@ -4940,3 +4940,32 @@ select { min-height: 38px; }
 
 /* 右栏卡片顶部对齐 */
 .fin-side .card, .tx-goal-wrap, .tx-budget-wrap { align-self: start; }
+
+/* ==========================================================================
+   全页面对齐修复（视觉模型全站审计汇总）
+   ========================================================================== */
+/* 1) 行内控件与按钮统一高度（底部对齐） */
+.row input[type="text"], .row input[type="number"], .row input[type="date"],
+.row input[type="password"], .row input:not([type]), .row select {
+  min-height: 38px;
+}
+.row .btn, .set-row .btn, .tx-form .btn, .stk-form .btn, .media-li .btn { min-height: 38px; padding-top: 0; padding-bottom: 0; }
+
+/* 2) 日历月份导航：标题与箭头垂直居中（箭头 icon 按钮） */
+.cal-ctrl .icon-btn, .cal-ctrl button { align-self: center; }
+.cal-ctrl-title { line-height: 1.2; }
+
+/* 3) 设置/入口表单行：标签与控件基线统一 */
+.set-row { align-items: center; }
+
+/* 4) 卡片间距统一节奏 */
+.card + .card { margin-top: 16px; }
+
+/* 5) 帮助页内容排版（标题缩进统一） */
+.help-content h1, .help-content h2 { margin-left: 0; }
+.help-content { padding: 4px 2px; }
+
+/* 6) 书影音/倒数日表单小输入框圆角统一（防直角） */
+.media-li input, .anniv-card input, .tp-item input { border-radius: var(--radius-sm); }
+input.w-70, input.w-90, input.w-100, input.w-110, input.w-120, input.w-130,
+input.w-150, input.w-160, input.w-170, input.w-180, input.w-200 { border-radius: var(--radius-sm); }
