@@ -4969,3 +4969,28 @@ select { min-height: 38px; }
 .media-li input, .anniv-card input, .tp-item input { border-radius: var(--radius-sm); }
 input.w-70, input.w-90, input.w-100, input.w-110, input.w-120, input.w-130,
 input.w-150, input.w-160, input.w-170, input.w-180, input.w-200 { border-radius: var(--radius-sm); }
+
+/* ==========================================================================
+   长数据场景修复（用户反馈：大金额导致卡片内换行拥挤）
+   ========================================================================== */
+/* 数字卡说明：长文本优雅换行（不截断信息、不挤行） */
+.dh-cell .dh-sub {
+  line-height: 1.55;
+  font-size: 10.5px;
+  overflow-wrap: break-word;
+}
+/* 统计卡副注同样处理 */
+.stat .s-sub { line-height: 1.55; overflow-wrap: break-word; }
+
+/* 数字卡间距透气 */
+.dh-stats { gap: 14px; }
+
+/* 侧栏激活色块贴左边缘 */
+.nav a { margin-left: 2px; margin-right: 2px; }
+.nav a.active { margin-left: 0; margin-right: 0; }
+[data-theme="light"] .nav a.active, [data-theme="dark"] .nav a.active {
+  box-shadow: inset 3px 0 0 var(--accent), inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* 大金额数字：长数值不撑破卡片（等宽 + 允许略小） */
+.dh-cell .dh-val { overflow-wrap: anywhere; }

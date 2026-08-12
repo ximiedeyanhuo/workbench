@@ -753,11 +753,12 @@
           setTimeout(() => {
             const dur = 650;
             const t0 = performance.now();
+            // 金额格式化：千位分隔符 + 保留原小数（修复长金额被 Math.round 截断成整数丢逗号）
+            const fmt = (v) => v.toLocaleString("zh-CN", { maximumFractionDigits: 2 });
             const step = (t) => {
               const p = Math.min(1, (t - t0) / dur);
               const eased = 1 - Math.pow(1 - p, 3);
-              const val = Math.round(target * eased);
-              node.textContent = String(val);
+              node.textContent = fmt(target * eased);
               if (p < 1) requestAnimationFrame(step);
             };
             requestAnimationFrame(step);
