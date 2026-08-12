@@ -18,39 +18,39 @@
    ============================================================ */
 
 :root {
-  /* ---- 年轻扁平（Young Flat）：干净冷白底 + 活力橙 accent + 大圆角轻阴影 ----
-     去掉厚重阴影与做旧纸感：扁平卡片 + hairline 边框 + 大圆角，标题粗。 */
-  --bg:            #f4f6f4;   /* 干净冷白纸（略偏绿，年轻感） */
-  --card:          #ffffff;   /* 纯白卡（扁平风格，配合 hairline 边框） */
-  --card2:         #eef1ee;   /* 内衬浅灰绿 */
-  --ink:           #17201a;   /* 墨黑 ink-1 */
-  --ink-2:         #3a4640;   /* ink-2 */
-  --muted:         #6b766f;   /* ink-3（≥4.5:1 on card） */
-  --muted-2:       #8a948e;   /* 占位/禁用 */
-  --line:          rgba(23, 32, 26, 0.08);   /* hairline */
-  --rule:          rgba(23, 32, 26, 0.16);   /* 强调分隔线 */
-  --accent:        #ff6a3d;   /* 活力珊瑚橙（年轻主色，替代旧琥珀） */
-  --accent-strong: #f04e1f;
-  --accent-hover:  #e04315;
-  --accent-soft:   rgba(255, 106, 61, 0.10);
-  --primary:       #17201a;
-  --danger:        #e03131;   /* 亮红 */
-  --warn:          #e8890c;   /* 亮金 */
-  --ok:            #2f9e63;   /* 鲜绿 */
-  --purple:        #7c5cd6;   /* 亮紫（图表系列色） */
-  --rise:          #e03131;   /* 涨 = 红 */
-  --fall:          #2f9e63;   /* 跌 = 绿 */
-  /* 阴影：扁平轻量化（几乎无影，靠 hairline + 白卡分层） */
-  --shadow-sm: 0 1px 2px rgba(23, 32, 26, 0.04);
-  --shadow-md: 0 2px 8px rgba(23, 32, 26, 0.05), 0 8px 20px -12px rgba(23, 32, 26, 0.12);
-  --shadow-lg: 0 4px 12px rgba(23, 32, 26, 0.06), 0 24px 60px -28px rgba(23, 32, 26, 0.28);
-  --card-lit:      inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  --grain:         0;         /* 扁平：无纸纹 */
-  /* radius tiers：大圆角（年轻圆润） */
-  --radius-xs:     10px;
-  --radius-sm:     12px;
-  --radius:        20px;
-  --radius-lg:     28px;
+  /* ---- 莫兰迪 Soft UI（治愈系习惯 App 风格）：灰蓝点状底 + 米白卡 + 低饱和 accent ----
+     大圆角、轻阴影、圆润字体、emoji 图标，弱化严肃感。 */
+  --bg:            #e8ecef;   /* 莫兰迪灰蓝（点状纹理叠加在 body） */
+  --card:          #fbfaf7;   /* 米白卡 */
+  --card2:         #f0f1ee;   /* 内衬浅灰米 */
+  --ink:           #41454c;   /* 深灰蓝字 */
+  --ink-2:         #5d626b;   /* 次级字 */
+  --muted:         #8b9099;   /* 说明文字（≥4.5:1 on card） */
+  --muted-2:       #a3a7ae;   /* 占位/禁用 */
+  --line:          rgba(65, 69, 76, 0.09);   /* hairline */
+  --rule:          rgba(65, 69, 76, 0.18);   /* 强调分隔线 */
+  --accent:        #c9956b;   /* 莫兰迪暖橙（治愈主色） */
+  --accent-strong: #b07f52;
+  --accent-hover:  #a2724a;
+  --accent-soft:   rgba(201, 149, 107, 0.12);
+  --primary:       #41454c;
+  --danger:        #c98f8f;   /* 莫兰迪红 */
+  --warn:          #c9a96b;   /* 莫兰迪金 */
+  --ok:            #8fae8b;   /* 莫兰迪绿 */
+  --purple:        #a99bc9;   /* 莫兰迪紫（图表系列色） */
+  --rise:          #c98f8f;   /* 涨 = 红 */
+  --fall:          #8fae8b;   /* 跌 = 绿 */
+  /* 阴影：轻柔 Soft UI（莫兰迪 tinted） */
+  --shadow-sm: 0 1px 3px rgba(65, 69, 76, 0.05);
+  --shadow-md: 0 4px 14px rgba(65, 69, 76, 0.07), 0 10px 26px -14px rgba(65, 69, 76, 0.14);
+  --shadow-lg: 0 6px 18px rgba(65, 69, 76, 0.08), 0 28px 64px -28px rgba(65, 69, 76, 0.3);
+  --card-lit:      inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  --grain:         0;         /* 点状纹理在 body 单独加 */
+  /* radius tiers：超大圆角（Soft UI 标志） */
+  --radius-xs:     12px;
+  --radius-sm:     14px;
+  --radius:        22px;
+  --radius-lg:     32px;
   --radius-pill:   999px;
   --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Segoe UI", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
   --serif: Georgia, "Songti SC", "Noto Serif SC", serif;
@@ -58,30 +58,29 @@
 }
 
 [data-theme="dark"], [data-theme="midnight"] {
-  /* ---- 年轻扁平 · dark：深灰蓝底 + 活力橙 accent ---- */
-  --bg:            #12151a;   /* 深灰蓝（年轻暗色） */
-  --card:          #1b1f26;   /* 面板 900 */
-  --card2:         #242933;   /* 内衬 800 */
-  --ink:           #eef2f5;   /* ink-1 */
-  --ink-2:         #c3cbd4;   /* ink-2 */
-  --muted:         #8a959f;   /* ink-3（400 级） */
-  --muted-2:       #6f7a84;
-  --line:          rgba(255, 255, 255, 0.08);  /* hairline */
-  --rule:          rgba(255, 255, 255, 0.17);
-  --accent:        #ff7a4d;   /* 活力橙（提亮） */
-  --accent-strong: #ff6a3d;
-  --accent-hover:  #ff8f66;
-  --accent-soft:   rgba(255, 122, 77, 0.14);
-  --primary:       #eef2f5;
-  --danger:        #f0645c;   /* 亮红 */
-  --warn:          #f2b344;   /* 亮金 */
-  --ok:            #4ec084;   /* 鲜绿 */
-  --purple:        #a98fe8;   /* 亮紫 */
+  /* ---- 莫兰迪 Soft UI · dark：深夜灰蓝 + 莫兰迪暖橙 ---- */
+  --bg:            #1c2025;   /* 深夜灰蓝（点状纹理叠加） */
+  --card:          #262b31;   /* 深米灰卡 */
+  --card2:         #2f353c;   /* 内衬 */
+  --ink:           #eef0f3;   /* ink-1 */
+  --ink-2:         #c2c7ce;   /* ink-2 */
+  --muted:         #9298a1;   /* ink-3（400 级） */
+  --muted-2:       #7a808a;
+  --line:          rgba(255, 255, 255, 0.09);  /* hairline */
+  --rule:          rgba(255, 255, 255, 0.18);
+  --accent:        #d9a87c;   /* 莫兰迪暖橙（提亮） */
+  --accent-strong: #c9956b;
+  --accent-hover:  #e0b48c;
+  --accent-soft:   rgba(217, 168, 124, 0.15);
+  --primary:       #eef0f3;
+  --danger:        #d49a9a;   /* 莫兰迪红 */
+  --warn:          #d4b47c;   /* 莫兰迪金 */
+  --ok:            #9cb89a;   /* 莫兰迪绿 */
   --rise:          #f0645c;   /* 涨 = 红 */
-  --fall:          #4ec084;   /* 跌 = 绿 */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.35), 0 10px 24px -14px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.4), 0 24px 60px -28px rgba(0, 0, 0, 0.65);
+  --fall:          #9cb89a;   /* 跌 = 绿 */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.28);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.32), 0 10px 26px -14px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 6px 18px rgba(0, 0, 0, 0.38), 0 28px 64px -28px rgba(0, 0, 0, 0.6);
   --card-lit:      inset 0 1px 0 rgba(255, 255, 255, 0.05);
   --grain:         0;
 }
@@ -4563,11 +4562,11 @@ input::placeholder, textarea::placeholder { color: var(--muted-2); }
    ========================================================================== */
 .dash-hero {
   background:
-    radial-gradient(480px 200px at 92% -20%, rgba(255, 255, 255, 0.22), transparent 60%),
-    linear-gradient(135deg, #ff6a3d 0%, #ff8f5e 100%);
+    radial-gradient(480px 200px at 92% -20%, rgba(255, 255, 255, 0.25), transparent 60%),
+    linear-gradient(135deg, #d9a87c 0%, #c9956b 100%);
   border: none;
   color: #fff;
-  box-shadow: 0 8px 24px -8px rgba(255, 106, 61, 0.45);
+  box-shadow: 0 8px 24px -10px rgba(201, 149, 107, 0.5);
 }
 .dash-hero .hero-greet { color: #fff; }
 .dash-hero .hero-date { color: rgba(255, 255, 255, 0.9); }
@@ -4581,3 +4580,59 @@ input::placeholder, textarea::placeholder { color: var(--muted-2); }
 .dh-cell .dh-val { color: #fff; }
 .dh-cell .dh-lab { color: rgba(255, 255, 255, 0.85); }
 .dh-cell .dh-sub { color: rgba(255, 255, 255, 0.75); }
+
+/* ==========================================================================
+   莫兰迪 Soft UI：灰蓝点状纹理 + 柔化拟物细节
+   ========================================================================== */
+/* 点状纹理（Soft UI 标志性背景）——亮暗两套 */
+body {
+  background-image:
+    radial-gradient(rgba(65, 69, 76, 0.07) 1px, transparent 1px),
+    radial-gradient(1200px 520px at 85% -10%, rgba(201, 149, 107, 0.05), transparent 60%);
+  background-size: 22px 22px, auto;
+  background-position: 0 0, 0 0;
+}
+[data-theme="dark"] body {
+  background-image:
+    radial-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    radial-gradient(1200px 520px at 85% -10%, rgba(217, 168, 124, 0.05), transparent 60%);
+  background-size: 22px 22px, auto;
+}
+
+/* Soft UI 卡片：米白 + 更大圆角 + 轻柔阴影（莫兰迪 tinted） */
+.card, .stat, .dh-cell, .anniv-card, .kb-col, .tx-card {
+  box-shadow: var(--shadow-sm), var(--card-lit);
+}
+.card:hover, .stat:hover {
+  box-shadow: var(--shadow-md), var(--card-lit);
+}
+
+/* 全局 emoji 图标容器：低饱和圆底（Soft UI 图标语言） */
+.nic, .s-ico {
+  background: var(--accent-soft);
+  border-radius: 12px;
+}
+.nav a .nic { background: transparent; }
+
+/* 按钮：圆润胶囊（Soft UI 默认） */
+.btn, .btn.sm, .btn.ghost { border-radius: var(--radius-pill); padding-left: 18px; padding-right: 18px; }
+
+/* 输入框大圆角 */
+input[type="text"], input[type="number"], input[type="date"], input[type="password"],
+input:not([type]), select, textarea {
+  border-radius: var(--radius-sm);
+}
+
+/* 表格圆角容器 */
+.tx-year-table, .stk-table { border-radius: var(--radius-sm); overflow: hidden; }
+
+/* ---- 莫兰迪微调：侧栏区分度 + 暗色强调对比 + 主题按钮权重 ---- */
+[data-theme="light"] .sidebar { background: #e2e7eb; }  /* 侧栏比内容区深一档（灰蓝） */
+[data-theme="dark"] .sidebar { background: #171b20; }   /* dark 侧栏更深 */
+[data-theme="dark"] .nav a.active { color: #e8b48a; }   /* 暗色激活文字提亮 */
+[data-theme="dark"] .stat:first-child .s-val, [data-theme="dark"] .card h2 .count { color: #d9a87c; }
+[data-theme="light"] .theme-btn {
+  background: #fff; border: 1px solid var(--rule);
+  box-shadow: var(--shadow-sm); color: var(--accent-strong); font-weight: 700;
+}
+[data-theme="dark"] .theme-btn { background: var(--card2); border: 1px solid var(--rule); color: var(--accent); }
