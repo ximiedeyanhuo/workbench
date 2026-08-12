@@ -18,42 +18,39 @@
    ============================================================ */
 
 :root {
-  /* ---- finesse product substrate · Warm Stone 家族（琥珀时刻表） ----
-     页面=带色调纸面，卡片=暖白，边框=hairline alpha（禁用硬 hex 灰边），
-     阴影=tinted 墨色。radius tiers：sm 11 / card 18 / lg 32。 */
-  --bg:            #f4f0e7;   /* 页面纸面（warm tinted，非纯灰） */
-  --card:          #fdfbf5;   /* 卡片暖白（非纯 #fff） */
-  --card2:         #f1ecdf;   /* 内衬票根 */
-  --ink:           #201b12;   /* 石墨墨 ink-1 */
-  --ink-2:         #453d2e;   /* 次级墨 ink-2 */
-  --muted:         #6f6555;   /* 说明文字 ink-3（≥4.5:1 on card） */
-  --muted-2:       #857b68;   /* 占位/禁用 */
-  --line:          rgba(58, 44, 26, 0.10);  /* hairline：不再用硬 hex 灰边 */
-  --rule:          rgba(58, 44, 26, 0.20);   /* 强调分隔线 */
-  --accent:        #a94f08;   /* 深琥珀（品牌锁定，不动） */
-  --accent-strong: #8f3e04;   /* 琥珀深（按钮底） */
-  --accent-hover:  #7a3303;   /* 琥珀 hover */
-  --accent-soft:   rgba(169, 79, 8, 0.10);
-  --primary:       #201b12;
-  --danger:        #b3261e;   /* 晚点红 */
-  --warn:          #8f6400;   /* 预警金 */
-  --ok:            #2e7d4f;   /* 正点绿 */
-  --purple:        #7b5ab0;   /* 图表系列色（睡眠等） */
-  /* 涨跌语义色：股票模块专用（A股红涨绿跌）。与财务模块 --ok/--danger（收入/支出）
-     分离，避免同一 token 跨模块语义相反造成困惑。 */
-  --rise:          #b3261e;   /* 涨 = 红 */
-  --fall:          #2e7d4f;   /* 跌 = 绿 */
-  /* 阴影：tinted 墨色 whisper + 浮层大影（负 spread，不 puff） */
-  --shadow-sm: 0 1px 3px rgba(58, 40, 16, 0.06);
-  --shadow-md: 0 2px 8px rgba(58, 40, 16, 0.06), 0 14px 34px -18px rgba(58, 40, 16, 0.18);
-  --shadow-lg: 0 6px 16px rgba(58, 40, 16, 0.08), 0 40px 90px -50px rgba(58, 40, 16, 0.35);
-  --card-lit:      inset 0 1px 0 rgba(255, 255, 255, 0.55);
-  --grain:         0.4;       /* 纸纹噪点强度 */
-  /* radius tiers（锁定）：sm 11 / card 18 / lg 32 */
-  --radius-xs:     8px;
-  --radius-sm:     11px;
-  --radius:        18px;
-  --radius-lg:     32px;
+  /* ---- 年轻扁平（Young Flat）：干净冷白底 + 活力橙 accent + 大圆角轻阴影 ----
+     去掉厚重阴影与做旧纸感：扁平卡片 + hairline 边框 + 大圆角，标题粗。 */
+  --bg:            #f4f6f4;   /* 干净冷白纸（略偏绿，年轻感） */
+  --card:          #ffffff;   /* 纯白卡（扁平风格，配合 hairline 边框） */
+  --card2:         #eef1ee;   /* 内衬浅灰绿 */
+  --ink:           #17201a;   /* 墨黑 ink-1 */
+  --ink-2:         #3a4640;   /* ink-2 */
+  --muted:         #6b766f;   /* ink-3（≥4.5:1 on card） */
+  --muted-2:       #8a948e;   /* 占位/禁用 */
+  --line:          rgba(23, 32, 26, 0.08);   /* hairline */
+  --rule:          rgba(23, 32, 26, 0.16);   /* 强调分隔线 */
+  --accent:        #ff6a3d;   /* 活力珊瑚橙（年轻主色，替代旧琥珀） */
+  --accent-strong: #f04e1f;
+  --accent-hover:  #e04315;
+  --accent-soft:   rgba(255, 106, 61, 0.10);
+  --primary:       #17201a;
+  --danger:        #e03131;   /* 亮红 */
+  --warn:          #e8890c;   /* 亮金 */
+  --ok:            #2f9e63;   /* 鲜绿 */
+  --purple:        #7c5cd6;   /* 亮紫（图表系列色） */
+  --rise:          #e03131;   /* 涨 = 红 */
+  --fall:          #2f9e63;   /* 跌 = 绿 */
+  /* 阴影：扁平轻量化（几乎无影，靠 hairline + 白卡分层） */
+  --shadow-sm: 0 1px 2px rgba(23, 32, 26, 0.04);
+  --shadow-md: 0 2px 8px rgba(23, 32, 26, 0.05), 0 8px 20px -12px rgba(23, 32, 26, 0.12);
+  --shadow-lg: 0 4px 12px rgba(23, 32, 26, 0.06), 0 24px 60px -28px rgba(23, 32, 26, 0.28);
+  --card-lit:      inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --grain:         0;         /* 扁平：无纸纹 */
+  /* radius tiers：大圆角（年轻圆润） */
+  --radius-xs:     10px;
+  --radius-sm:     12px;
+  --radius:        20px;
+  --radius-lg:     28px;
   --radius-pill:   999px;
   --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Segoe UI", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
   --serif: Georgia, "Songti SC", "Noto Serif SC", serif;
@@ -61,32 +58,32 @@
 }
 
 [data-theme="dark"], [data-theme="midnight"] {
-  /* ---- finesse product substrate · dark：面板向上提亮，ink 反转 ---- */
-  --bg:            #0b0e11;   /* 墨黑板面（warm tinted near-black） */
-  --card:          #14171b;   /* 面板 900 */
-  --card2:         #1c2025;   /* 内衬 800（越往前越亮） */
-  --ink:           #e9e7dc;   /* ink-1 反白 */
-  --ink-2:         #c4c9c6;   /* ink-2 */
-  --muted:         #8d969b;   /* ink-3（dark 下用 400 级，≥4.5:1 on card） */
-  --muted-2:       #7a8991;
-  --line:          rgba(255, 255, 255, 0.07);  /* hairline */
-  --rule:          rgba(255, 255, 255, 0.16);
-  --accent:        #ffb454;   /* 翻牌琥珀 */
-  --accent-strong: #f5a234;
-  --accent-hover:  #ffc67c;
-  --accent-soft:   rgba(255, 180, 84, 0.13);
-  --primary:       #e9e7dc;
-  --danger:        #e0553f;   /* 晚点红 */
-  --warn:          #e2b04c;   /* 预警金 */
-  --ok:            #57b06b;   /* 正点绿 */
-  --purple:        #9b7fd4;   /* 图表系列色（睡眠等） */
-  --rise:          #e0553f;   /* 涨 = 红 */
-  --fall:          #57b06b;   /* 跌 = 绿 */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4), 0 14px 34px -18px rgba(0, 0, 0, 0.55);
-  --shadow-lg: 0 6px 16px rgba(0, 0, 0, 0.45), 0 40px 90px -50px rgba(0, 0, 0, 0.7);
-  --card-lit:      inset 0 1px 0 rgba(255, 255, 255, 0.045);
-  --grain:         0.3;
+  /* ---- 年轻扁平 · dark：深灰蓝底 + 活力橙 accent ---- */
+  --bg:            #12151a;   /* 深灰蓝（年轻暗色） */
+  --card:          #1b1f26;   /* 面板 900 */
+  --card2:         #242933;   /* 内衬 800 */
+  --ink:           #eef2f5;   /* ink-1 */
+  --ink-2:         #c3cbd4;   /* ink-2 */
+  --muted:         #8a959f;   /* ink-3（400 级） */
+  --muted-2:       #6f7a84;
+  --line:          rgba(255, 255, 255, 0.08);  /* hairline */
+  --rule:          rgba(255, 255, 255, 0.17);
+  --accent:        #ff7a4d;   /* 活力橙（提亮） */
+  --accent-strong: #ff6a3d;
+  --accent-hover:  #ff8f66;
+  --accent-soft:   rgba(255, 122, 77, 0.14);
+  --primary:       #eef2f5;
+  --danger:        #f0645c;   /* 亮红 */
+  --warn:          #f2b344;   /* 亮金 */
+  --ok:            #4ec084;   /* 鲜绿 */
+  --purple:        #a98fe8;   /* 亮紫 */
+  --rise:          #f0645c;   /* 涨 = 红 */
+  --fall:          #4ec084;   /* 跌 = 绿 */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.35), 0 10px 24px -14px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.4), 0 24px 60px -28px rgba(0, 0, 0, 0.65);
+  --card-lit:      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --grain:         0;
 }
 
 /* ---- 多主题扩展：forest = 森林绿（明色纸感） ---- */
@@ -4479,3 +4476,46 @@ input::placeholder, textarea::placeholder { color: var(--muted-2); }
 @media (max-width: 640px) {
   .dash-hero { padding: 20px 18px 18px; margin: -4px 0 18px; }
 }
+
+/* ==========================================================================
+   年轻扁平：浅色侧栏（light 下），活力橙激活态
+   ========================================================================== */
+[data-theme="light"] .sidebar {
+  background: var(--card2);
+  color: var(--ink);
+  border-right: 1px solid var(--line);
+}
+[data-theme="light"] .brand-txt { color: var(--ink); }
+[data-theme="light"] .brand-txt small { color: var(--muted); }
+[data-theme="light"] .brand-ic {
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: #fff;
+  box-shadow: 0 4px 14px -4px var(--accent-soft);
+}
+[data-theme="light"] .nav a {
+  color: var(--ink-2);
+}
+[data-theme="light"] .nav a:hover { color: var(--ink); background: color-mix(in srgb, var(--accent-soft) 60%, transparent); }
+[data-theme="light"] .nav a.active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+[data-theme="light"] .nav a .nic { color: var(--muted); }
+[data-theme="light"] .nav a.active .nic { color: var(--accent); }
+[data-theme="light"] .nav-group .nav-parent { color: var(--ink-2); }
+[data-theme="light"] .theme-btn {
+  background: var(--card); color: var(--accent-strong);
+  border: 1px solid var(--line);
+}
+[data-theme="light"] .theme-btn:hover { border-color: var(--accent); color: var(--accent); }
+[data-theme="light"] .sidebar::after { border-top-color: var(--line); }
+
+/* dark 下侧栏跟随面板（深灰蓝） */
+[data-theme="dark"] .sidebar { background: var(--card2); color: var(--ink); }
+[data-theme="dark"] .brand-txt { color: var(--ink); }
+[data-theme="dark"] .nav a { color: var(--ink-2); }
+[data-theme="dark"] .nav a:hover { color: var(--ink); background: color-mix(in srgb, var(--accent-soft) 50%, transparent); }
+[data-theme="dark"] .nav a.active { background: var(--accent-soft); color: var(--accent); }
+[data-theme="dark"] .nav a .nic { color: var(--muted); }
+[data-theme="dark"] .nav a.active .nic { color: var(--accent); }
