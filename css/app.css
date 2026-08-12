@@ -2303,7 +2303,7 @@ mark.news-kw {
 .focus-stat { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--ink); }
 .focus-stat b { color: var(--accent); font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 16px; }
 .focus-stat-tip { font-size: 11px; color: var(--muted); margin-top: 2px; }
-@media (max-width: 640px) { .focus-fab { right: 12px; bottom: 12px; padding: 8px 12px; font-size: 12px; } .focus-panel { right: 8px; bottom: 58px; width: calc(100vw - 16px); } }
+@media (max-width: 640px) { .focus-fab { right: 12px; bottom: 84px; padding: 8px 12px; font-size: 12px; } .focus-panel { right: 8px; bottom: 96px; width: calc(100vw - 16px); } }
 
 /* ---------- 站内阅读器浮层 ---------- */
 .reader-mask {
@@ -3517,7 +3517,7 @@ mark.news-kw {
 .anniv-diff.muted { color: var(--muted); }
 .an-yearly { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); }
 @media (max-width: 640px) {
-  .quick-fab { right: 12px; bottom: 58px; padding: 8px 12px; font-size: 12px; }
+  .quick-fab { right: 12px; bottom: 138px; padding: 8px 12px; font-size: 12px; }
   .quick-panel { right: 8px; bottom: 106px; width: calc(100vw - 16px); }
   .anniv-grid { grid-template-columns: 1fr; }
 }
@@ -4557,3 +4557,27 @@ input::placeholder, textarea::placeholder { color: var(--muted-2); }
 
 /* 倒数日 / 提醒 / 书影音卡：白卡圆角 */
 .anniv-card, .media-li { border-radius: var(--radius-sm); }
+
+/* ==========================================================================
+   年轻扁平 · hero 活力橙渐变横幅（一眼可见的主视觉）
+   ========================================================================== */
+.dash-hero {
+  background:
+    radial-gradient(480px 200px at 92% -20%, rgba(255, 255, 255, 0.22), transparent 60%),
+    linear-gradient(135deg, #ff6a3d 0%, #ff8f5e 100%);
+  border: none;
+  color: #fff;
+  box-shadow: 0 8px 24px -8px rgba(255, 106, 61, 0.45);
+}
+.dash-hero .hero-greet { color: #fff; }
+.dash-hero .hero-date { color: rgba(255, 255, 255, 0.9); }
+.dash-hero .hero-date b { color: #fff; }
+.dh-cell {
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: none;
+}
+.dh-cell:hover { background: rgba(255, 255, 255, 0.26); border-color: rgba(255, 255, 255, 0.4); }
+.dh-cell .dh-val { color: #fff; }
+.dh-cell .dh-lab { color: rgba(255, 255, 255, 0.85); }
+.dh-cell .dh-sub { color: rgba(255, 255, 255, 0.75); }
