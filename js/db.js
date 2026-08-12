@@ -157,7 +157,11 @@
   const REMIND_DB = "workbench_remind";
   const REMIND_VERSION = 1;
   const REMIND_STORES = ["reminders"];
-  const ALL_STORES = STORES.concat(FEEDS_STORES, HEALTH_STORES, STOCKS_STORES, MOCKEXAMS_STORES, QUICK_STORES, ANNIV_STORES, REMIND_STORES); // 导入导出覆盖全部业务数据
+  // media（书影音清单）同理独立建库，避免主库升级阻塞
+  const MEDIA_DB = "workbench_media";
+  const MEDIA_VERSION = 1;
+  const MEDIA_STORES = ["media"];
+  const ALL_STORES = STORES.concat(FEEDS_STORES, HEALTH_STORES, STOCKS_STORES, MOCKEXAMS_STORES, QUICK_STORES, ANNIV_STORES, REMIND_STORES, MEDIA_STORES); // 导入导出覆盖全部业务数据
   const EXPORT_VERSION = 1;
 
   const dbCache = {};
@@ -197,6 +201,7 @@
     if (QUICK_STORES.indexOf(store) !== -1) return open(QUICK_DB, QUICK_VERSION, QUICK_STORES);
     if (ANNIV_STORES.indexOf(store) !== -1) return open(ANNIV_DB, ANNIV_VERSION, ANNIV_STORES);
     if (REMIND_STORES.indexOf(store) !== -1) return open(REMIND_DB, REMIND_VERSION, REMIND_STORES);
+    if (MEDIA_STORES.indexOf(store) !== -1) return open(MEDIA_DB, MEDIA_VERSION, MEDIA_STORES);
     return open(DB_NAME, DB_VERSION, STORES);
   }
 

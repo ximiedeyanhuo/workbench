@@ -4041,3 +4041,20 @@ mark.news-kw {
 [data-theme="glass"] .rg-bg { stroke: rgba(255, 255, 255, 0.15); }
 [data-theme="glass"] .rg-txt b { color: #A9C0FF; }
 
+
+/* ---------- 书影音清单（media.js） ---------- */
+.media-li { display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px; }
+.m-emoji { font-size: 20px; line-height: 1.3; }
+.m-main { flex: 1; min-width: 0; }
+.m-title { font-weight: 700; font-size: 14px; color: var(--ink); }
+.m-year { font-size: 11.5px; color: var(--muted); margin-left: 8px; font-family: var(--mono); }
+.m-meta { display: flex; align-items: center; gap: 8px; margin-top: 3px; flex-wrap: wrap; }
+.m-status { font-size: 11px; padding: 1px 8px; border-radius: 999px; font-weight: 600; }
+.m-status.wish { background: rgba(123, 90, 176, 0.12); color: var(--purple); }
+.m-status.doing { background: var(--accent-soft); color: var(--accent); }
+.m-status.done { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+.m-stars { color: var(--warn); font-size: 12px; letter-spacing: 0.05em; }
+.m-rating-num { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+.m-done-at { font-size: 11px; color: var(--muted); }
+.m-comment { font-size: 12.5px; color: var(--ink-2); margin-top: 4px; line-height: 1.55; }
+.tabs .tab.sm { padding: 4px 12px; font-size: 12px; }
