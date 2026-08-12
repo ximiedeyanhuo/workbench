@@ -4755,10 +4755,14 @@ body { color: var(--ink); }
    参考图：深灰蓝 + 毛玻璃卡片（Soft UI Glass on Dark）
    ========================================================================== */
 /* 卡片毛玻璃 */
-.card, .stat, .dh-cell, .anniv-card, .kb-col, .kb-card, .tx-card, .note-li,
-.item, .media-li, .tp-item, .quick-li {
-  -webkit-backdrop-filter: blur(16px) saturate(1.3);
-  backdrop-filter: blur(16px) saturate(1.3);
+/* 性能：大卡片 blur(14px)，高频小元素降为 8px（blur 是滚动卡顿主因） */
+.card, .stat, .dash-hero, .kb-col, .tx-card, .anniv-card {
+  -webkit-backdrop-filter: blur(14px) saturate(1.25);
+  backdrop-filter: blur(14px) saturate(1.25);
+}
+.item, .note-li, .media-li, .tp-item, .quick-li, .kb-card, .dh-cell {
+  -webkit-backdrop-filter: blur(8px) saturate(1.15);
+  backdrop-filter: blur(8px) saturate(1.15);
 }
 /* 浮动面板：半透明深玻璃（透出背景纹理） */
 @media (min-width: 1025px) {

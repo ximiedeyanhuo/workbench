@@ -46,6 +46,23 @@
   function catColor(id) { return CAT_COLORS[id] || extraCatColor[id] || "#A5A29A"; }
 
   // ---------- 工具函数 ----------
+  // Chart tooltip 玻璃风格（亮暗自适应）
+  function glassTip(cb) {
+    var dark = document.documentElement.getAttribute("data-theme") === "dark" || document.documentElement.getAttribute("data-theme") === "midnight";
+    return {
+      backgroundColor: dark ? "rgba(28, 33, 40, 0.92)" : "rgba(255, 255, 255, 0.92)",
+      titleColor: dark ? "#eef1f5" : "#2b2f36",
+      bodyColor: dark ? "#c3cbd4" : "#4a5058",
+      borderColor: "rgba(214, 155, 114, 0.35)",
+      borderWidth: 1,
+      cornerRadius: 10,
+      padding: 10,
+      displayColors: true,
+      boxPadding: 4,
+      callbacks: { label: cb },
+    };
+  }
+
   function fmtYuan(n) {
     return Number(n || 0).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
@@ -360,7 +377,7 @@
             responsive: true, maintainAspectRatio: false,
             plugins: {
               legend: { position: "top", labels: { color: muted, font: { size: 11 }, boxWidth: 10, boxHeight: 10, padding: 8 } },
-              tooltip: { callbacks: { label: function (ctx) { return " " + ctx.dataset.label + " " + fmtYuan(ctx.parsed.y) + " 元"; }}},
+              tooltip: glassTip(function (ctx) { return " " + ctx.dataset.label + " " + fmtYuan(ctx.parsed.y) + " 元"; }),
             },
             scales: {
               x: { ticks: { color: muted, font: { size: 10 } }, grid: { display: false } },
@@ -388,7 +405,7 @@
           responsive: true, maintainAspectRatio: false, cutout: "58%",
           plugins: {
             legend: { position: "bottom", labels: { color: muted, font: { size: 11 }, boxWidth: 10, boxHeight: 10, padding: 12, usePointStyle: true, pointStyle: "circle" } },
-            tooltip: { callbacks: { label: function (ctx) { return " " + ctx.label + "  " + fmtYuan(ctx.parsed) + " 元  (" + ((ctx.parsed / total) * 100).toFixed(1) + "%)"; }}},
+            tooltip: glassTip(function (ctx) { return " " + ctx.label + "  " + fmtYuan(ctx.parsed) + " 元  (" + ((ctx.parsed / total) * 100).toFixed(1) + "%)"; }),
           },
         },
       }));
@@ -468,7 +485,7 @@
             data: { labels: labs, datasets: [{ label: "打卡数", data: dailyCounts, backgroundColor: accent, borderRadius: 6 }] },
             options: {
               responsive: true, maintainAspectRatio: false,
-              plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (ctx) { return " " + ctx.parsed.y + " 次打卡"; }}}},
+              plugins: { legend: { display: false }, tooltip: glassTip(function (ctx) { return " " + ctx.parsed.y + " 次打卡"; })},
               scales: {
                 x: { ticks: { color: muted, font: { size: 10 }, maxTicksLimit: 14 }, grid: { display: false } },
                 y: { beginAtZero: true, ticks: { color: muted, font: { size: 10 }, precision: 0 }, grid: { color: line } },
