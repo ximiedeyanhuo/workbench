@@ -39,28 +39,35 @@
 
   // ================= 主题 =================
   const THEME_KEY = "wb2_theme"; // localStorage 仅作即时缓存防闪烁，正式值在 settings
-  // 主题循环顺序：亮 → 暗 → 打工小账本 → 日常集 → 玻璃拟态 → 亮…
-  // 老主题（forest/midnight/terminal/newsprint/mint-dark）CSS 块仍保留作 fallback，
-  // 但不再列入循环——保留老值能正常渲染，新值不会再被设置到这里。
+  // 主题按钮循环：只保留 亮/暗 两档（日常快切）
   const THEMES = [
     { key: "light", icon: "☀️", text: "亮色模式" },
     { key: "dark", icon: "🌙", text: "暗色模式" },
-    { key: "mint", icon: "🌿", text: "打工小账本" },
-    { key: "daily", icon: "📖", text: "日常集" },
-    { key: "glass", icon: "🫧", text: "玻璃拟态" },
+  ];
+  // 全部可选主题（设置页选择器用）：循环外的高级主题 + 老主题 fallback
+  const ALL_THEMES = [
+    { key: "light", icon: "☀️", text: "亮色模式", desc: "琥珀时刻表 · 明亮" },
+    { key: "dark", icon: "🌙", text: "暗色模式", desc: "琥珀翻牌 · 暗色" },
+    { key: "mint", icon: "🌿", text: "打工小账本", desc: "米黄纸 + 薄荷绿记账风" },
+    { key: "daily", icon: "📖", text: "日常集", desc: "衬线报刊排版" },
+    { key: "glass", icon: "🫧", text: "玻璃拟态", desc: "深蓝玻璃模糊" },
+    { key: "forest", icon: "🌲", text: "森林模式", desc: "（旧主题）" },
+    { key: "midnight", icon: "🌌", text: "深夜模式", desc: "（旧主题）" },
+    { key: "terminal", icon: "🖥️", text: "终端模式", desc: "（旧主题）" },
+    { key: "newsprint", icon: "📰", text: "报纸模式", desc: "（旧主题）" },
+    { key: "mint-dark", icon: "🌳", text: "奶系绿暗", desc: "（旧主题）" },
   ];
   // 浏览器状态栏配色：每个主题独立
   const THEME_BAR = {
     light: "#f3eee2", dark: "#0b1116",
     mint: "#EDF1E8", daily: "#F5EFE1", glass: "#0E1626",
-    // 老主题 fallback（即使不再循环，旧值仍能渲染）
     forest: "#f3eee2", midnight: "#0b1116",
     terminal: "#050505", newsprint: "#f3eee2", "mint-dark": "#1B2A24",
   };
   function applyTheme(theme) {
     document.documentElement.setAttribute("data-theme", theme);
-    const m = THEMES.find((x) => x.key === theme) || THEMES[0];
-    const label = m.icon, text = m.text;
+    const m = ALL_THEMES.find((x) => x.key === theme);
+    const label = (m && m.icon) || "🎨", text = (m && m.text) || "主题";
     const btn = document.getElementById("themeBtn");
     const btnTop = document.getElementById("themeBtnTop");
     if (btn) btn.innerHTML = label + " <span>" + text + "</span>";
@@ -71,11 +78,18 @@
   }
   function toggleTheme() {
     const cur = document.documentElement.getAttribute("data-theme");
+    // 当前不在循环里（选了高级主题）→ 下一次落到 亮色，避免跳变
     const idx = THEMES.findIndex((x) => x.key === cur);
-    const next = THEMES[(idx + 1) % THEMES.length].key;
+    const next = idx >= 0 ? THEMES[(idx + 1) % THEMES.length].key : "light";
     applyTheme(next);
     try { localStorage.setItem(THEME_KEY, next); } catch (e) { /* 隐私模式忽略 */ }
     setSetting("theme", next);
+  }
+  // 设置页主题选择器用：直接应用某个主题
+  function setThemeDirect(theme) {
+    applyTheme(theme);
+    try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* ignore */ }
+    setSetting("theme", theme);
   }
   function initTheme() {
     let t = "light";
@@ -949,6 +963,23 @@
           </div>
         </div>
         <div class="card">
+          <h2>外观<span class="count">主题</span></h2>
+          <div class="set-row" style="align-items:flex-start">
+            <span class="s-name">主题选择</span>
+            <div class="theme-picker" id="themePicker">
+              ${ALL_THEMES.map((t) => `
+                <button class="tp-item" data-tp="${t.key}" title="${esc(t.desc || "")}">
+                  <span class="tp-ic">${t.icon}</span>
+                  <span class="tp-txt">${esc(t.text)}</span>
+                </button>`).join("")}
+            </div>
+          </div>
+          <div class="set-row">
+            <span class="s-name">说明</span>
+            <span class="s-desc">左下角主题按钮只在「亮色 / 暗色」间快速切换；其它风格主题在这里选择。</span>
+          </div>
+        </div>
+        <div class="card">
           <h2>运行模式</h2>
           <div class="set-row">
             <span class="s-name">当前</span>
@@ -1172,6 +1203,20 @@
         await setSetting("nickname", v);
         showToast("已保存", "success");
       });
+
+      // 外观：主题选择器（高亮当前主题，点击即应用）
+      const picker = el.querySelector("#themePicker");
+      if (picker) {
+        const curT = document.documentElement.getAttribute("data-theme");
+        picker.querySelectorAll("[data-tp]").forEach((b) => {
+          if (b.dataset.tp === curT) b.classList.add("on");
+          b.addEventListener("click", () => {
+            setThemeDirect(b.dataset.tp);
+            picker.querySelectorAll("[data-tp]").forEach((x) => x.classList.toggle("on", x === b));
+            showToast("主题已切换", "success");
+          });
+        });
+      }
 
       el.querySelector("#exportBtn").addEventListener("click", async () => {
         const payload = await exportAll();
