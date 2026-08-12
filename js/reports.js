@@ -40,8 +40,10 @@
     salary: "#10B981", bonus: "#F59E0B", invest: "#8B5CF6", "other-i": "#3B82F6",
     saving: "#FF5A36",
   };
-  function catName(id) { return CAT_NAMES[id] || id || "未分类"; }
-  function catColor(id) { return CAT_COLORS[id] || "#A5A29A"; }
+  // 自定义分类映射（Excel 导入/手动新建，render 时从 settings 填充）
+  var extraCatName = {}, extraCatColor = {};
+  function catName(id) { return CAT_NAMES[id] || extraCatName[id] || id || "未分类"; }
+  function catColor(id) { return CAT_COLORS[id] || extraCatColor[id] || "#A5A29A"; }
 
   // ---------- 工具函数 ----------
   function fmtYuan(n) {
@@ -714,9 +716,16 @@
         habitsRepo.list(),
         healthRepo.list(),
         tasksRepo.list(),
+        window.WB.getSettings ? window.WB.getSettings({ finCategories: { income: [], expense: [] } }) : Promise.resolve({ finCategories: { income: [], expense: [] } }),
       ]);
       if (!el.isConnected) return;
       var finance = data[0], habits = data[1], health = data[2], tasks = data[3];
+      // 自定义分类（Excel 导入/手动新建）：合并进 catName/catColor，否则图例显示原始 ID
+      var finCats = (data[4] && data[4].finCategories) || { income: [], expense: [] };
+      extraCatName = {}; extraCatColor = {};
+      (finCats.income || []).concat(finCats.expense || []).forEach(function (c) {
+        if (c && c.id) { extraCatName[c.id] = c.name || c.id; extraCatColor[c.id] = c.color || "#A5A29A"; }
+      });
 
       // 销毁旧图表
       for (var i = 0; i < charts.length; i++) { try { charts[i].destroy(); } catch (e) {} }
