@@ -20,37 +20,37 @@
 :root {
   /* ---- 莫兰迪 Soft UI（治愈系习惯 App 风格）：灰蓝点状底 + 米白卡 + 低饱和 accent ----
      大圆角、轻阴影、圆润字体、emoji 图标，弱化严肃感。 */
-  --bg:            #e8ecef;   /* 莫兰迪灰蓝（点状纹理叠加在 body） */
-  --card:          #fbfaf7;   /* 米白卡 */
-  --card2:         #f0f1ee;   /* 内衬浅灰米 */
-  --ink:           #41454c;   /* 深灰蓝字 */
-  --ink-2:         #5d626b;   /* 次级字 */
-  --muted:         #70757e;   /* 说明文字（4.44:1 on card） */
-  --muted-2:       #8b9099;   /* 占位/禁用 */
-  --line:          rgba(65, 69, 76, 0.09);   /* hairline */
-  --rule:          rgba(65, 69, 76, 0.18);   /* 强调分隔线 */
-  --accent:        #b07f52;   /* 莫兰迪暖橙（链接/激活 ≥3:1 on card） */
-  --accent-strong: #96663e;
-  --accent-hover:  #a2724a;
-  --accent-soft:   rgba(201, 149, 107, 0.12);
+  --bg:            #1e242c;   /* 参考图：深灰蓝底（毛玻璃卡透出） */
+  --card:          rgba(255, 255, 255, 0.07);   /* 半透明毛玻璃卡 */
+  --card2:         rgba(255, 255, 255, 0.05);   /* 内衬更透 */
+  --ink:           #eef1f5;   /* 浅字（深底） */
+  --ink-2:         #c3cbd4;   /* 次级字 */
+  --muted:         #99a3ad;   /* 说明文字（on card ≥4.5） */
+  --muted-2:       #7d8791;   /* 占位/禁用 */
+  --line:          rgba(255, 255, 255, 0.10);   /* hairline */
+  --rule:          rgba(255, 255, 255, 0.20);   /* 强调分隔线 */
+  --accent:        #d69b72;   /* 参考图采样：暖橙（点缀/按钮） */
+  --accent-strong: #c07f4f;
+  --accent-hover:  #e2ab7e;
+  --accent-soft:   rgba(214, 155, 114, 0.16);
   /* 莫兰迪渐变与面板专用色（收敛硬编码） */
   --hero-a:        #cf9a6e;
   --hero-b:        #bd8658;
   --brand-a:       #d9a87c;
   --rail-light:    #e2e7eb;
   --rail-dark:     #171b20;
-  --primary:       #41454c;
-  --danger:        #c98f8f;   /* 莫兰迪红 */
-  --warn:          #c9a96b;   /* 莫兰迪金 */
-  --ok:            #8fae8b;   /* 莫兰迪绿 */
-  --purple:        #a99bc9;   /* 莫兰迪紫（图表系列色） */
-  --rise:          #c98f8f;   /* 涨 = 红 */
-  --fall:          #8fae8b;   /* 跌 = 绿 */
+  --primary:       #eef1f5;
+  --danger:        #f0836a;   /* 参考图珊瑚红 */
+  --warn:          #e8b45a;   /* 参考图金 */
+  --ok:            #aec98a;   /* 参考图黄绿 */
+  --purple:        #8fa3c4;   /* 参考图靛蓝 */
+  --rise:          #f0836a;   /* 涨 = 红 */
+  --fall:          #aec98a;   /* 跌 = 绿 */
   /* 阴影：轻柔 Soft UI（莫兰迪 tinted） */
-  --shadow-sm: 0 1px 3px rgba(65, 69, 76, 0.05);
-  --shadow-md: 0 4px 14px rgba(65, 69, 76, 0.07), 0 10px 26px -14px rgba(65, 69, 76, 0.14);
-  --shadow-lg: 0 6px 18px rgba(65, 69, 76, 0.08), 0 28px 64px -28px rgba(65, 69, 76, 0.3);
-  --card-lit:      inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.35), 0 10px 26px -14px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 6px 18px rgba(0, 0, 0, 0.4), 0 28px 64px -28px rgba(0, 0, 0, 0.65);
+  --card-lit:      inset 0 1px 0 rgba(255, 255, 255, 0.07);
   --grain:         0;         /* 点状纹理在 body 单独加 */
   /* radius tiers：超大圆角（Soft UI 标志） */
   --radius-xs:     12px;
@@ -74,14 +74,14 @@
   --muted-2:       #7a808a;
   --line:          rgba(255, 255, 255, 0.09);  /* hairline */
   --rule:          rgba(255, 255, 255, 0.18);
-  --accent:        #d9a87c;   /* 莫兰迪暖橙（提亮） */
-  --accent-strong: #c9956b;
-  --accent-hover:  #e0b48c;
-  --accent-soft:   rgba(217, 168, 124, 0.15);
+  --accent:        #e2ab7e;   /* 暖橙（提亮，参考图） */
+  --accent-strong: #d69b72;
+  --accent-hover:  #eab98f;
+  --accent-soft:   rgba(226, 171, 126, 0.16);
   --primary:       #eef0f3;
-  --danger:        #d49a9a;   /* 莫兰迪红 */
-  --warn:          #d4b47c;   /* 莫兰迪金 */
-  --ok:            #9cb89a;   /* 莫兰迪绿 */
+  --danger:        #f0836a;   /* 珊瑚红提亮 */
+  --warn:          #f2c56b;   /* 金提亮 */
+  --ok:            #aec98a;   /* 黄绿提亮 */
   --rise:          #f0645c;   /* 涨 = 红 */
   --fall:          #9cb89a;   /* 跌 = 绿 */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.28);
@@ -4568,24 +4568,26 @@ input::placeholder, textarea::placeholder { color: var(--muted-2); }
    ========================================================================== */
 .dash-hero {
   background:
-    radial-gradient(480px 200px at 92% -20%, rgba(255, 255, 255, 0.25), transparent 60%),
-    linear-gradient(135deg, var(--brand-a) 0%, var(--accent) 100%);
-  border: none;
-  color: #fff;
-  box-shadow: 0 8px 24px -10px rgba(201, 149, 107, 0.5);
+    radial-gradient(480px 200px at 92% -20%, rgba(214, 155, 114, 0.16), transparent 60%),
+    rgba(255, 255, 255, 0.06);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  backdrop-filter: blur(16px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
 }
-.dash-hero .hero-greet { color: #fff; }
-.dash-hero .hero-date { color: rgba(255, 255, 255, 0.9); }
-.dash-hero .hero-date b { color: #fff; }
+.dash-hero .hero-greet { color: var(--ink); }
+.dash-hero .hero-date { color: var(--muted); }
+.dash-hero .hero-date b { color: var(--accent); }
 .dh-cell {
-  background: rgba(255, 255, 255, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: none;
 }
-.dh-cell:hover { background: rgba(255, 255, 255, 0.26); border-color: rgba(255, 255, 255, 0.4); }
-.dh-cell .dh-val { color: #fff; }
-.dh-cell .dh-lab { color: rgba(255, 255, 255, 0.85); }
-.dh-cell .dh-sub { color: rgba(255, 255, 255, 0.75); }
+.dh-cell:hover { background: rgba(255, 255, 255, 0.12); border-color: var(--accent); }
+.dh-cell .dh-val { color: var(--ink); }
+.dh-cell .dh-lab { color: var(--muted); }
+.dh-cell .dh-sub { color: var(--muted); }
 
 /* ==========================================================================
    莫兰迪 Soft UI：灰蓝点状纹理 + 柔化拟物细节
@@ -4593,8 +4595,8 @@ input::placeholder, textarea::placeholder { color: var(--muted-2); }
 /* 点状纹理（Soft UI 标志性背景）——亮暗两套 */
 body {
   background-image:
-    radial-gradient(rgba(65, 69, 76, 0.07) 1px, transparent 1px),
-    radial-gradient(1200px 520px at 85% -10%, rgba(201, 149, 107, 0.05), transparent 60%);
+    radial-gradient(rgba(255, 255, 255, 0.10) 1px, transparent 1px),
+    radial-gradient(1200px 520px at 85% -10%, rgba(255, 255, 255, 0.08), transparent 60%);
   background-size: 22px 22px, auto;
   background-position: 0 0, 0 0;
 }
@@ -4633,7 +4635,7 @@ input:not([type]), select, textarea {
 .tx-year-table, .stk-table { border-radius: var(--radius-sm); overflow: hidden; }
 
 /* ---- 莫兰迪微调：侧栏区分度 + 暗色强调对比 + 主题按钮权重 ---- */
-[data-theme="light"] .sidebar { background: var(--rail-light); }  /* 侧栏比内容区深一档（灰蓝） */
+[data-theme="light"] .sidebar { background: rgba(255, 255, 255, 0.05); }  /* 深玻璃侧栏 */
 [data-theme="dark"] .sidebar { background: var(--rail-dark); }   /* dark 侧栏更深 */
 [data-theme="dark"] .nav a.active { color: #e8b48a; }   /* 暗色激活文字提亮 */
 [data-theme="dark"] .stat:first-child .s-val, [data-theme="dark"] .card h2 .count { color: #d9a87c; }
@@ -4647,7 +4649,7 @@ input:not([type]), select, textarea {
    莫兰迪细节打磨：治愈感 + 柔和交互
    ========================================================================== */
 /* 空状态：治愈系 emoji（替代生硬文件夹） */
-.empty::before { content: "🌸"; font-size: 30px; opacity: .8; }
+.empty::before { content: "🌸"; font-size: 30px; opacity: 1; }
 .empty { color: var(--muted); font-size: 12.5px; }
 
 /* 侧栏导航：莫兰迪 hover 过渡 + 激活卡片感 */
@@ -4680,12 +4682,6 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 /* hero 白字加柔影（提对比度） */
 .dash-hero .hero-greet, .dash-hero .hero-date, .dh-cell .dh-val, .dh-cell .dh-lab, .dh-cell .dh-sub {
   text-shadow: 0 1px 2px rgba(120, 70, 30, 0.18);
-}
-/* hero 渐变加深一档（白字更清晰） */
-.dash-hero {
-  background:
-    radial-gradient(480px 200px at 92% -20%, rgba(255, 255, 255, 0.2), transparent 60%),
-    linear-gradient(135deg, var(--hero-a) 0%, var(--hero-b) 100%);
 }
 /* 数字格密度：单位字稍大 + 间距 */
 .dh-cell .dh-val { font-size: 25px; letter-spacing: -0.01em; }
@@ -4743,3 +4739,53 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 @media (max-width: 767px) {
   .theme-btn.mini { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
 }
+
+/* 灰蓝底上的直接文字（面板外）：浅色 */
+body { color: var(--ink); }
+.footnote, .mode-badge { color: rgba(255, 255, 255, 0.75); }
+[data-theme="dark"] .footnote, [data-theme="dark"] .mode-badge { color: var(--muted); }
+
+/* ==========================================================================
+   参考图：深灰蓝 + 毛玻璃卡片（Soft UI Glass on Dark）
+   ========================================================================== */
+/* 卡片毛玻璃 */
+.card, .stat, .dh-cell, .anniv-card, .kb-col, .kb-card, .tx-card, .note-li,
+.item, .media-li, .tp-item, .quick-li {
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  backdrop-filter: blur(16px) saturate(1.3);
+}
+/* 浮动面板：半透明深玻璃（透出背景纹理） */
+@media (min-width: 1025px) {
+  .layout {
+    background: rgba(255, 255, 255, 0.04);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    backdrop-filter: blur(20px) saturate(1.4);
+  }
+  .sidebar { background: rgba(255, 255, 255, 0.05); color: var(--ink); }
+}
+/* 侧栏文字适配（浅色 on 深底） */
+.nav a, .nav-parent { color: var(--muted); }
+.nav a:hover { color: var(--ink); }
+.nav a.active { color: var(--accent); }
+.brand-txt { color: var(--ink); }
+.brand-txt small { color: var(--muted); }
+[data-theme="light"] .nav a, [data-theme="light"] .nav-parent { color: var(--muted); }
+[data-theme="light"] .nav a:hover { color: var(--ink); background: rgba(255,255,255,0.06); }
+[data-theme="light"] .nav a.active { color: var(--accent); background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+[data-theme="light"] .brand-txt { color: var(--ink); }
+[data-theme="light"] .brand-txt small { color: var(--muted); }
+/* 面板外脚注浅色 */
+.footnote { color: rgba(255, 255, 255, 0.6); }
+/* 顶部栏玻璃 */
+.topbar { background: rgba(255, 255, 255, 0.03); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+
+/* ---- 参考图精修：纹理密度 + 文字对比 + 选中态柔化 ---- */
+body {
+  background-image:
+    radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    radial-gradient(1200px 520px at 85% -10%, rgba(214, 155, 114, 0.08), transparent 60%);
+  background-size: 18px 18px, auto;   /* 纹理更密 */
+}
+.dh-cell .dh-sub, .stat .s-sub, .dh-cell .dh-lab { font-weight: 600; }
+[data-theme="light"] .nav a.active { background: rgba(214, 155, 114, 0.12); box-shadow: inset 3px 0 0 var(--accent); }
+[data-theme="light"] .s-ico { background: rgba(214, 155, 114, 0.14); }
