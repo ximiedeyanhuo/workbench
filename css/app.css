@@ -29,14 +29,14 @@
   --muted-2:       #8a929c;   /* 占位/禁用 */
   --line:          rgba(43, 47, 54, 0.10);   /* hairline */
   --rule:          rgba(43, 47, 54, 0.20);   /* 强调分隔线 */
-  --accent:        #d69b72;   /* 参考图采样：暖橙（点缀/按钮） */
-  --accent-strong: #c07f4f;
-  --accent-hover:  #e2ab7e;
-  --accent-soft:   rgba(214, 155, 114, 0.16);
+  --accent:        #b8946a;   /* 低饱和杏橙（柔和不刺眼） */
+  --accent-strong: #9c7a52;
+  --accent-hover:  #c4a37c;
+  --accent-soft:   rgba(184, 148, 106, 0.15);
   /* 莫兰迪渐变与面板专用色（收敛硬编码） */
-  --hero-a:        #cf9a6e;
-  --hero-b:        #bd8658;
-  --brand-a:       #d9a87c;
+  --hero-a:        #c4a37c;
+  --hero-b:        #b8946a;
+  --brand-a:       #c4a37c;
   --rail-light:    #e2e7eb;
   --rail-dark:     #171b20;
   --primary:       #2b2f36;
@@ -74,10 +74,10 @@
   --muted-2:       #7a808a;
   --line:          rgba(255, 255, 255, 0.09);  /* hairline */
   --rule:          rgba(255, 255, 255, 0.18);
-  --accent:        #e2ab7e;   /* 暖橙（提亮，参考图） */
-  --accent-strong: #d69b72;
-  --accent-hover:  #eab98f;
-  --accent-soft:   rgba(226, 171, 126, 0.16);
+  --accent:        #d4ab82;   /* 柔和米橙（dark） */
+  --accent-strong: #c0936a;
+  --accent-hover:  #ddb795;
+  --accent-soft:   rgba(212, 171, 130, 0.16);
   --primary:       #eef0f3;
   --danger:        #f0836a;   /* 珊瑚红提亮 */
   --warn:          #f2c56b;   /* 金提亮 */
@@ -4648,7 +4648,7 @@ input:not([type]), select, textarea {
 [data-theme="light"] .sidebar { background: rgba(255, 255, 255, 0.5); }  /* 浅玻璃侧栏 */
 [data-theme="dark"] .sidebar { background: var(--rail-dark); }   /* dark 侧栏更深 */
 [data-theme="dark"] .nav a.active { color: #e8b48a; }   /* 暗色激活文字提亮 */
-[data-theme="dark"] .stat:first-child .s-val, [data-theme="dark"] .card h2 .count { color: #d9a87c; }
+[data-theme="dark"] .stat:first-child .s-val, [data-theme="dark"] .card h2 .count { color: var(--accent); }
 [data-theme="light"] .theme-btn {
   background: #fff; border: 1px solid var(--rule);
   box-shadow: var(--shadow-sm); color: var(--accent-strong); font-weight: 700;
@@ -4994,3 +4994,10 @@ input.w-150, input.w-160, input.w-170, input.w-180, input.w-200 { border-radius:
 
 /* 大金额数字：长数值不撑破卡片（等宽 + 允许略小） */
 .dh-cell .dh-val { overflow-wrap: anywhere; }
+
+/* ---- 配色收尾：搜索框/输入框在深色下的边界感 ---- */
+[data-theme="dark"] .gsearch-wrap #gsInput { background: rgba(255, 255, 255, 0.09); border-color: rgba(255, 255, 255, 0.14); }
+[data-theme="dark"] input[type="text"], [data-theme="dark"] input[type="number"], [data-theme="dark"] input[type="date"],
+[data-theme="dark"] input:not([type]), [data-theme="dark"] select, [data-theme="dark"] textarea {
+  border-color: rgba(255, 255, 255, 0.14);
+}
