@@ -20,15 +20,15 @@
 :root {
   /* ---- 莫兰迪 Soft UI（治愈系习惯 App 风格）：灰蓝点状底 + 米白卡 + 低饱和 accent ----
      大圆角、轻阴影、圆润字体、emoji 图标，弱化严肃感。 */
-  --bg:            #1e242c;   /* 参考图：深灰蓝底（毛玻璃卡透出） */
-  --card:          rgba(255, 255, 255, 0.07);   /* 半透明毛玻璃卡 */
-  --card2:         rgba(255, 255, 255, 0.05);   /* 内衬更透 */
-  --ink:           #eef1f5;   /* 浅字（深底） */
-  --ink-2:         #c3cbd4;   /* 次级字 */
-  --muted:         #99a3ad;   /* 说明文字（on card ≥4.5） */
-  --muted-2:       #7d8791;   /* 占位/禁用 */
-  --line:          rgba(255, 255, 255, 0.10);   /* hairline */
-  --rule:          rgba(255, 255, 255, 0.20);   /* 强调分隔线 */
+  --bg:            #e6ebf0;   /* 亮模式：浅灰蓝底（毛玻璃卡透出纹理） */
+  --card:          rgba(255, 255, 255, 0.62);   /* 亮模式：透明白玻璃卡 */
+  --card2:         rgba(255, 255, 255, 0.45);   /* 内衬 */
+  --ink:           #2b2f36;   /* 深字（浅底） */
+  --ink-2:         #4a5058;   /* 次级字 */
+  --muted:         #5f6771;   /* 说明文字（on card ≥4.5） */
+  --muted-2:       #8a929c;   /* 占位/禁用 */
+  --line:          rgba(43, 47, 54, 0.10);   /* hairline */
+  --rule:          rgba(43, 47, 54, 0.20);   /* 强调分隔线 */
   --accent:        #d69b72;   /* 参考图采样：暖橙（点缀/按钮） */
   --accent-strong: #c07f4f;
   --accent-hover:  #e2ab7e;
@@ -39,7 +39,7 @@
   --brand-a:       #d9a87c;
   --rail-light:    #e2e7eb;
   --rail-dark:     #171b20;
-  --primary:       #eef1f5;
+  --primary:       #2b2f36;
   --danger:        #f0836a;   /* 参考图珊瑚红 */
   --warn:          #e8b45a;   /* 参考图金 */
   --ok:            #aec98a;   /* 参考图黄绿 */
@@ -47,10 +47,10 @@
   --rise:          #f0836a;   /* 涨 = 红 */
   --fall:          #aec98a;   /* 跌 = 绿 */
   /* 阴影：轻柔 Soft UI（莫兰迪 tinted） */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.35), 0 10px 26px -14px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 6px 18px rgba(0, 0, 0, 0.4), 0 28px 64px -28px rgba(0, 0, 0, 0.65);
-  --card-lit:      inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --shadow-sm: 0 1px 3px rgba(43, 47, 54, 0.08);
+  --shadow-md: 0 4px 14px rgba(43, 47, 54, 0.08), 0 10px 26px -14px rgba(43, 47, 54, 0.16);
+  --shadow-lg: 0 6px 18px rgba(43, 47, 54, 0.1), 0 28px 64px -28px rgba(43, 47, 54, 0.3);
+  --card-lit:      inset 0 1px 0 rgba(255, 255, 255, 0.9);
   --grain:         0;         /* 点状纹理在 body 单独加 */
   /* radius tiers：超大圆角（Soft UI 标志） */
   --radius-xs:     12px;
@@ -4569,12 +4569,18 @@ input::placeholder, textarea::placeholder { color: var(--muted-2); }
 .dash-hero {
   background:
     radial-gradient(480px 200px at 92% -20%, rgba(214, 155, 114, 0.16), transparent 60%),
-    rgba(255, 255, 255, 0.06);
+    rgba(255, 255, 255, 0.55);
   -webkit-backdrop-filter: blur(16px) saturate(1.3);
   backdrop-filter: blur(16px) saturate(1.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--line);
   color: var(--ink);
   box-shadow: var(--shadow-sm);
+}
+[data-theme="dark"] .dash-hero {
+  background:
+    radial-gradient(480px 200px at 92% -20%, rgba(214, 155, 114, 0.16), transparent 60%),
+    rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 .dash-hero .hero-greet { color: var(--ink); }
 .dash-hero .hero-date { color: var(--muted); }
@@ -4635,7 +4641,7 @@ input:not([type]), select, textarea {
 .tx-year-table, .stk-table { border-radius: var(--radius-sm); overflow: hidden; }
 
 /* ---- 莫兰迪微调：侧栏区分度 + 暗色强调对比 + 主题按钮权重 ---- */
-[data-theme="light"] .sidebar { background: rgba(255, 255, 255, 0.05); }  /* 深玻璃侧栏 */
+[data-theme="light"] .sidebar { background: rgba(255, 255, 255, 0.5); }  /* 浅玻璃侧栏 */
 [data-theme="dark"] .sidebar { background: var(--rail-dark); }   /* dark 侧栏更深 */
 [data-theme="dark"] .nav a.active { color: #e8b48a; }   /* 暗色激活文字提亮 */
 [data-theme="dark"] .stat:first-child .s-val, [data-theme="dark"] .card h2 .count { color: #d9a87c; }
@@ -4757,11 +4763,13 @@ body { color: var(--ink); }
 /* 浮动面板：半透明深玻璃（透出背景纹理） */
 @media (min-width: 1025px) {
   .layout {
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.4);
     -webkit-backdrop-filter: blur(20px) saturate(1.4);
     backdrop-filter: blur(20px) saturate(1.4);
   }
-  .sidebar { background: rgba(255, 255, 255, 0.05); color: var(--ink); }
+  .sidebar { background: rgba(255, 255, 255, 0.5); color: var(--ink); }
+  [data-theme="dark"] .layout { background: rgba(255, 255, 255, 0.04); }
+  [data-theme="dark"] .sidebar { background: rgba(255, 255, 255, 0.05); }
 }
 /* 侧栏文字适配（浅色 on 深底） */
 .nav a, .nav-parent { color: var(--muted); }
@@ -4782,10 +4790,26 @@ body { color: var(--ink); }
 /* ---- 参考图精修：纹理密度 + 文字对比 + 选中态柔化 ---- */
 body {
   background-image:
+    radial-gradient(rgba(43, 47, 54, 0.08) 1px, transparent 1px),
+    radial-gradient(1200px 520px at 85% -10%, rgba(214, 155, 114, 0.10), transparent 60%);
+  background-size: 18px 18px, auto;
+}
+[data-theme="dark"] body {
+  background-image:
     radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
     radial-gradient(1200px 520px at 85% -10%, rgba(214, 155, 114, 0.08), transparent 60%);
-  background-size: 18px 18px, auto;   /* 纹理更密 */
+  background-size: 18px 18px, auto;
 }
 .dh-cell .dh-sub, .stat .s-sub, .dh-cell .dh-lab { font-weight: 600; }
 [data-theme="light"] .nav a.active { background: rgba(214, 155, 114, 0.12); box-shadow: inset 3px 0 0 var(--accent); }
 [data-theme="light"] .s-ico { background: rgba(214, 155, 114, 0.14); }
+
+/* 侧栏激活态：橙底白字（对比清晰） */
+[data-theme="light"] .nav a.active {
+  background: var(--accent-strong);
+  color: #fff;
+  box-shadow: 0 2px 10px -2px rgba(192, 127, 79, 0.5);
+}
+[data-theme="light"] .nav a.active .nic { color: #fff; }
+[data-theme="dark"] .nav a.active { background: var(--accent-strong); color: #fff; }
+[data-theme="dark"] .nav a.active .nic { color: #fff; }
