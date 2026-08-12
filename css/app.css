@@ -4232,3 +4232,186 @@ input:not([type]), select, textarea {
 @media (max-width: 640px) {
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ==========================================================================
+   finesse 全局组件升级层（一次覆盖所有页面）
+   ========================================================================== */
+/* ---- 按钮体系：三变体 + 完整交互态 ---- */
+.btn {
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  transition: background .15s, border-color .15s, box-shadow .15s, transform .1s;
+}
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .5; cursor: not-allowed; pointer-events: none; }
+.btn.ghost:focus-visible, .btn:focus-visible { box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* ---- 空状态：icon 位 + 说明 + CTA（finesse：composed, not a void） ---- */
+.empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; text-align: center;
+  padding: 34px 20px; color: var(--muted);
+  font-size: 13px; line-height: 1.7;
+}
+.empty::before {
+  content: "🗂"; font-size: 26px; opacity: .7;
+}
+.empty a { color: var(--accent); font-weight: 600; }
+.empty a:hover { text-decoration: underline; }
+
+/* ---- 列表行：hairline + hover 提升 ---- */
+.list { gap: 8px; }
+.item {
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  transition: background .15s, border-color .15s, transform .12s;
+}
+.item:hover { border-color: var(--line); background: color-mix(in srgb, var(--card2) 45%, transparent); }
+.item.done { opacity: .6; }
+
+/* ---- tabs：hairline 底 + 激活 pill ---- */
+.tabs {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  background: color-mix(in srgb, var(--card2) 40%, transparent);
+  gap: 2px;
+}
+.tab {
+  border: none; background: transparent;
+  border-radius: calc(var(--radius-sm) - 2px);
+  padding: 6px 14px; font-weight: 600; color: var(--muted);
+  transition: background .15s, color .15s, box-shadow .15s;
+}
+.tab:hover { color: var(--ink); }
+.tab.on {
+  background: var(--card); color: var(--ink);
+  box-shadow: var(--shadow-sm);
+  font-weight: 700;
+}
+
+/* ---- badge / tag：tinted chip ---- */
+.badge { border-radius: 999px; font-weight: 600; letter-spacing: 0.01em; }
+.tag {
+  border-radius: 999px; font-size: 11px;
+  background: var(--accent-soft); color: var(--accent-strong);
+  padding: 2px 9px; font-weight: 600;
+}
+
+/* ---- 设置页表单行：label 对齐 + 输入统一 ---- */
+.set-row {
+  align-items: center; gap: 14px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+}
+.set-row:last-child { border-bottom: none; }
+.s-name {
+  min-width: 84px; font-size: 13px; font-weight: 700; color: var(--ink);
+  letter-spacing: 0.01em;
+}
+.s-desc { font-size: 12.5px; line-height: 1.7; }
+input[type="text"], input[type="number"], input[type="date"], input[type="password"],
+input:not([type]), select, textarea {
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  transition: border-color .15s, box-shadow .15s;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  outline: none;
+}
+input::placeholder, textarea::placeholder { color: var(--muted-2); }
+
+/* ---- 表格数字右对齐 + tabular-nums（finesse 扫描幅度规范） ---- */
+.tx-year-table td:not(:first-child), .tx-year-table th:not(:first-child),
+.stk-table td:not(:first-child), .stk-table th:not(:first-child),
+.tx-item .tx-amt { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---- skeleton 加载骨架（替代 spinner-only） ---- */
+.skeleton {
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--card2) 25%, color-mix(in srgb, var(--card2) 60%, var(--card)) 50%, var(--card2) 75%);
+  background-size: 200% 100%;
+  animation: skShimmer 1.2s ease-in-out infinite;
+}
+@keyframes skShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* ---- field：label-above 表单（finesse：禁止 placeholder-as-label） ---- */
+.field {
+  display: flex; flex-direction: column; gap: 5px;
+  text-align: left; margin-bottom: 14px;
+}
+.field > span {
+  font-size: 12.5px; font-weight: 600; color: var(--ink-2);
+  letter-spacing: 0.01em;
+}
+.field input, .field select, .field textarea { width: 100%; }
+
+/* ---- finesse 表格精修：表头 hairline + 行密度 + hover ---- */
+.tx-year-table, .stk-table {
+  width: 100%; border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.tx-year-table thead th, .stk-table thead th {
+  font-size: 11.5px; font-weight: 700; color: var(--muted);
+  letter-spacing: 0.03em; text-transform: uppercase;
+  padding: 10px 12px; text-align: left;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--card2) 35%, transparent);
+}
+.tx-year-table tbody td, .stk-table tbody td {
+  padding: 10px 12px; border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.tx-year-table tbody tr, .stk-table tbody tr { transition: background .12s; }
+.tx-year-table tbody tr:hover, .stk-table tbody tr:hover {
+  background: color-mix(in srgb, var(--accent-soft) 55%, transparent);
+}
+/* 数字列右对齐（第一列名称/日期保持左对齐） */
+.tx-year-table td:nth-child(n+2), .tx-year-table th:nth-child(n+2),
+.stk-table td:nth-child(n+2), .stk-table th:nth-child(n+2) {
+  text-align: right;
+}
+
+/* ---- 资讯卡片：hairline + 阴影分层（finesse） ---- */
+.news-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  transition: border-color .15s, box-shadow .18s, transform .15s;
+  overflow: hidden;
+}
+.news-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+.news-body { padding: 14px 16px 16px; }
+.news-title {
+  font-size: 15px; font-weight: 700; line-height: 1.5;
+  letter-spacing: -0.01em;
+}
+.news-sum { font-size: 12.5px; color: var(--muted); line-height: 1.65; }
+
+/* ---- 任务看板卡片 ---- */
+.kb-card {
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--card); box-shadow: var(--shadow-sm);
+  padding: 12px 14px;
+  transition: border-color .15s, transform .12s;
+}
+.kb-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.kb-card.over { border-color: var(--danger); border-left: 3px solid var(--danger); }
+
+/* ---- 侧栏导航：finesse 激活态（琥珀左条 + tinted 底 + 内描边） ---- */
+.nav a {
+  transition: background .15s, color .15s, box-shadow .15s;
+}
+.nav a.active {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent), inset 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+  border-radius: var(--radius-sm);
+}
+.nav a:hover { background: rgba(255, 255, 255, 0.04); }

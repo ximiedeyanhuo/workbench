@@ -68,8 +68,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       <div class="lb-line"><span>检票状态</span><b class="lb-ok">正点 · 候检</b></div>
     </div>
     <form id="loginForm" autocomplete="on">
-      <input id="loginUser" name="username" placeholder="用户名" autocomplete="username" maxlength="20" />
-      <input id="loginPwd" name="password" type="password" placeholder="密码" autocomplete="current-password" />
+      <label class="field" for="loginUser"><span>用户名</span>
+        <input id="loginUser" name="username" placeholder="请输入用户名" autocomplete="username" maxlength="20" />
+      </label>
+      <label class="field" for="loginPwd"><span>密码</span>
+        <input id="loginPwd" name="password" type="password" placeholder="请输入密码" autocomplete="current-password" />
+      </label>
       <div class="login-err" id="loginErr" hidden></div>
       <button class="btn login-btn" id="loginBtn" type="submit">登 录</button>
     </form>
