@@ -18,23 +18,19 @@
    ============================================================ */
 
 :root {
-  /* ---- 站台双面：light = 印刷时刻表（奶油纸） ----
-     对比度基线（正文/占位 ≥ 4.5:1，白字按钮 ≥ 4.5:1）：
-     ink #201b12 / card #fbf8f0 ≈ 16.3:1
-     muted #5d5443 / card      ≈ 7.3:1
-     muted-2 #6a6050 / card    ≈ 5.9:1  （占位/禁用）
-     accent #a94f08 / card     ≈ 5.4:1  （链接/小标签）
-     白 #fff / accent-strong #8f3e04 ≈ 6.6:1 （按钮） */
-  --bg:            #f3eee2;   /* 候车厅纸面 */
-  --card:          #fbf8f0;   /* 车票纸 */
-  --card2:         #eae3d2;   /* 票根 / 内衬区 */
-  --ink:           #201b12;   /* 石墨墨 */
-  --ink-2:         #453d2e;   /* 次级墨 */
-  --muted:         #5d5443;   /* 说明文字 */
-  --muted-2:       #6a6050;   /* 占位/禁用 */
-  --line:          #ddd4bf;   /* hairline */
-  --rule:          #c2b395;   /* 强调分隔线 */
-  --accent:        #a94f08;   /* 深琥珀（链接/焦点/强调） */
+  /* ---- finesse product substrate · Warm Stone 家族（琥珀时刻表） ----
+     页面=带色调纸面，卡片=暖白，边框=hairline alpha（禁用硬 hex 灰边），
+     阴影=tinted 墨色。radius tiers：sm 11 / card 18 / lg 32。 */
+  --bg:            #f4f0e7;   /* 页面纸面（warm tinted，非纯灰） */
+  --card:          #fdfbf5;   /* 卡片暖白（非纯 #fff） */
+  --card2:         #f1ecdf;   /* 内衬票根 */
+  --ink:           #201b12;   /* 石墨墨 ink-1 */
+  --ink-2:         #453d2e;   /* 次级墨 ink-2 */
+  --muted:         #6f6555;   /* 说明文字 ink-3（≥4.5:1 on card） */
+  --muted-2:       #857b68;   /* 占位/禁用 */
+  --line:          rgba(58, 44, 26, 0.10);  /* hairline：不再用硬 hex 灰边 */
+  --rule:          rgba(58, 44, 26, 0.20);   /* 强调分隔线 */
+  --accent:        #a94f08;   /* 深琥珀（品牌锁定，不动） */
   --accent-strong: #8f3e04;   /* 琥珀深（按钮底） */
   --accent-hover:  #7a3303;   /* 琥珀 hover */
   --accent-soft:   rgba(169, 79, 8, 0.10);
@@ -47,16 +43,17 @@
      分离，避免同一 token 跨模块语义相反造成困惑。 */
   --rise:          #b3261e;   /* 涨 = 红 */
   --fall:          #2e7d4f;   /* 跌 = 绿 */
-  --shadow-sm: 0 1px 3px rgba(84, 60, 20, 0.09);
-  --shadow-md: 0 2px 6px rgba(84, 60, 20, 0.07), 0 12px 28px -16px rgba(84, 60, 20, 0.18);
-  --shadow-lg: 0 4px 10px rgba(84, 60, 20, 0.08), 0 24px 48px -22px rgba(84, 60, 20, 0.32);
-  /* 卡片“受光上沿”：暗色下靠它把卡片从黑板里抬起来 */
-  --card-lit:      inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  --grain:         0.5;       /* 纸纹噪点强度 */
-  --radius-xs:     6px;
-  --radius-sm:     8px;
-  --radius:        12px;
-  --radius-lg:     18px;
+  /* 阴影：tinted 墨色 whisper + 浮层大影（负 spread，不 puff） */
+  --shadow-sm: 0 1px 3px rgba(58, 40, 16, 0.06);
+  --shadow-md: 0 2px 8px rgba(58, 40, 16, 0.06), 0 14px 34px -18px rgba(58, 40, 16, 0.18);
+  --shadow-lg: 0 6px 16px rgba(58, 40, 16, 0.08), 0 40px 90px -50px rgba(58, 40, 16, 0.35);
+  --card-lit:      inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  --grain:         0.4;       /* 纸纹噪点强度 */
+  /* radius tiers（锁定）：sm 11 / card 18 / lg 32 */
+  --radius-xs:     8px;
+  --radius-sm:     11px;
+  --radius:        18px;
+  --radius-lg:     32px;
   --radius-pill:   999px;
   --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Segoe UI", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
   --serif: Georgia, "Songti SC", "Noto Serif SC", serif;
@@ -64,16 +61,16 @@
 }
 
 [data-theme="dark"], [data-theme="midnight"] {
-  /* ---- 站台双面：dark = 候车厅翻牌屏（墨蓝黑板） ---- */
-  --bg:            #0b1116;
-  --card:          #141c23;
-  --card2:         #1d272f;
-  --ink:           #e9e7dc;
-  --ink-2:         #c4c9c6;
-  --muted:         #96a5a9;
+  /* ---- finesse product substrate · dark：面板向上提亮，ink 反转 ---- */
+  --bg:            #0b0e11;   /* 墨黑板面（warm tinted near-black） */
+  --card:          #14171b;   /* 面板 900 */
+  --card2:         #1c2025;   /* 内衬 800（越往前越亮） */
+  --ink:           #e9e7dc;   /* ink-1 反白 */
+  --ink-2:         #c4c9c6;   /* ink-2 */
+  --muted:         #8d969b;   /* ink-3（dark 下用 400 级，≥4.5:1 on card） */
   --muted-2:       #7a8991;
-  --line:          #24313b;
-  --rule:          #35444f;
+  --line:          rgba(255, 255, 255, 0.07);  /* hairline */
+  --rule:          rgba(255, 255, 255, 0.16);
   --accent:        #ffb454;   /* 翻牌琥珀 */
   --accent-strong: #f5a234;
   --accent-hover:  #ffc67c;
@@ -85,11 +82,11 @@
   --purple:        #9b7fd4;   /* 图表系列色（睡眠等） */
   --rise:          #e0553f;   /* 涨 = 红 */
   --fall:          #57b06b;   /* 跌 = 绿 */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.42), 0 14px 30px -18px rgba(0, 0, 0, 0.62);
-  --shadow-lg: 0 6px 14px rgba(0, 0, 0, 0.45), 0 30px 60px -24px rgba(0, 0, 0, 0.72);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4), 0 14px 34px -18px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 6px 16px rgba(0, 0, 0, 0.45), 0 40px 90px -50px rgba(0, 0, 0, 0.7);
   --card-lit:      inset 0 1px 0 rgba(255, 255, 255, 0.045);
-  --grain:         0.35;
+  --grain:         0.3;
 }
 
 /* ---- 多主题扩展：forest = 森林绿（明色纸感） ---- */
@@ -1131,18 +1128,21 @@ button.tab:focus-visible { outline-offset: 0; }
    标签轻、数字重、副注更轻；装饰只剩标签前的琥珀菱形标
    （与 page-title / chart-tt / month-sub 同一套菱形语言）。 */
 .stat-grid {
-  display: grid; grid-template-columns: repeat(4, 1fr);
+  display: grid;
+  /* finesse bento：首卡更宽（今日焦点 = 主指标），其余三卡等宽 */
+  grid-template-columns: 1.6fr 1fr 1fr 1fr;
   gap: 14px; margin-bottom: 24px;
 }
 .stat {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 16px 18px;
+  padding: 18px 20px 16px;
   cursor: pointer; position: relative;
   box-shadow: var(--shadow-sm), var(--card-lit);
   transition: border-color .18s, box-shadow .18s, transform .15s;
   animation: statIn .45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  overflow: hidden;
 }
 .stat:nth-child(1) { animation-delay: .04s; }
 .stat:nth-child(2) { animation-delay: .09s; }
@@ -1157,10 +1157,18 @@ button.tab:focus-visible { outline-offset: 0; }
   box-shadow: var(--shadow-md), var(--card-lit);
   transform: translateY(-1px);
 }
+/* finesse KPI 解剖：右上 tinted icon chip（替代 emoji 裸放） */
+.s-ico {
+  position: absolute; top: 16px; right: 16px;
+  width: 34px; height: 34px; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent-soft);
+  font-size: 16px; line-height: 1;
+}
 /* 标签：轻 —— 小号 + 琥珀菱形标 */
 .stat .s-lab {
   font-size: 11px; color: var(--muted);
-  font-weight: 600; letter-spacing: 0.02em;
+  font-weight: 600; letter-spacing: 0.03em;
   margin-bottom: 8px;
   display: flex; align-items: center; gap: 6px;
 }
@@ -1169,7 +1177,7 @@ button.tab:focus-visible { outline-offset: 0; }
   width: 6px; height: 6px; border-radius: 2px;
   background: var(--accent); transform: rotate(45deg);
 }
-/* 数字：重 —— 等宽粗体 */
+/* 数字：重 —— 等宽粗体（finesse：tabular-nums + 负 tracking + roll-up） */
 .stat .s-val {
   font-size: 28px; font-weight: 800;
   letter-spacing: -0.03em; line-height: 1.12;
@@ -4036,10 +4044,6 @@ mark.news-kw {
 .dh-val { font-size: 22px; font-weight: 800; font-family: var(--mono); font-variant-numeric: tabular-nums; line-height: 1.1; color: var(--ink); letter-spacing: -0.02em; }
 .dh-sub { font-size: 10.5px; color: var(--muted); font-family: var(--mono); }
 
-/* stat 图标位（右上角；琥珀主题隐藏保持旧观感） */
-.s-ico { position: absolute; top: 14px; right: 14px; font-size: 15px; opacity: 0.85; line-height: 1; }
-[data-theme="light"] .stat .s-ico, [data-theme="dark"] .stat .s-ico { display: none; }
-
 /* 储蓄进度环（SVG，--p 为 0-100 百分比） */
 .save-ring { position: relative; width: 52px; height: 52px; margin-top: 8px; }
 .save-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
@@ -4195,4 +4199,36 @@ mark.news-kw {
 .tp-txt { font-size: 12px; font-weight: 600; }
 @media (max-width: 640px) {
   .theme-picker { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ==========================================================================
+   finesse product 精度层：orphan 预防 + 卡片底缘对齐 + 光学补偿
+   ========================================================================== */
+h1, h2, h3, .hero-greet, .dh-title, .page-title { text-wrap: balance; }
+p, .reader-body, .news-sum, .n-comment { text-wrap: pretty; }
+
+/* 光学补偿：icon-btn 内 SVG 视觉居中（1px 下移修正） */
+.icon-btn svg { transform: translateY(0.5px); }
+
+/* focus ring：软 tinted（finesse：0 0 0 3px accent-soft，非浏览器默认） */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  border-radius: var(--radius-sm);
+}
+
+/* 输入/按钮圆角锁定到 finesse tiers */
+input[type="text"], input[type="number"], input[type="date"], input[type="password"],
+input:not([type]), select, textarea {
+  border-radius: var(--radius-sm);
+}
+.btn, .btn.sm { border-radius: var(--radius-sm); }
+
+/* 侧栏 & 顶栏 hairline 化（跟随新 token，无硬边） */
+.sidebar { border-right: 1px solid var(--line); }
+.topbar { border-bottom: 1px solid var(--line); }
+
+/* 移动端：bento 回退 2 列 */
+@media (max-width: 640px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
 }

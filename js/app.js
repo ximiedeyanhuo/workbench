@@ -732,6 +732,31 @@
         renderCharts(el, tasks, habits, finance);
       }
 
+      // finesse number roll-up：统计卡数字 0 → 目标滚动（零依赖；尊重 prefers-reduced-motion）
+      const prefersReduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (!prefersReduced) {
+        const rollTargets = [];
+        el.querySelectorAll(".stat .s-val, .dh-cell .dh-val").forEach((node) => {
+          const raw = (node.textContent || "").trim();
+          const m = raw.match(/^(\d[\d,\.]*)$/);
+          if (m) rollTargets.push({ node, target: parseFloat(m[1].replace(/,/g, "")) });
+        });
+        rollTargets.forEach(({ node, target }, i) => {
+          setTimeout(() => {
+            const dur = 650;
+            const t0 = performance.now();
+            const step = (t) => {
+              const p = Math.min(1, (t - t0) / dur);
+              const eased = 1 - Math.pow(1 - p, 3);
+              const val = Math.round(target * eased);
+              node.textContent = String(val);
+              if (p < 1) requestAnimationFrame(step);
+            };
+            requestAnimationFrame(step);
+          }, 150 + i * 80);
+        });
+      }
+
       el.querySelectorAll("[data-go]").forEach((s) => s.addEventListener("click", () => (location.hash = s.dataset.go)));
       el.querySelector("#focusList").addEventListener("click", async (e) => {
         const chk = e.target.closest('[data-act="toggle"]');
