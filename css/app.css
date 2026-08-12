@@ -4813,3 +4813,69 @@ body {
 [data-theme="light"] .nav a.active .nic { color: #fff; }
 [data-theme="dark"] .nav a.active { background: var(--accent-strong); color: #fff; }
 [data-theme="dark"] .nav a.active .nic { color: #fff; }
+
+/* ==========================================================================
+   打磨：toast 玻璃化 + 登录卡 + FAB 统一 + 数字对比
+   ========================================================================== */
+/* toast：毛玻璃胶囊（柔和） */
+.wb-toast {
+  border-left: none;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.75);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  backdrop-filter: blur(14px) saturate(1.3);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-md);
+  font-weight: 600;
+}
+[data-theme="dark"] .wb-toast { background: rgba(28, 33, 40, 0.8); }
+.wb-toast.success { border-left: 3px solid var(--ok); }
+.wb-toast.error   { border-left: 3px solid var(--danger); }
+.wb-toast.warning { border-left: 3px solid var(--warn); }
+
+/* 登录卡片：虚线打孔条 → 柔和 hairline */
+.login-card::before {
+  border-top: 1px solid var(--line);
+  opacity: 1;
+}
+
+/* FAB 统一暖橙系：专注实心橙 + 速记描边橙 */
+.focus-fab { background: var(--accent-strong); color: #fff; }
+.focus-fab:hover { box-shadow: 0 4px 14px -4px rgba(192, 127, 79, 0.6); }
+.focus-fab.running { background: var(--danger); }
+.quick-fab { background: rgba(255, 255, 255, 0.65); color: var(--accent-strong); border: 1.5px solid var(--accent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+
+/* 关键数字对比：金额/统计数字加粗 */
+.stat .s-val, .dh-cell .dh-val { font-weight: 800; }
+.tx-amt, .stk-table td { font-weight: 600; }
+
+/* 输入框统一：浅玻璃 + 品牌 focus 环 */
+input[type="text"], input[type="number"], input[type="date"], input[type="password"],
+input:not([type]), select, textarea {
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid var(--line);
+}
+[data-theme="dark"] input[type="text"], [data-theme="dark"] input[type="number"], [data-theme="dark"] input[type="date"],
+[data-theme="dark"] input:not([type]), [data-theme="dark"] select, [data-theme="dark"] textarea {
+  background: rgba(255, 255, 255, 0.06);
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-soft) !important;
+}
+
+/* 记账页卡片间距 */
+.tx-year-wrap + .card, .tx-card + .card { margin-top: 18px; }
+
+/* 次要操作按钮：描边样式（与主操作区分） */
+.btn.danger { background: transparent; color: var(--danger); border: 1.5px solid var(--danger); }
+.btn.danger:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); }
+.btn.ghost { background: transparent; color: var(--accent-strong); border: 1.5px solid var(--line); }
+.btn.ghost:hover { background: var(--accent-soft); border-color: var(--accent); }
+
+/* 表单元素内边距统一（舒适点击） */
+input[type="text"], input[type="number"], input[type="date"], input[type="password"],
+input:not([type]), select, textarea {
+  padding: 9px 12px;
+}
+select { padding: 9px 10px; }
