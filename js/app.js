@@ -46,8 +46,8 @@
   ];
   // 全部可选主题（设置页选择器用）：循环外的高级主题 + 老主题 fallback
   const ALL_THEMES = [
-    { key: "light", icon: "☀️", text: "亮色模式", desc: "年轻扁平 · 明亮" },
-    { key: "dark", icon: "🌙", text: "暗色模式", desc: "年轻扁平 · 暗色" },
+    { key: "light", icon: "☀️", text: "亮色模式", desc: "莫兰迪治愈 · 明亮" },
+    { key: "dark", icon: "🌙", text: "暗色模式", desc: "莫兰迪治愈 · 暗色" },
     { key: "mint", icon: "🌿", text: "打工小账本", desc: "米黄纸 + 薄荷绿记账风" },
     { key: "daily", icon: "📖", text: "日常集", desc: "衬线报刊排版" },
     { key: "glass", icon: "🫧", text: "玻璃拟态", desc: "深蓝玻璃模糊" },
@@ -59,7 +59,7 @@
   ];
   // 浏览器状态栏配色：每个主题独立
   const THEME_BAR = {
-    light: "#f4f6f4", dark: "#12151a",
+    light: "#e8ecef", dark: "#1c2025",
     mint: "#EDF1E8", daily: "#F5EFE1", glass: "#0E1626",
     forest: "#f3eee2", midnight: "#0b1116",
     terminal: "#050505", newsprint: "#f3eee2", "mint-dark": "#1B2A24",
