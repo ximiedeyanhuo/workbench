@@ -4415,3 +4415,67 @@ input::placeholder, textarea::placeholder { color: var(--muted-2); }
   border-radius: var(--radius-sm);
 }
 .nav a:hover { background: rgba(255, 255, 255, 0.04); }
+
+/* ==========================================================================
+   finesse floating rounded panel：整个工作台悬浮在更深纸面上的圆角大面板
+   （桌面端；移动端保持全宽）
+   ========================================================================== */
+@media (min-width: 1025px) {
+  /* body 分层：页面更深（tinted 更暗一档），面板浮起 */
+  body {
+    background:
+      radial-gradient(1200px 520px at 85% -10%, rgba(169, 79, 8, 0.05), transparent 60%),
+      color-mix(in srgb, var(--bg) 82%, var(--ink) 6%);
+  }
+  .layout {
+    max-width: 1440px;
+    margin: 22px auto;
+    min-height: calc(100vh - 44px);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--card);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-lg);
+  }
+  .sidebar {
+    height: calc(100vh - 44px);
+    position: sticky; top: 22px;
+    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  }
+  /* 主题按钮吸附面板底部（原来是贴视口底部） */
+  .theme-btn { margin-bottom: 0; }
+}
+
+/* ---- finesse hero 横幅：问候 + 日期 + 数字条一体 ---- */
+.dash-hero {
+  position: relative;
+  padding: 26px 28px 22px;
+  border-radius: var(--radius);
+  background:
+    radial-gradient(420px 180px at 92% -30%, var(--accent-soft), transparent 60%),
+    var(--card);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-md);
+  margin: -8px 0 24px;
+}
+.hero-greet {
+  font-size: clamp(26px, 3.2vw, 34px);
+  letter-spacing: -0.03em;
+}
+.hero-date {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 18px;
+  font-size: 13px;
+}
+.dh-stats { gap: 12px; }
+.dh-cell {
+  background: color-mix(in srgb, var(--card2) 45%, var(--card));
+  border-radius: var(--radius-sm);
+}
+.dh-cell .dh-val { font-size: 24px; }
+
+/* 移动端 hero 收紧 */
+@media (max-width: 640px) {
+  .dash-hero { padding: 20px 18px 18px; margin: -4px 0 18px; }
+}
