@@ -47,7 +47,7 @@
           <input class="grow" id="mTitle" placeholder="${curType === "book" ? "书名" : "片名 / 剧名"}" maxlength="80" />
           <input id="mYear" class="w-70" placeholder="年份" maxlength="4" inputmode="numeric" />
           <select id="mStatus">
-            ${STATUS.map((s) => `<option value="${s.key}">${s.status}</option>`).join("")}
+            ${STATUS.map((s) => `<option value="${s.key}">${s.label}</option>`).join("")}
           </select>
           <select id="mRating" title="评分（1-10）">
             <option value="">未评分</option>
@@ -66,7 +66,7 @@
         <div class="m-main">
           <div class="m-title">${esc(m.title)}${m.year ? `<span class="m-year">${esc(m.year)}</span>` : ""}</div>
           <div class="m-meta">
-            <span class="m-status ${m.status}">${STATUS_EMOJI[m.status]} ${s.label}</span>
+            <span class="m-status ${s.key}">${STATUS_EMOJI[s.key]} ${s.label}</span>
             ${m.rating ? `<span class="m-stars">${stars(m.rating)}</span><span class="m-rating-num">${m.rating} 分</span>` : ""}
             ${m.finishedAt ? `<span class="m-done-at">${esc(m.finishedAt)} 看完</span>` : ""}
           </div>
@@ -89,7 +89,7 @@
       return (b.createdAt || "").localeCompare(a.createdAt || "");
     });
     if (!list.length) {
-      return `<div class="empty">${curStatus ? `还没有「${STATUS.find((s) => s.key === curStatus).status}」的${typeOf(curType).label}` : `还没有${typeOf(curType).label}，先添加一个吧`}</div>`;
+      return `<div class="empty">${curStatus ? `还没有「${STATUS.find((s) => s.key === curStatus).label}」的${typeOf(curType).label}` : `还没有${typeOf(curType).label}，先添加一个吧`}</div>`;
     }
     return `<ul class="list">${list.map(renderItem).join("")}</ul>`;
   }
