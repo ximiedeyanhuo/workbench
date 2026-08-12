@@ -411,7 +411,7 @@ a:hover { color: var(--accent); }
   display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
-[data-theme="dark"] .brand-ic, [data-theme="midnight"] .brand-ic { background: linear-gradient(135deg, #ffc67c, #f5a234); color: #1a1206; }
+[data-theme="dark"] .brand-ic, [data-theme="midnight"] .brand-ic { background: linear-gradient(135deg, #ff8f66, #ff6a3d); color: #fff; }
 .brand-ic svg { width: 18px; height: 18px; }
 .brand-txt {
   font-weight: 800; font-size: 15.5px;
@@ -2967,7 +2967,7 @@ mark.news-kw {
   justify-content: center;
   box-shadow: 0 3px 12px -3px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
-[data-theme="dark"] .login-logo, [data-theme="midnight"] .login-logo { background: linear-gradient(135deg, #ffc67c, #f5a234); color: #1a1206; }
+[data-theme="dark"] .login-logo, [data-theme="midnight"] .login-logo { background: linear-gradient(135deg, #ff8f66, #ff6a3d); color: #fff; }
 .login-logo svg { width: 24px; height: 24px; }
 .login-card h2 {
   font-size: 21px;
@@ -4519,3 +4519,41 @@ input::placeholder, textarea::placeholder { color: var(--muted-2); }
 [data-theme="dark"] .nav a.active { background: var(--accent-soft); color: var(--accent); }
 [data-theme="dark"] .nav a .nic { color: var(--muted); }
 [data-theme="dark"] .nav a.active .nic { color: var(--accent); }
+
+/* ==========================================================================
+   年轻扁平 · 页面级精修（全部页面统一到新风格）
+   ========================================================================== */
+/* 看板：白卡 + 大圆角 + 轻影 */
+.kb-col { border-radius: var(--radius); padding: 14px; }
+.kb-card { background: var(--card); border-radius: var(--radius-sm); box-shadow: var(--shadow-sm); }
+.kb-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.kb-cnt { background: var(--card2); border-radius: 999px; }
+
+/* 日历格：hover 提升 + 圆角 */
+.cal-cell { border-radius: var(--radius-sm); transition: border-color .15s, background .15s; }
+.cal-cell:hover { background: color-mix(in srgb, var(--accent-soft) 45%, transparent); }
+
+/* 笔记列表行 */
+.note-li { border-radius: var(--radius-sm); transition: background .15s, box-shadow .15s; }
+.note-li:hover { background: var(--card2); }
+.note-li.on { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
+
+/* 记账汇总卡：白卡圆角 */
+.tx-card { border-radius: var(--radius); border: 1px solid var(--line); box-shadow: var(--shadow-sm); }
+
+/* 任务列表行（item 已全局）补齐：行内编辑态 */
+.item.editing { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+
+/* 资讯源块、入口卡片、网盘行：hairline 圆角统一 */
+.news-src-blk, .link-card, .drive-item, .dl-item { border-radius: var(--radius-sm); }
+
+/* 统计页图表卡 */
+.chart-box { border-radius: var(--radius-sm); }
+.reports-tab-content .card .chart-tt { font-weight: 700; }
+
+/* 设置页主题选择器：大圆角 + 激活橙 */
+.tp-item { border-radius: var(--radius-sm); }
+.tp-item.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); background: var(--accent-soft); }
+
+/* 倒数日 / 提醒 / 书影音卡：白卡圆角 */
+.anniv-card, .media-li { border-radius: var(--radius-sm); }
