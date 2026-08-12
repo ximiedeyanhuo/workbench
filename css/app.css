@@ -4257,7 +4257,10 @@ input:not([type]), select, textarea {
   font-size: 13px; line-height: 1.7;
 }
 .empty::before {
-  content: "🗂"; font-size: 26px; opacity: .7;
+  content: "🌸"; font-size: 30px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: auto; margin: 0;
+  border: none; background: none; box-shadow: none;
 }
 .empty a { color: var(--accent); font-weight: 600; }
 .empty a:hover { text-decoration: underline; }
@@ -4656,7 +4659,12 @@ input:not([type]), select, textarea {
    莫兰迪细节打磨：治愈感 + 柔和交互
    ========================================================================== */
 /* 空状态：治愈系 emoji（替代生硬文件夹） */
-.empty::before { content: "🌸"; font-size: 30px; opacity: 1; }
+.empty::before {
+  content: "🌸"; font-size: 30px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: auto; margin: 0;
+  border: none; background: none; box-shadow: none;
+}
 .empty { color: var(--muted); font-size: 12.5px; }
 
 /* 侧栏导航：莫兰迪 hover 过渡 + 激活卡片感 */
