@@ -4697,3 +4697,49 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
   box-shadow: var(--shadow-sm);
 }
 .gsearch-wrap #gsInput:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* ==========================================================================
+   触摸目标 ≥44px（finesse G 门）
+   ========================================================================== */
+/* 移动端：交互元素最小命中区 44px */
+@media (max-width: 767px) {
+  .icon-btn { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  .tab { min-height: 38px; display: inline-flex; align-items: center; }
+  .btn { min-height: 40px; }
+  .btn.sm { min-height: 36px; }
+  .chk { width: 26px; height: 26px; }
+  .item { padding-top: 10px; padding-bottom: 10px; }
+}
+/* 桌面侧栏链接：命中区 ≥44px */
+.nav a, .nav-parent { min-height: 44px; }
+
+/* ==========================================================================
+   动效增强：tab 切换过渡 + 卡片入场统一
+   ========================================================================== */
+/* tab 切换：内容淡入 */
+#view { animation: viewIn .22s ease-out; }
+@keyframes viewIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+/* 列表项 hover：soft UI 轻位移（仅 hover 设备） */
+@media (hover: hover) and (pointer: fine) {
+  .item, .note-li, .anniv-card, .media-li { transition: transform .15s, box-shadow .15s, background .15s, border-color .15s; }
+  .item:hover, .note-li:hover, .anniv-card:hover, .media-li:hover { transform: translateY(-1px); }
+}
+
+/* Chart.js tooltip 莫兰迪化（圆角胶囊 + 柔和阴影） */
+.chart-tt { font-weight: 700; letter-spacing: 0.01em; }
+
+/* skip-to-content（键盘可达，finesse I 门） */
+.skip-link {
+  position: fixed; top: -60px; left: 16px; z-index: 99999;
+  background: var(--accent-strong); color: #fff;
+  padding: 10px 18px; border-radius: 0 0 12px 12px;
+  font-size: 13px; font-weight: 700;
+  transition: top .2s;
+}
+.skip-link:focus { top: 0; }
+
+/* 顶栏迷你主题按钮：44px 命中区（移动端） */
+@media (max-width: 767px) {
+  .theme-btn.mini { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+}
