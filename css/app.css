@@ -704,6 +704,7 @@ button.offline-disabled {
 }
 .card h2 .count {
   margin-left: auto; font-size: 11.5px; font-weight: 600;
+  line-height: 1; align-self: center;
   color: var(--accent); font-family: var(--mono);
   padding: 3px 10px; background: var(--accent-soft);
   border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
@@ -4902,11 +4903,32 @@ select { padding: 9px 10px; }
 /* 玻璃卡上的分隔线更柔和 */
 .card h2 { border-bottom-color: var(--line); }
 
-/* 空状态 CTA 链接：暖橙胶囊 */
+/* 空状态链接：行内高亮（不打断句子） */
 .empty a {
-  display: inline-block; margin-top: 2px;
-  padding: 4px 12px; border-radius: 999px;
-  background: var(--accent-soft); color: var(--accent-strong);
-  font-weight: 700;
+  color: var(--accent-strong); font-weight: 700;
+  border-bottom: 1.5px dashed var(--accent);
+  padding: 0 1px;
 }
-.empty a:hover { background: var(--accent); color: #fff; text-decoration: none; }
+.empty a:hover { color: var(--accent); border-bottom-style: solid; text-decoration: none; }
+
+/* ==========================================================================
+   对齐修复：表单控件高度统一 + 记账汇总区微调
+   ========================================================================== */
+/* 控件同高（select/input 底部对齐） */
+input[type="text"], input[type="number"], input[type="date"], input[type="password"],
+input:not([type]), select, textarea {
+  box-sizing: border-box;
+  min-height: 38px;
+}
+select { min-height: 38px; }
+
+/* 记账汇总：结余左对齐与卡片同边距（视觉模型：标题与卡片边距不一致） */
+.tx-total { justify-content: flex-start; }
+.tx-summary { padding: 18px; }
+
+/* tx 卡数字与说明间距统一 */
+.tx-card { gap: 4px; padding: 12px 14px; }
+.tx-card b { line-height: 1.3; }
+
+/* 右栏卡片顶部对齐 */
+.fin-side .card, .tx-goal-wrap, .tx-budget-wrap { align-self: start; }
