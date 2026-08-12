@@ -795,6 +795,13 @@
         plugins: {
           legend: { position: "bottom", labels: { color: muted, font: { size: 11 }, boxWidth: 10, boxHeight: 10, padding: 12, usePointStyle: true, pointStyle: "circle" } },
           tooltip: {
+                backgroundColor: (document.documentElement.getAttribute("data-theme") === "dark" || document.documentElement.getAttribute("data-theme") === "midnight") ? "rgba(28, 33, 40, 0.92)" : "rgba(255, 255, 255, 0.92)",
+      titleColor: (document.documentElement.getAttribute("data-theme") === "dark") ? "#eef1f5" : "#2b2f36",
+      bodyColor: (document.documentElement.getAttribute("data-theme") === "dark") ? "#c3cbd4" : "#4a5058",
+      borderColor: "rgba(214, 155, 114, 0.35)",
+      borderWidth: 1,
+      cornerRadius: 10,
+      padding: 10,
             callbacks: {
               label: (ctx) => ` ${ctx.label}  ${fmtYuan(ctx.parsed)} 元  (${((ctx.parsed / total) * 100).toFixed(1)}%)`,
             },
@@ -834,6 +841,13 @@
         plugins: {
           legend: { position: "top", labels: { color: muted, font: { size: 11 }, boxWidth: 10, boxHeight: 10, padding: 8 } },
           tooltip: {
+                backgroundColor: (document.documentElement.getAttribute("data-theme") === "dark" || document.documentElement.getAttribute("data-theme") === "midnight") ? "rgba(28, 33, 40, 0.92)" : "rgba(255, 255, 255, 0.92)",
+      titleColor: (document.documentElement.getAttribute("data-theme") === "dark") ? "#eef1f5" : "#2b2f36",
+      bodyColor: (document.documentElement.getAttribute("data-theme") === "dark") ? "#c3cbd4" : "#4a5058",
+      borderColor: "rgba(214, 155, 114, 0.35)",
+      borderWidth: 1,
+      cornerRadius: 10,
+      padding: 10,
             callbacks: {
               label: (ctx) => ` ${ctx.dataset.label} ${ctx.parsed.y >= 0 ? "+" : ""}${fmtYuan(ctx.parsed.y)} 元`,
             },
@@ -873,7 +887,15 @@
         maintainAspectRatio: false,
         plugins: {
           legend: { position: "top", labels: { color: muted, font: { size: 11 }, boxWidth: 10, boxHeight: 10, padding: 8 } },
-          tooltip: { callbacks: { label: (c) => ` ${c.dataset.label} ${fmtYuan(c.parsed.y)} 元` } },
+          tooltip: {
+            backgroundColor: (document.documentElement.getAttribute("data-theme") === "dark" || document.documentElement.getAttribute("data-theme") === "midnight") ? "rgba(28, 33, 40, 0.92)" : "rgba(255, 255, 255, 0.92)",
+      titleColor: (document.documentElement.getAttribute("data-theme") === "dark") ? "#eef1f5" : "#2b2f36",
+      bodyColor: (document.documentElement.getAttribute("data-theme") === "dark") ? "#c3cbd4" : "#4a5058",
+      borderColor: "rgba(214, 155, 114, 0.35)",
+      borderWidth: 1,
+      cornerRadius: 10,
+      padding: 10,
+      callbacks: { label: (c) => ` ${c.dataset.label} ${fmtYuan(c.parsed.y)} 元` } },
         },
         scales: {
           x: { ticks: { color: muted, font: { size: 10 } }, grid: { display: false } },

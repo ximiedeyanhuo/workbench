@@ -4883,3 +4883,30 @@ input:not([type]), select, textarea {
   padding: 9px 12px;
 }
 select { padding: 9px 10px; }
+
+/* ==========================================================================
+   收尾：hover 过渡平滑 + 微交互细节
+   ========================================================================== */
+@media (hover: hover) and (pointer: fine) {
+  .btn, .tab, .badge, .nav a, .dh-cell, .stat {
+    transition: background .18s ease, color .18s ease, border-color .18s ease,
+                box-shadow .18s ease, transform .15s ease;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .card:hover { transform: translateY(-2px); }
+}
+
+/* 数字滚动中禁止选中闪烁 */
+.s-val, .dh-val { user-select: none; }
+
+/* 玻璃卡上的分隔线更柔和 */
+.card h2 { border-bottom-color: var(--line); }
+
+/* 空状态 CTA 链接：暖橙胶囊 */
+.empty a {
+  display: inline-block; margin-top: 2px;
+  padding: 4px 12px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent-strong);
+  font-weight: 700;
+}
+.empty a:hover { background: var(--accent); color: #fff; text-decoration: none; }

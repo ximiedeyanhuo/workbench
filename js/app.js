@@ -340,7 +340,15 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => "净资产 " + fmtMoney(c.parsed.y) } } },
+        plugins: { legend: { display: false }, tooltip: {
+            backgroundColor: (document.documentElement.getAttribute("data-theme") === "dark" || document.documentElement.getAttribute("data-theme") === "midnight") ? "rgba(28, 33, 40, 0.92)" : "rgba(255, 255, 255, 0.92)",
+      titleColor: (document.documentElement.getAttribute("data-theme") === "dark") ? "#eef1f5" : "#2b2f36",
+      bodyColor: (document.documentElement.getAttribute("data-theme") === "dark") ? "#c3cbd4" : "#4a5058",
+      borderColor: "rgba(214, 155, 114, 0.35)",
+      borderWidth: 1,
+      cornerRadius: 10,
+      padding: 10,
+      callbacks: { label: (c) => "净资产 " + fmtMoney(c.parsed.y) } } },
         scales: {
           x: { ticks: { color: muted, font: { size: 10 }, maxRotation: 0, autoSkipPadding: 12 }, grid: { display: false } },
           y: { ticks: { color: muted, font: { size: 10 }, precision: 0, callback: (v) => v >= 10000 ? (v / 10000).toFixed(1) + "万" : v }, grid: { color: line } },
