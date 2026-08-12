@@ -5,10 +5,14 @@
   "description": "自托管个人效率仪表盘 — 任务、笔记、习惯、财务、资讯",
   "start_url": "/",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "any",
-  "background_color": "#f3eee2",
-  "theme_color": "#a94f08",
+  "background_color": "#f4f6f4",
+  "theme_color": "#ff6a3d",
   "icons": [
     {
       "src": "/icon-192.png",
