@@ -25,14 +25,20 @@
   --card2:         #f0f1ee;   /* 内衬浅灰米 */
   --ink:           #41454c;   /* 深灰蓝字 */
   --ink-2:         #5d626b;   /* 次级字 */
-  --muted:         #8b9099;   /* 说明文字（≥4.5:1 on card） */
-  --muted-2:       #a3a7ae;   /* 占位/禁用 */
+  --muted:         #70757e;   /* 说明文字（4.44:1 on card） */
+  --muted-2:       #8b9099;   /* 占位/禁用 */
   --line:          rgba(65, 69, 76, 0.09);   /* hairline */
   --rule:          rgba(65, 69, 76, 0.18);   /* 强调分隔线 */
-  --accent:        #c9956b;   /* 莫兰迪暖橙（治愈主色） */
-  --accent-strong: #b07f52;
+  --accent:        #b07f52;   /* 莫兰迪暖橙（链接/激活 ≥3:1 on card） */
+  --accent-strong: #96663e;
   --accent-hover:  #a2724a;
   --accent-soft:   rgba(201, 149, 107, 0.12);
+  /* 莫兰迪渐变与面板专用色（收敛硬编码） */
+  --hero-a:        #cf9a6e;
+  --hero-b:        #bd8658;
+  --brand-a:       #d9a87c;
+  --rail-light:    #e2e7eb;
+  --rail-dark:     #171b20;
   --primary:       #41454c;
   --danger:        #c98f8f;   /* 莫兰迪红 */
   --warn:          #c9a96b;   /* 莫兰迪金 */
@@ -404,13 +410,13 @@ a:hover { color: var(--accent); }
 }
 .brand-ic {
   width: 34px; height: 34px; border-radius: 10px;
-  background: linear-gradient(135deg, #d9a87c, #c9956b);
+  background: linear-gradient(135deg, var(--brand-a), var(--accent));
   color: #fff;
   box-shadow: 0 2px 10px -2px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
   display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
-[data-theme="dark"] .brand-ic, [data-theme="midnight"] .brand-ic { background: linear-gradient(135deg, #e0b48c, #c9956b); color: #fff; }
+[data-theme="dark"] .brand-ic, [data-theme="midnight"] .brand-ic { background: linear-gradient(135deg, var(--accent-hover), var(--accent)); color: #fff; }
 .brand-ic svg { width: 18px; height: 18px; }
 .brand-txt {
   font-weight: 800; font-size: 15.5px;
@@ -2959,14 +2965,14 @@ mark.news-kw {
   height: 52px;
   margin: 10px auto 16px;
   border-radius: 13px;
-  background: linear-gradient(135deg, #d9a87c, #c9956b);
+  background: linear-gradient(135deg, var(--brand-a), var(--accent));
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow: 0 3px 12px -3px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
-[data-theme="dark"] .login-logo, [data-theme="midnight"] .login-logo { background: linear-gradient(135deg, #e0b48c, #c9956b); color: #fff; }
+[data-theme="dark"] .login-logo, [data-theme="midnight"] .login-logo { background: linear-gradient(135deg, var(--accent-hover), var(--accent)); color: #fff; }
 .login-logo svg { width: 24px; height: 24px; }
 .login-card h2 {
   font-size: 21px;
@@ -3360,7 +3366,7 @@ mark.news-kw {
   min-width: 18px; height: 18px; padding: 0 5px;
   border-radius: var(--radius-pill);
   font-size: 11px; font-weight: 700; line-height: 1;
-  background: var(--accent); color: #fff;
+  background: var(--accent); color: #3a2a1a;
 }
 /* 暗色下琥珀底改用深墨文字（沿用本文件既有约定，如 .tab.on/.cal-cell.today） */
 [data-theme="dark"] .cal-task-badge, [data-theme="midnight"] .cal-task-badge { color: #161006; }
@@ -3697,10 +3703,10 @@ mark.news-kw {
 /* 按钮：薄荷绿胶囊 */
 [data-theme="mint"] .btn {
   background: var(--accent); color: #fff; border: none;
-  border-radius: 999px; font-weight: 600;
+  border-radius: 999px; font-weight: 700;
   box-shadow: var(--shadow-sm);
 }
-[data-theme="mint"] .btn:hover { background: var(--accent-hover); }
+[data-theme="mint"] .btn:hover { background: var(--accent-hover); color: #fff; }
 [data-theme="mint"] .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
 [data-theme="mint"] .btn.ghost:hover { background: var(--accent-soft); }
 
@@ -4563,7 +4569,7 @@ input::placeholder, textarea::placeholder { color: var(--muted-2); }
 .dash-hero {
   background:
     radial-gradient(480px 200px at 92% -20%, rgba(255, 255, 255, 0.25), transparent 60%),
-    linear-gradient(135deg, #d9a87c 0%, #c9956b 100%);
+    linear-gradient(135deg, var(--brand-a) 0%, var(--accent) 100%);
   border: none;
   color: #fff;
   box-shadow: 0 8px 24px -10px rgba(201, 149, 107, 0.5);
@@ -4627,8 +4633,8 @@ input:not([type]), select, textarea {
 .tx-year-table, .stk-table { border-radius: var(--radius-sm); overflow: hidden; }
 
 /* ---- 莫兰迪微调：侧栏区分度 + 暗色强调对比 + 主题按钮权重 ---- */
-[data-theme="light"] .sidebar { background: #e2e7eb; }  /* 侧栏比内容区深一档（灰蓝） */
-[data-theme="dark"] .sidebar { background: #171b20; }   /* dark 侧栏更深 */
+[data-theme="light"] .sidebar { background: var(--rail-light); }  /* 侧栏比内容区深一档（灰蓝） */
+[data-theme="dark"] .sidebar { background: var(--rail-dark); }   /* dark 侧栏更深 */
 [data-theme="dark"] .nav a.active { color: #e8b48a; }   /* 暗色激活文字提亮 */
 [data-theme="dark"] .stat:first-child .s-val, [data-theme="dark"] .card h2 .count { color: #d9a87c; }
 [data-theme="light"] .theme-btn {
@@ -4679,7 +4685,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 .dash-hero {
   background:
     radial-gradient(480px 200px at 92% -20%, rgba(255, 255, 255, 0.2), transparent 60%),
-    linear-gradient(135deg, #cf9a6e 0%, #bd8658 100%);
+    linear-gradient(135deg, var(--hero-a) 0%, var(--hero-b) 100%);
 }
 /* 数字格密度：单位字稍大 + 间距 */
 .dh-cell .dh-val { font-size: 25px; letter-spacing: -0.01em; }
