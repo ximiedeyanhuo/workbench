@@ -1234,12 +1234,17 @@ button.tab:focus-visible { outline-offset: 0; }
 .chart-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .chart-grid-2 { grid-template-columns: repeat(2, 1fr); }
 .chart-box { min-width: 0; }
+/* reports 财务图表：容器固定高度保证 doughnut(饼图) + 底部图例不溢出截断
+   （chart-box 本身无高度而 chart 用 maintainAspectRatio:false，若容器高度不够，
+   bottom legend 会挤压圆图导致饼图下半被裁 —— finance 的 tx-chart-wrap 已有 220px 先例） */
+.chart-grid-2 .chart-box { height: 250px; }
 .chart-tt {
   font-size: 11.5px; font-weight: 700; color: var(--muted);
   margin-bottom: 10px; letter-spacing: 0.03em;
 }
 .chart-tt::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 2px; background: var(--accent); margin-right: 7px; transform: rotate(45deg); }
 .chart-box canvas { width: 100% !important; }
+.chart-box canvas[height] { max-height: 100% !important; }
 
 /* 净资产趋势（净资产总览卡内嵌 sparkline） */
 .nw-trend { margin-top: 14px; position: relative; }
@@ -3450,7 +3455,7 @@ mark.news-kw {
 
 /* ---------- 灵感速记（quick.js） ---------- */
 .quick-fab {
-  position: fixed; right: 18px; bottom: 72px; z-index: 90;
+  position: fixed; right: 18px; bottom: 92px; z-index: 90;
   display: inline-flex; align-items: center; gap: 5px;
   padding: 9px 14px; border-radius: var(--radius-pill);
   background: var(--card2); color: var(--accent-strong);
