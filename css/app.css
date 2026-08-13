@@ -4993,8 +4993,15 @@ input.w-150, input.w-160, input.w-170, input.w-180, input.w-200 { border-radius:
   box-shadow: inset 3px 0 0 var(--accent), inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
-/* 大金额数字：长数值不撑破卡片（等宽 + 允许略小） */
-.dh-cell .dh-val { overflow-wrap: anywhere; }
+/* 大金额数字：长数值不撑破卡片（不强行任意处换行；字号随单元格宽度自动缩到能装下，溢出截断兜底） */
+.dh-cell { container-type: inline-size; min-width: 0; }
+.dh-cell .dh-val {
+  font-size: clamp(15px, 18cqw, 25px);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* ---- 配色收尾：搜索框/输入框在深色下的边界感 ---- */
 [data-theme="dark"] .gsearch-wrap #gsInput { background: rgba(255, 255, 255, 0.09); border-color: rgba(255, 255, 255, 0.14); }
