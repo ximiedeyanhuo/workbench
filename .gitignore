@@ -27,3 +27,4 @@ deploy.ps1
 # 本地计划与测试截图
 .zcode/
 e2e-*.png
+tmp/
