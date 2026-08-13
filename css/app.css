@@ -1115,7 +1115,7 @@ button.tab:focus-visible { outline-offset: 0; }
 .dash-banner.over { color: var(--danger); border-color: var(--danger); border-left-color: var(--danger); background: color-mix(in srgb, var(--danger) 7%, var(--card)); }
 .dash-banner.warn { color: #C77E00; border-color: #F59E0B; border-left-color: #F59E0B; background: color-mix(in srgb, #F59E0B 8%, var(--card)); }
 .dash-banner.ok { color: var(--ok); border-color: var(--ok); border-left-color: var(--ok); background: color-mix(in srgb, var(--ok) 7%, var(--card)); }
-.dash-banner:hover { box-shadow: var(--shadow); }
+.dash-banner:hover { box-shadow: var(--shadow-md); }
 .dash-banner .c-accent { color: var(--accent); margin-left: auto; font-weight: 700; }
 
 /* 月度预算卡：超支/预测超支时整张卡片红/橙边框 */
@@ -2270,22 +2270,22 @@ mark.news-kw {
   padding: 10px 16px; border-radius: var(--radius-pill);
   background: var(--accent); color: #1a1206; border: none; cursor: pointer;
   font-size: 13px; font-weight: 700;
-  box-shadow: var(--shadow), 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent);
+  box-shadow: var(--shadow-md), 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent);
   transition: transform .15s, box-shadow .15s;
   font-family: var(--mono);
   letter-spacing: 0.04em;
 }
-.focus-fab:hover { transform: translateY(-1px); box-shadow: var(--shadow), 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent); }
+.focus-fab:hover { transform: translateY(-1px); box-shadow: var(--shadow-md), 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent); }
 .focus-fab.running { background: var(--danger); color: #fff; animation: focusPulse 1.6s ease-in-out infinite; }
 .focus-fab.paused { background: var(--warn); color: #1a1206; }
 .focus-fab.finished { background: var(--ok); color: #fff; }
-@keyframes focusPulse { 0%,100% { box-shadow: var(--shadow), 0 0 0 0 color-mix(in srgb, var(--danger) 60%, transparent); } 50% { box-shadow: var(--shadow), 0 0 0 12px color-mix(in srgb, var(--danger) 0%, transparent); } }
+@keyframes focusPulse { 0%,100% { box-shadow: var(--shadow-md), 0 0 0 0 color-mix(in srgb, var(--danger) 60%, transparent); } 50% { box-shadow: var(--shadow-md), 0 0 0 12px color-mix(in srgb, var(--danger) 0%, transparent); } }
 
 .focus-panel {
   position: fixed; right: 18px; bottom: 72px; z-index: 91;
   width: 320px; max-width: calc(100vw - 24px);
   background: var(--card); border: 1px solid var(--line); border-radius: 14px;
-  box-shadow: var(--shadow), var(--card-lit);
+  box-shadow: var(--shadow-md), var(--card-lit);
   padding: 0; overflow: hidden;
   animation: focusIn .18s ease-out;
 }
@@ -3457,13 +3457,13 @@ mark.news-kw {
   transition: transform .15s, box-shadow .15s, border-color .15s;
 }
 .quick-fab svg { width: 14px; height: 14px; }
-.quick-fab:hover { transform: translateY(-1px); border-color: var(--accent); box-shadow: var(--shadow), 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+.quick-fab:hover { transform: translateY(-1px); border-color: var(--accent); box-shadow: var(--shadow-md), 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
 
 .quick-panel {
   position: fixed; right: 18px; bottom: 116px; z-index: 91;
   width: 340px; max-width: calc(100vw - 24px);
   background: var(--card); border: 1px solid var(--line); border-radius: 14px;
-  box-shadow: var(--shadow), var(--card-lit);
+  box-shadow: var(--shadow-md), var(--card-lit);
   overflow: hidden;
   animation: focusIn .18s ease-out;
 }
@@ -4590,11 +4590,11 @@ input::placeholder, textarea::placeholder { color: var(--muted-2); }
 .dash-hero .hero-date { color: var(--muted); }
 .dash-hero .hero-date b { color: var(--accent); }
 .dh-cell {
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--card2);
+  border: 1px solid var(--line);
   box-shadow: none;
 }
-.dh-cell:hover { background: rgba(255, 255, 255, 0.12); border-color: var(--accent); }
+.dh-cell:hover { border-color: var(--accent); }
 .dh-cell .dh-val { color: var(--ink); }
 .dh-cell .dh-lab { color: var(--muted); }
 .dh-cell .dh-sub { color: var(--muted); }
@@ -4757,7 +4757,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 
 /* 灰蓝底上的直接文字（面板外）：浅色 */
 body { color: var(--ink); }
-.footnote, .mode-badge { color: rgba(255, 255, 255, 0.75); }
+.mode-badge { color: rgba(255, 255, 255, 0.75); }
 [data-theme="dark"] .footnote, [data-theme="dark"] .mode-badge { color: var(--muted); }
 
 /* ==========================================================================
@@ -4796,7 +4796,8 @@ body { color: var(--ink); }
 [data-theme="light"] .brand-txt { color: var(--ink); }
 [data-theme="light"] .brand-txt small { color: var(--muted); }
 /* 面板外脚注浅色 */
-.footnote { color: rgba(255, 255, 255, 0.6); }
+/* 面板外脚注：跟随主题，避免在亮色背景上变成白字 */
+.footnote { color: var(--muted-2); }
 /* 顶部栏玻璃 */
 .topbar { background: rgba(255, 255, 255, 0.03); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 
