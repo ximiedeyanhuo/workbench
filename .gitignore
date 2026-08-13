@@ -28,3 +28,4 @@ deploy.ps1
 .zcode/
 e2e-*.png
 tmp/
+login_fails.json.tmp

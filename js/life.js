@@ -114,7 +114,7 @@
       <h2>健康记录<span class="count">同一天同一指标重复录入会覆盖</span></h2>
       <div class="row sp-b-md">
         <select id="hMetric">${opts}</select>
-        <input type="number" id="hValue" placeholder="数值" class="w-110" min="0" step="0.1" />
+        <input type="number" id="hValue" placeholder="数值" class="w-130" min="0" step="0.1" />
         <input type="date" id="hDate" value="${todayStr()}" />
         <button class="btn in-card-btn" id="hAdd">记一笔</button>
       </div>
