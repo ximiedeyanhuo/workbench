@@ -181,7 +181,7 @@
   function goalHtml(saved, target, pct) {
     return `<div class="card">
       <h2>年度储蓄目标</h2>
-      <div class="progress-top"><span>已存 ${fmtMoney(saved)} / ${fmtMoney(target)}</span><b>${pct}%</b></div>
+      <div class="progress-top"><span>已存 ${fmtMoney(saved)} / ${fmtMoney(target)}</span><b>${pct}</b></div>
       <div class="bar"><i style="width:${pct}%"></i></div>
       <div class="tx-goal-edit">
         目标金额 <input type="number" id="finTarget" value="${Number(target)}" min="0" /> 元 <span class="mla">仅统计「储蓄」类型</span>
@@ -212,7 +212,7 @@
           : `<div class="tx-budget-tip">剩余 ${fmtYuan(budget - exp)} 元，节奏健康${has ? ` · 日均 ${fmtYuan(dailyAvg)}` : ""}</div>`;
     return `<div class="card ${over ? "card-over" : projOver ? "card-warn" : ""}" id="finBudgetCard">
       <h2>月度预算<span class="count">${finYear}年${finMonth + 1}月</span></h2>
-      ${has ? `<div class="progress-top"><span>已支出 ${fmtYuan(exp)} / ${fmtYuan(budget)}</span><b style="${over ? "color:var(--danger)" : projOver ? "color:var(--warn)" : ""}">${pct}%</b></div>
+      ${has ? `<div class="progress-top"><span>已支出 ${fmtYuan(exp)} / ${fmtYuan(budget)}</span><b style="${over ? "color:var(--danger)" : projOver ? "color:var(--warn)" : ""}">${pct}</b></div>
       <div class="bar"><i style="width:${pct}%;${over ? "background:var(--danger)" : warn80 ? "background:var(--warn)" : ""}"></i></div>` : ""}
       ${tip}
       <div class="tx-goal-edit">

@@ -2598,6 +2598,12 @@ mark.news-kw {
 @media (max-width: 1023px) and (min-width: 768px) {
   .chart-grid { grid-template-columns: 1fr 1fr; }
 }
+@media (max-width: 1100px) and (min-width: 768px) {
+  /* 窄侧栏/窄桌面区间（768~1100px）：资讯分类 tabs 单行横向滚动，避免溢出屏幕 */
+  .news-ctl-row .tabs.grow { flex: 1 1 100%; min-width: 0; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .news-ctl-row .tabs.grow::-webkit-scrollbar { display: none; }
+  .news-ctl-row .tabs.grow .tab { flex-shrink: 0; }
+}
 @media (max-width: 767px) {
   /* —— 防横向溢出：页面只允许纵向滚动，根治左右能拖动的问题 —— */
   html, body { overflow-x: hidden; max-width: 100vw; overscroll-behavior-x: none; }
