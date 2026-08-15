@@ -1116,6 +1116,10 @@
             <span class="s-desc">超出后自动删除最早的远端备份</span>
           </div>
           <div class="set-row">
+            <span class="s-name">自动备份</span>
+            <span class="s-desc">每周日自动推送一份云端备份（后台定时任务，服务运行中也会触发）；服务重启当天也会自动备份一次</span>
+          </div>
+          <div class="set-row">
             <span class="s-name">立即备份</span>
             <button class="btn sm" id="wdavBackupBtn">备份到云端</button>
             <span class="s-desc" id="wdavStatus">未配置</span>
@@ -1123,7 +1127,7 @@
           <div id="wdavList"><div class="empty">还没有远端备份</div></div>
           <div class="set-row" style="align-items:flex-start">
             <span class="s-name">说明</span>
-            <span class="s-desc">坚果云授权码获取：网页版右上角头像 → 设置 → 安全选项 → 添加应用 → 生成授权码。备份的是<b>当前账号</b>完整数据库（与服务器启动时自动备份内容相同，含任务/笔记/记账等全部数据），服务启动时也会顺带自动推送一份。凭据仅存服务器端，与网盘 Cookie 同级，请勿分享。</span>
+            <span class="s-desc">坚果云授权码获取：网页版右上角头像 → 设置 → 安全选项 → 添加应用 → 生成授权码。备份的是<b>当前账号</b>完整数据库（含任务/笔记/记账等全部数据）。服务每次启动时自动推送一份，另外<b>每周日</b>固定自动备份一次（后台定时任务，无需重启服务器）。凭据仅存服务器端，与网盘 Cookie 同级，请勿分享。</span>
           </div>
         </div>` : ""}
         <div class="card">

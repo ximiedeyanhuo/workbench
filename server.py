@@ -1718,7 +1718,8 @@ def _wdav_push_file(name: str, db_path: Path, config: dict) -> None:
 
 
 def _webdav_push_auto(db_path: Path) -> None:
-    """启动时：若该库主人配置了 WebDAV 且当天还没推过，则推一份云端备份（失败只打日志）"""
+    """若该库主人配置了 WebDAV 且当天还没推过，则推一份云端备份（失败只打日志）。
+    启动自动备份与周日定时任务共用：远端按「今天」去重，重复调用不会产生多份"""
     try:
         conn = sqlite3.connect(db_path)
         try:
@@ -1733,12 +1734,45 @@ def _webdav_push_auto(db_path: Path) -> None:
         user = ADMIN_USER if db_path == DB_FILE else db_path.stem.replace("workbench_", "")
         today = date.today().isoformat()
         name = f"workbench-{user}-{today}.db"
-        if any(f["name"].startswith(f"workbench-{user}-{today}") for f in _wdav_list(cfg)):
+        try:
+            already = any(f["name"].startswith(f"workbench-{user}-{today}") for f in _wdav_list(cfg))
+        except HTTPException:
+            already = False  # 备份目录还不存在（首次使用）→ 视为无备份，走创建+推送
+        if already:
             return
         _wdav_push_file(name, db_path, cfg)
         print(f"webdav auto backup: {name}")
     except Exception as e:
         print(f"[webdav] 自动推送失败 {db_path.name}: {e}")
+
+
+WEEKLY_BACKUP_DAY = 6  # 周日（周一=0 … 周日=6）
+
+
+def _wdav_weekly_backup() -> None:
+    """周任务主体：给所有配置了 WebDAV 的库补做当天云端备份（单库失败不拖累其他）"""
+    for db_path in sorted(BASE_DIR.glob("workbench*.db")):
+        try:
+            _webdav_push_auto(db_path)
+        except Exception as e:
+            print(f"[webdav] 周备份失败 {db_path.name}: {e}")
+
+
+def _wdav_scheduler_tick() -> None:
+    """单次调度检查（可单测）：周日执行周备份"""
+    if date.today().weekday() == WEEKLY_BACKUP_DAY:
+        _wdav_weekly_backup()
+
+
+def _wdav_scheduler_loop() -> None:
+    """后台守护线程：每 30 分钟检查一次，周日自动做云端备份。
+    保证「每周日备份一次」——服务器长时间不重启也能触发（重启当天另有启动自动备份）"""
+    while True:
+        time.sleep(1800)
+        try:
+            _wdav_scheduler_tick()
+        except Exception as e:
+            print(f"[webdav] 周备份调度异常: {e}")
 
 
 @app.post("/api/webdav/config")
@@ -1870,5 +1904,7 @@ if __name__ == "__main__":
     ensure_default_admin()
     init_db()
     auto_backup()
+    # 每周日云端备份定时任务（后台守护线程，随进程退出）
+    threading.Thread(target=_wdav_scheduler_loop, name="wdav-scheduler", daemon=True).start()
     print(f"workbench server: http://{HOST}:{PORT}  (用户数: {len(USERS)}, admin 库: {DB_FILE.name})")
     uvicorn.run(app, host=HOST, port=PORT, log_level="warning")
