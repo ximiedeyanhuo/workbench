@@ -1088,6 +1088,44 @@
             <span class="s-desc" id="aiStatus">查询中…</span>
           </div>
         </div>
+        ${window.WB.USE_API ? `
+        <div class="card">
+          <h2>云备份<span class="count">WebDAV · 坚果云</span></h2>
+          <div class="set-row">
+            <span class="s-name">服务器地址</span>
+            <input id="wdavUrl" class="input fx1" placeholder="https://dav.jianguoyun.com/dav/" />
+          </div>
+          <div class="set-row">
+            <span class="s-name">账号</span>
+            <input id="wdavUser" class="input fx1" placeholder="坚果云登录邮箱" autocomplete="username" />
+          </div>
+          <div class="set-row">
+            <span class="s-name">应用授权码</span>
+            <input id="wdavPass" type="password" class="input fx1" placeholder="坚果云网页版生成的授权码（非登录密码），留空表示沿用已保存的" autocomplete="current-password" />
+            <button class="btn sm" id="wdavSaveBtn">保存</button>
+            <button class="btn sm" id="wdavTestBtn">测试连接</button>
+          </div>
+          <div class="set-row">
+            <span class="s-name">备份目录</span>
+            <input id="wdavDir" class="input w-170" placeholder="workbench-backup" />
+            <span class="s-desc">远端 WebDAV 下的子目录，不存在会自动创建</span>
+          </div>
+          <div class="set-row">
+            <span class="s-name">保留份数</span>
+            <input id="wdavKeep" type="number" min="1" max="50" class="input w-80" value="10" />
+            <span class="s-desc">超出后自动删除最早的远端备份</span>
+          </div>
+          <div class="set-row">
+            <span class="s-name">立即备份</span>
+            <button class="btn sm" id="wdavBackupBtn">备份到云端</button>
+            <span class="s-desc" id="wdavStatus">未配置</span>
+          </div>
+          <div id="wdavList"><div class="empty">还没有远端备份</div></div>
+          <div class="set-row" style="align-items:flex-start">
+            <span class="s-name">说明</span>
+            <span class="s-desc">坚果云授权码获取：网页版右上角头像 → 设置 → 安全选项 → 添加应用 → 生成授权码。备份的是<b>当前账号</b>完整数据库（与服务器启动时自动备份内容相同，含任务/笔记/记账等全部数据），服务启动时也会顺带自动推送一份。凭据仅存服务器端，与网盘 Cookie 同级，请勿分享。</span>
+          </div>
+        </div>` : ""}
         <div class="card">
           <h2>网盘配置</h2>
           <div id="driveSettingsArea"></div>
@@ -1145,6 +1183,138 @@
         setTimeout(() => window.WB.drive.bindSettingsEvents(), 0);
       } else {
         driveSettingsArea.innerHTML = '<div class="empty">仅在线模式支持网盘功能</div>';
+      }
+
+      // WebDAV 云备份（在线模式）
+      if (window.WB.USE_API) {
+        const wdavListEl = el.querySelector("#wdavList");
+        async function wdavRefreshList() {
+          try {
+            const res = await fetch("/api/webdav/list");
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            const files = (await res.json()).files || [];
+            if (!wdavListEl) return;
+            if (!files.length) {
+              wdavListEl.innerHTML = '<div class="empty">还没有远端备份，点「备份到云端」生成第一份</div>';
+              return;
+            }
+            wdavListEl.innerHTML = files
+              .map((f) => `<div class="set-row">
+                  <span class="s-name" style="white-space:normal">${esc(f.name)}</span>
+                  <span class="s-desc">${(f.size / 1024).toFixed(1)} KB · ${esc(f.mtime || "")}</span>
+                  <button class="btn danger sm" data-wdav-restore="${esc(f.name)}">恢复</button>
+                </div>`)
+              .join("");
+            wdavListEl.querySelectorAll("[data-wdav-restore]").forEach((b) =>
+              b.addEventListener("click", async () => {
+                const name = b.getAttribute("data-wdav-restore");
+                if (!confirm(`确定用远端备份「${name}」覆盖当前账号全部数据？不可撤销，建议先备份一次。`)) return;
+                const hideLoading = showLoading("正在恢复...");
+                try {
+                  const r = await fetch("/api/webdav/restore", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ file: name }),
+                  });
+                  const d = await r.json().catch(() => ({}));
+                  if (!r.ok) throw new Error(d.detail || "HTTP " + r.status);
+                  hideLoading();
+                  showToast(`已恢复 ${d.rows} 条记录`, "success");
+                  wdavRefreshList();
+                } catch (e) {
+                  hideLoading();
+                  showToast("恢复失败：" + e.message, "error");
+                }
+              })
+            );
+          } catch (e) {
+            if (wdavListEl) wdavListEl.innerHTML = `<div class="empty">查询失败：${esc(e.message)}</div>`;
+          }
+        }
+
+        const wdavUrl = el.querySelector("#wdavUrl");
+        const wdavUser = el.querySelector("#wdavUser");
+        const wdavPass = el.querySelector("#wdavPass");
+        const wdavDir = el.querySelector("#wdavDir");
+        const wdavKeep = el.querySelector("#wdavKeep");
+        // 回显已保存配置（授权码不回显）
+        fetch("/api/webdav/config")
+          .then((r) => r.json())
+          .then((c) => {
+            if (wdavUrl && c.url) wdavUrl.value = c.url;
+            if (wdavUser && c.user) wdavUser.value = c.user;
+            if (wdavDir && c.dir) wdavDir.value = c.dir;
+            if (wdavKeep && c.keep) wdavKeep.value = c.keep;
+            if (c.configured) {
+              const statusEl = el.querySelector("#wdavStatus");
+              if (statusEl && statusEl.textContent === "未配置") statusEl.textContent = "已配置，可点「测试连接」验证";
+            }
+          })
+          .catch(() => {});
+        const wdavSaveBtn = el.querySelector("#wdavSaveBtn");
+        if (wdavSaveBtn)
+          wdavSaveBtn.addEventListener("click", async () => {
+            const hideLoading = showLoading("正在保存...");
+            try {
+              const r = await fetch("/api/webdav/config", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  url: wdavUrl.value.trim(),
+                  user: wdavUser.value.trim(),
+                  pass: wdavPass.value,
+                  dir: wdavDir.value.trim(),
+                  keep: Number(wdavKeep.value) || 10,
+                }),
+              });
+              const d = await r.json().catch(() => ({}));
+              if (!r.ok) throw new Error(d.detail || "HTTP " + r.status);
+              hideLoading();
+              showToast("已保存", "success");
+            } catch (e) {
+              hideLoading();
+              showToast("保存失败：" + e.message, "error");
+            }
+          });
+        const wdavTestBtn = el.querySelector("#wdavTestBtn");
+        if (wdavTestBtn)
+          wdavTestBtn.addEventListener("click", async () => {
+            const statusEl = el.querySelector("#wdavStatus");
+            if (statusEl) { statusEl.textContent = "测试中…"; statusEl.style.color = ""; }
+            const hideLoading = showLoading("正在测试连接...");
+            try {
+              const r = await fetch("/api/webdav/test", { method: "POST" });
+              const d = await r.json().catch(() => ({}));
+              if (!r.ok) throw new Error(d.detail || "HTTP " + r.status);
+              hideLoading();
+              if (statusEl) { statusEl.textContent = "✓ 连接成功，可访问备份目录"; statusEl.style.color = "var(--ok)"; }
+              showToast("WebDAV 连接成功", "success");
+              wdavRefreshList();
+            } catch (e) {
+              hideLoading();
+              if (statusEl) { statusEl.textContent = "✗ " + e.message; statusEl.style.color = "var(--danger)"; }
+              showToast("连接失败：" + e.message, "error");
+            }
+          });
+        const wdavBackupBtn = el.querySelector("#wdavBackupBtn");
+        if (wdavBackupBtn)
+          wdavBackupBtn.addEventListener("click", async () => {
+            const hideLoading = showLoading("正在备份到云端...");
+            try {
+              const r = await fetch("/api/webdav/backup", { method: "POST" });
+              const d = await r.json().catch(() => ({}));
+              if (!r.ok) throw new Error(d.detail || "HTTP " + r.status);
+              hideLoading();
+              showToast("备份完成：" + d.name, "success");
+              const statusEl = el.querySelector("#wdavStatus");
+              if (statusEl) { statusEl.textContent = "✓ 已备份：" + d.name; statusEl.style.color = "var(--ok)"; }
+              wdavRefreshList();
+            } catch (e) {
+              hideLoading();
+              showToast("备份失败：" + e.message, "error");
+            }
+          });
+        wdavRefreshList();
       }
 
       // 账号：修改密码 / 退出登录（仅在线模式渲染了这些控件）

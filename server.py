@@ -23,11 +23,13 @@ import re
 import secrets
 import socket
 import sqlite3
+import tempfile
 import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import xml.etree.ElementTree as ET
 from datetime import date, datetime
 from pathlib import Path
 
@@ -269,6 +271,8 @@ def auto_backup() -> None:
                     dst.close()
                 tmp.replace(target)
                 print(f"auto backup: {target.name}")
+                # 配置了 WebDAV 的用户库，同一天顺带推一份云端备份（失败只打日志，不影响启动）
+                _webdav_push_auto(db_path)
             # 滚动清理：文件名含日期，按名排序即按时间排序（注意 workbench-* 不会误匹配 workbench_xxx-*）
             for old in sorted(BACKUP_DIR.glob(f"{db_path.stem}-*.db"))[:-BACKUP_KEEP]:
                 try:
@@ -1579,6 +1583,283 @@ async def baidu_config_save(request: Request):
     cookie = payload.get("cookie", "").strip()
     save_drive_config("baidu", {"cookie": cookie})
     return {"ok": True}
+
+
+# ---------- WebDAV 云备份（默认坚果云）----------
+# 配置存 settings store（key webdav_backup_config）：{url, user, pass, dir, keep}
+# 坚果云 WebDAV 地址 https://dav.jianguoyun.com/dav/，账号 = 登录邮箱，
+# 密码 = 网页版「安全选项 → 添加应用」生成的授权码（不是登录密码）。
+# 凭据明文存各自用户库（与网盘 Cookie 同等级信任）；SSRF 校验只允许公网地址。
+
+WDAV_DEFAULT_URL = "https://dav.jianguoyun.com/dav/"
+WDAV_TIMEOUT = 30
+
+
+def get_webdav_config() -> dict:
+    """读取当前用户的 WebDAV 备份配置（settings store）"""
+    with get_conn() as conn:
+        row = conn.execute('SELECT data FROM "settings" WHERE id=?', ("webdav_backup_config",)).fetchone()
+    return json.loads(row[0]) if row else {}
+
+
+def save_webdav_config(cfg: dict) -> None:
+    obj = {"key": "webdav_backup_config", **cfg}
+    with get_conn() as conn:
+        conn.execute(
+            'INSERT INTO "settings" (id, data) VALUES (?, ?) '
+            "ON CONFLICT(id) DO UPDATE SET data=excluded.data",
+            ("webdav_backup_config", json.dumps(obj, ensure_ascii=False)),
+        )
+
+
+def _wdav_req(method: str, url: str, config: dict, data: bytes = None, headers_extra: dict = None) -> tuple:
+    """WebDAV 请求：Basic 认证 + 超时。返回 (HTTP 状态码, 响应体 bytes)。"""
+    headers = {
+        "Authorization": "Basic " + base64.b64encode(f"{config['user']}:{config['pass']}".encode("utf-8")).decode("ascii"),
+        "User-Agent": "workbench-backup/1.0",
+    }
+    if data is not None:
+        headers["Content-Type"] = "application/octet-stream"
+    if headers_extra:
+        headers.update(headers_extra)
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=WDAV_TIMEOUT) as res:
+            return res.status, res.read()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read()
+
+
+def _wdav_base(config: dict) -> str:
+    """备份目录的完整 URL（WebDAV 根 + 子目录，保证结尾斜杠）"""
+    url = config.get("url") or WDAV_DEFAULT_URL
+    return url.rstrip("/") + "/" + (config.get("dir") or "workbench-backup").strip("/") + "/"
+
+
+def _wdav_ensure_dir(config: dict) -> None:
+    """逐级 MKCOL 创建备份目录（已存在返回 405，忽略；认证失败直接报错）。
+    注意根地址可能带路径段（如坚果云 .../dav/），必须在保留该段的前提下逐级创建"""
+    parsed = urllib.parse.urlparse(config.get("url") or WDAV_DEFAULT_URL)
+    acc = f"{parsed.scheme}://{parsed.netloc}{parsed.path.rstrip('/')}"
+    for seg in (config.get("dir") or "workbench-backup").strip("/").split("/"):
+        if not seg:
+            continue
+        acc = acc + "/" + seg
+        status, _ = _wdav_req("MKCOL", acc + "/", config)
+        if status in (401, 403):
+            raise HTTPException(status_code=502, detail="认证失败（HTTP 401）：请检查账号与应用授权码" if status == 401 else "无权限创建目录（HTTP 403）")
+
+
+def _wdav_list(config: dict) -> list:
+    """PROPFIND 列出备份目录下所有 .db 文件，按名字典序（即时间序）返回"""
+    body = b'<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:getcontentlength/><d:getlastmodified/></d:prop></d:propfind>'
+    status, resp = _wdav_req("PROPFIND", _wdav_base(config), config, data=body,
+                             headers_extra={"Depth": "1", "Content-Type": "application/xml; charset=utf-8"})
+    if status == 401:
+        raise HTTPException(status_code=502, detail="认证失败（HTTP 401）：请检查账号与应用授权码")
+    if status not in (200, 207):
+        raise HTTPException(status_code=502, detail=f"读取远端备份目录失败（HTTP {status}）")
+    files = []
+    ns = {"d": "DAV:"}
+    try:
+        root = ET.fromstring(resp)
+    except ET.ParseError:
+        return files
+    for r in root.findall(".//d:response", ns):
+        href = urllib.parse.unquote(r.findtext("d:href", default="", namespaces=ns) or "").rsplit("/", 1)[-1]
+        if not href.endswith(".db"):
+            continue
+        size = r.findtext("d:propstat/d:prop/d:getcontentlength", default="0", namespaces=ns) or "0"
+        mtime = r.findtext("d:propstat/d:prop/d:getlastmodified", default="", namespaces=ns) or ""
+        files.append({"name": href, "size": int(size or 0), "mtime": mtime})
+    files.sort(key=lambda f: f["name"])
+    return files
+
+
+def _wdav_prune(config: dict) -> None:
+    """删除超出保留份数的远端备份（文件名时间序）"""
+    keep = max(1, min(50, int(config.get("keep") or 10)))
+    try:
+        files = _wdav_list(config)
+    except HTTPException:
+        return
+    for f in files[:-keep]:
+        status, _ = _wdav_req("DELETE", _wdav_base(config) + urllib.parse.quote(f["name"]), config)
+        if status in (200, 204):
+            print(f"[webdav] 清理旧备份 {f['name']}")
+
+
+def _wdav_push_file(name: str, db_path: Path, config: dict) -> None:
+    """把库文件在线备份到临时文件后 PUT 上传，完事按保留份数清理"""
+    _wdav_ensure_dir(config)
+    fd, tmp_path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    try:
+        src = sqlite3.connect(db_path)
+        dst = sqlite3.connect(tmp_path)
+        try:
+            with dst:
+                src.backup(dst)
+        finally:
+            src.close()
+            dst.close()
+        with open(tmp_path, "rb") as f:
+            status, _ = _wdav_req("PUT", _wdav_base(config) + urllib.parse.quote(name), config, data=f.read())
+        if status == 401:
+            raise HTTPException(status_code=502, detail="认证失败（HTTP 401）：请检查账号与应用授权码")
+        if status not in (200, 201, 204):
+            raise HTTPException(status_code=502, detail=f"上传失败（HTTP {status}）")
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+    _wdav_prune(config)
+
+
+def _webdav_push_auto(db_path: Path) -> None:
+    """启动时：若该库主人配置了 WebDAV 且当天还没推过，则推一份云端备份（失败只打日志）"""
+    try:
+        conn = sqlite3.connect(db_path)
+        try:
+            row = conn.execute('SELECT data FROM "settings" WHERE id=?', ("webdav_backup_config",)).fetchone()
+        finally:
+            conn.close()
+        if not row:
+            return
+        cfg = json.loads(row[0])
+        if not (cfg.get("url") and cfg.get("user") and cfg.get("pass")):
+            return
+        user = ADMIN_USER if db_path == DB_FILE else db_path.stem.replace("workbench_", "")
+        today = date.today().isoformat()
+        name = f"workbench-{user}-{today}.db"
+        if any(f["name"].startswith(f"workbench-{user}-{today}") for f in _wdav_list(cfg)):
+            return
+        _wdav_push_file(name, db_path, cfg)
+        print(f"webdav auto backup: {name}")
+    except Exception as e:
+        print(f"[webdav] 自动推送失败 {db_path.name}: {e}")
+
+
+@app.post("/api/webdav/config")
+async def webdav_config_save(request: Request):
+    """保存 WebDAV 备份配置；授权码留空时沿用旧值（方便只改其他字段不丢凭据）"""
+    payload = await request.json()
+    url = (payload.get("url") or "").strip() or WDAV_DEFAULT_URL
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    if not url.endswith("/"):
+        url += "/"
+    assert_public_http_url(url)  # 只允许公网 WebDAV 服务器（防 SSRF）
+    old = get_webdav_config()
+    pass_val = payload.get("pass") or ""
+    if not pass_val:
+        pass_val = old.get("pass", "")
+    save_webdav_config({
+        "url": url,
+        "user": (payload.get("user") or "").strip(),
+        "pass": pass_val,
+        "dir": (payload.get("dir") or "workbench-backup").strip("/"),
+        "keep": max(1, min(50, int(payload.get("keep") or 10))),
+    })
+    return {"ok": True}
+
+
+@app.get("/api/webdav/config")
+def webdav_config_get():
+    """读取配置用于表单回显（永远不带授权码）"""
+    cfg = get_webdav_config()
+    return {
+        "url": cfg.get("url", ""),
+        "user": cfg.get("user", ""),
+        "dir": cfg.get("dir", "workbench-backup"),
+        "keep": cfg.get("keep", 10),
+        "configured": bool(cfg.get("url") and cfg.get("user") and cfg.get("pass")),
+    }
+
+
+@app.post("/api/webdav/test")
+async def webdav_test():
+    """测试连接：确保备份目录存在并列目录下已有备份"""
+    cfg = get_webdav_config()
+    if not (cfg.get("url") and cfg.get("user") and cfg.get("pass")):
+        raise HTTPException(status_code=400, detail="请先填写并保存 WebDAV 配置")
+
+    def _test():
+        _wdav_ensure_dir(cfg)
+        return _wdav_list(cfg)
+
+    files = await run_in_threadpool(_test)
+    return {"ok": True, "files": files}
+
+
+@app.get("/api/webdav/list")
+async def webdav_list():
+    cfg = get_webdav_config()
+    if not (cfg.get("url") and cfg.get("user") and cfg.get("pass")):
+        return {"files": []}
+    files = await run_in_threadpool(_wdav_list, cfg)
+    return {"files": files}
+
+
+@app.post("/api/webdav/backup")
+async def webdav_backup_now():
+    """立即备份当前账号数据库到 WebDAV"""
+    cfg = get_webdav_config()
+    if not (cfg.get("url") and cfg.get("user") and cfg.get("pass")):
+        raise HTTPException(status_code=400, detail="请先填写并保存 WebDAV 配置")
+    user = CURRENT_USER.get() or ADMIN_USER
+    name = f"workbench-{user}-{datetime.now().strftime('%Y-%m-%d_%H%M%S')}.db"
+    db_path = db_file_for(user)
+    await run_in_threadpool(_wdav_push_file, name, db_path, cfg)
+    return {"ok": True, "name": name}
+
+
+@app.post("/api/webdav/restore")
+async def webdav_restore(request: Request):
+    """从远端备份恢复当前账号全部数据（SQL 级整库覆盖，事务保证原子）"""
+    payload = await request.json()
+    name = (payload.get("file") or "").strip()
+    if not name.endswith(".db") or "/" in name or "\\" in name or ".." in name:
+        raise HTTPException(status_code=400, detail="无效的备份文件名")
+    cfg = get_webdav_config()
+    if not (cfg.get("url") and cfg.get("user") and cfg.get("pass")):
+        raise HTTPException(status_code=400, detail="请先填写并保存 WebDAV 配置")
+
+    def _download() -> bytes:
+        status, data = _wdav_req("GET", _wdav_base(cfg) + urllib.parse.quote(name), cfg)
+        if status == 401:
+            raise HTTPException(status_code=502, detail="认证失败（HTTP 401）：请检查账号与应用授权码")
+        if status != 200:
+            raise HTTPException(status_code=502, detail=f"下载备份失败（HTTP {status}）")
+        return data
+
+    data = await run_in_threadpool(_download)
+    fd, tmp_path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    try:
+        with open(tmp_path, "wb") as f:
+            f.write(data)
+        count = 0
+        with get_conn() as conn:
+            src = sqlite3.connect(tmp_path)
+            try:
+                tables = [r[0] for r in src.execute("SELECT name FROM sqlite_master WHERE type='table'")]
+                for t in tables:
+                    if t not in STORES:
+                        continue
+                    rows = src.execute(f'SELECT id, data FROM "{t}"').fetchall()
+                    conn.execute(f'DELETE FROM "{t}"')
+                    conn.executemany(f'INSERT INTO "{t}" (id, data) VALUES (?, ?)', rows)
+                    count += len(rows)
+            finally:
+                src.close()
+        return {"ok": True, "rows": count}
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
 
 
 # ---------- 静态托管（必须在所有 API 路由之后 mount） ----------
