@@ -7,7 +7,7 @@
  * - 离线时：展示缓存的页面，API 部分降级提示
  */
 
-const CACHE = "workbench-v130";
+const CACHE = "workbench-v131";
 const STATIC = [
   "/",
   "/index.html",
@@ -26,6 +26,10 @@ const STATIC = [
   "/js/calendar.js",
   "/js/reports.js",
   "/js/focus.js",
+  "/js/quick.js",
+  "/js/reminders.js",
+  "/js/anniv.js",
+  "/js/media.js",
   "/lib/md.js",
   "/lib/chart.umd.min.js",
   "/lib/xlsx.mini.min.js",
@@ -34,6 +38,7 @@ const STATIC = [
   "/icon-192.png",
   "/icon-512.png",
 ];
+// 注意：index.html 每加一个 <script> 必须同步登记到这里，否则离线预缓存不完整
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
@@ -81,12 +86,15 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // 其余（主要 index.html）：网络优先，离线时用缓存
+  // 其余（主要 index.html）：网络优先，离线时用缓存。
+  // 只回写成功的同源基础响应——网盘二进制/大文件若也写入会无界膨胀 Cache Storage
   e.respondWith(
     fetch(e.request)
       .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((cache) => cache.put(e.request, copy));
+        if (res.ok && res.type === "basic" && e.request.method === "GET") {
+          const copy = res.clone();
+          caches.open(CACHE).then((cache) => cache.put(e.request, copy));
+        }
         return res;
       })
       .catch(() => caches.match(e.request).then((hit) => hit || caches.match("/")))

@@ -297,44 +297,35 @@
 
       var rerender = function () { routes.calendar.render(el); };
 
-      // \u4E0A\u4E2A\u6708
-      el.addEventListener("click", function (e) {
-        var btn = e.target.closest("#calPrev");
-        if (!btn) return;
-        calMonth--;
-        if (calMonth < 0) { calMonth = 11; calYear--; }
-        calSelDay = null;
-        rerender();
-      });
-
-      // \u4E0B\u4E2A\u6708
-      el.addEventListener("click", function (e) {
-        var btn = e.target.closest("#calNext");
-        if (!btn) return;
-        calMonth++;
-        if (calMonth > 11) { calMonth = 0; calYear++; }
-        calSelDay = null;
-        rerender();
-      });
-
-      // \u56DE\u5230\u4ECA\u5929
-      el.addEventListener("click", function (e) {
-        var btn = e.target.closest("#calToday");
-        if (!btn) return;
-        calYear = now.getFullYear();
-        calMonth = now.getMonth();
-        calSelDay = null;
-        rerender();
-      });
-
-      // \u70B9\u51FB\u65E5\u671F\u683C\u5B50
-      el.addEventListener("click", function (e) {
-        var cell = e.target.closest("[data-day]");
-        if (!cell) return;
-        var day = cell.dataset.day;
-        calSelDay = calSelDay === day ? null : day;
-        rerender();
-      });
+      // el 是跨路由复用的 #view：事件用单个委托处理器 + 绑定一次守卫，
+      // 否则每次 render 重绑 4 个监听器会累积（点一次翻 N 个月），且切路由后残留
+      if (!el._calClickBound) {
+        el._calClickBound = true;
+        el.addEventListener("click", function (e) {
+          var prev = e.target.closest("#calPrev");
+          var next = e.target.closest("#calNext");
+          var today = e.target.closest("#calToday");
+          var cell = e.target.closest("[data-day]");
+          if (!prev && !next && !today && !cell) return;
+          if (cell) {
+            var day = cell.dataset.day;
+            calSelDay = calSelDay === day ? null : day;
+          } else if (prev) {
+            calMonth--;
+            if (calMonth < 0) { calMonth = 11; calYear--; }
+            calSelDay = null;
+          } else if (next) {
+            calMonth++;
+            if (calMonth > 11) { calMonth = 0; calYear++; }
+            calSelDay = null;
+          } else {
+            calYear = now.getFullYear();
+            calMonth = now.getMonth();
+            calSelDay = null;
+          }
+          rerender();
+        });
+      }
     },
   };
 })();

@@ -872,9 +872,11 @@
         try {
           // 收集最近 30 条已读标题（按时间倒序）
           const readEntries = Object.entries(readMap || {}).sort((a, b) => (b[1] || "").localeCompare(a[1] || "")).slice(0, 30);
-          // 用当前分类的 items 补 link→title 映射（已读存的是 url）
+          // 用全部资讯源的条目补 link→title 映射（已读存的是 url）
           const link2title = {};
-          items.forEach((it) => { link2title[it.url] = it.title; });
+          allFeeds.forEach((f) => {
+            if (f.cache && f.cache.items) f.cache.items.forEach((it) => { link2title[it.url] = it.title; });
+          });
           // 兜底：bookmarks store 也能找到
           let extraTitles = [];
           try {

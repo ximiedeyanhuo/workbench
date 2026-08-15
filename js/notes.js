@@ -101,7 +101,7 @@
           <button class="btn sm" id="noteNew">新建笔记</button>
         </div>
         ${folderHtml}
-        <div class="note-scroll">${listHtml}</div>
+        <div class="note-scroll" id="noteList">${listHtml}</div>
       </div>
       <div>${editorHtml}</div>
     </div>`;
@@ -240,7 +240,7 @@
   async function refreshListOnly(el) {
     const notes = await notesRepo.list();
     const list = filterNotes(notes);
-    const box = el.querySelector("#noteSearch").closest(".card").children[2];
+    const box = el.querySelector("#noteList");
     box.innerHTML = list.length
       ? list
           .map(

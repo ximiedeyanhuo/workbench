@@ -467,8 +467,9 @@
       el.querySelector("#taskBody").addEventListener("click", async (e) => {
         const actEl = e.target.closest("[data-act]");
         if (actEl) {
+          // 看板"展开剩余"按钮不在 [data-id] 祖先内，li 可能为 null
           const li = actEl.closest("[data-id]");
-          const id = li.dataset.id;
+          const id = li ? li.dataset.id : null;
           if (actEl.dataset.act === "toggle") {
             const t = await tasksRepo.get(id);
             if (t) {

@@ -11,7 +11,6 @@
   const qkRepo = () => repo("quicknotes");
 
   let visible = false;        // 面板是否打开（路由切换时自动关，由 hashchange 处理）
-  let dirty = false;          // 输入框是否有未保存内容
 
   function el(id) { return document.getElementById(id); }
 
@@ -80,8 +79,7 @@
     const p = el("quickPanel");
     if (p) { p.remove(); }
     closeOverlay("quick");
-    // 路由切走后输入框也被清掉，dirty 标记重置
-    dirty = false;
+    // 路由切走后输入框也被清掉
   }
 
   function bind(p) {
@@ -93,7 +91,7 @@
     el("quickSave").addEventListener("click", saveNote);
     el("quickToTask").addEventListener("click", () => toTarget("task"));
     el("quickToNote").addEventListener("click", () => toTarget("note"));
-    el("quickInput").addEventListener("input", () => { dirty = true; renderTags(); });
+    el("quickInput").addEventListener("input", () => { renderTags(); });
   }
 
   // 提取 #标签
@@ -123,7 +121,6 @@
     };
     await qkRepo().put(n);
     inp.value = "";
-    dirty = false;
     renderTags();
     renderList();
     showToast("已存为一笔速记", "ok");

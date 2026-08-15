@@ -13,6 +13,7 @@ server.py — 个人工作台后端（FastAPI + SQLite）
 """
 
 import base64
+import concurrent.futures
 import contextvars
 import hashlib
 import ipaddress
@@ -113,9 +114,11 @@ _auth_lock = threading.Lock()  # users/sessions/login_fails 文件读写互斥
 
 
 def _load_json_file(path: Path, default):
+    """读 JSON 文件。文件不存在返回 default；内容损坏/IO 失败抛异常——
+    绝不能静默回退 default 再落盘（users.json 坏了会重建 admin/admin123 覆盖全部账号）。"""
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    except FileNotFoundError:
         return default
 
 
@@ -125,9 +128,18 @@ def _save_json_file(path: Path, obj) -> None:
     tmp.replace(path)
 
 
-USERS: dict = _load_json_file(USERS_FILE, {})
-SESSIONS: dict = _load_json_file(SESSIONS_FILE, {})
-_login_fails: dict = _load_json_file(LOGIN_FAILS_FILE, {})  # username -> {"count": int, "lock_until": ts}
+def _load_json_tolerant(path: Path, default):
+    """可再生数据（sessions/login_fails）用：损坏时告警回退，不阻断启动"""
+    try:
+        return _load_json_file(path, default)
+    except Exception as e:
+        print(f"[warn] {path.name} 读取失败（{e}），按空数据处理")
+        return default
+
+
+USERS: dict = _load_json_file(USERS_FILE, {})  # 损坏直接抛异常拒绝启动，防止重建默认账号覆盖
+SESSIONS: dict = _load_json_tolerant(SESSIONS_FILE, {})
+_login_fails: dict = _load_json_tolerant(LOGIN_FAILS_FILE, {})  # username -> {"count": int, "lock_until": ts}
 
 
 def _save_login_fails() -> None:
@@ -235,26 +247,36 @@ def init_db() -> None:
 
 def auto_backup() -> None:
     """启动时自动备份所有用户库：每天每库最多一份（同日重启不重复），各保留最近 BACKUP_KEEP 份。
-    用 SQLite 在线备份 API 而非直接复制文件：WAL 模式下未合并的日志也能进备份"""
+    用 SQLite 在线备份 API 而非直接复制文件：WAL 模式下未合并的日志也能进备份。
+    每库独立容错：单个库备份失败只打日志，不阻断启动；先写 .tmp 成功后再落正式名，
+    避免半成品备份占住当日文件名导致之后永不重试"""
     db_files = sorted(BASE_DIR.glob("workbench*.db"))
     if not db_files:
         return
     BACKUP_DIR.mkdir(exist_ok=True)
     for db_path in db_files:
-        target = BACKUP_DIR / f"{db_path.stem}-{date.today().isoformat()}.db"
-        if not target.exists():
-            src = sqlite3.connect(db_path)
-            dst = sqlite3.connect(target)
-            try:
-                with dst:
-                    src.backup(dst)
-            finally:
-                src.close()
-                dst.close()
-            print(f"auto backup: {target.name}")
-        # 滚动清理：文件名含日期，按名排序即按时间排序（注意 workbench-* 不会误匹配 workbench_xxx-*）
-        for old in sorted(BACKUP_DIR.glob(f"{db_path.stem}-*.db"))[:-BACKUP_KEEP]:
-            old.unlink()
+        try:
+            target = BACKUP_DIR / f"{db_path.stem}-{date.today().isoformat()}.db"
+            if not target.exists():
+                tmp = target.with_suffix(".db.tmp")
+                src = sqlite3.connect(db_path)
+                dst = sqlite3.connect(tmp)
+                try:
+                    with dst:
+                        src.backup(dst)
+                finally:
+                    src.close()
+                    dst.close()
+                tmp.replace(target)
+                print(f"auto backup: {target.name}")
+            # 滚动清理：文件名含日期，按名排序即按时间排序（注意 workbench-* 不会误匹配 workbench_xxx-*）
+            for old in sorted(BACKUP_DIR.glob(f"{db_path.stem}-*.db"))[:-BACKUP_KEEP]:
+                try:
+                    old.unlink()
+                except OSError as e:
+                    print(f"[backup] 清理旧备份失败 {old.name}: {e}")
+        except Exception as e:
+            print(f"[backup] 备份失败 {db_path.name}: {e}")
 
 
 def check_store(store: str) -> None:
@@ -505,7 +527,7 @@ async def import_all(request: Request):
 
 # ---------- RSS 代理 ----------
 def assert_public_http_url(url: str) -> None:
-    """仅放行公网 http/https，拒绝内网/本机地址（基础 SSRF 防护）"""
+    """仅放行公网 http/https，拒绝内网/本机/组播等地址（基础 SSRF 防护）"""
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme not in ("http", "https") or not parsed.hostname:
         raise HTTPException(status_code=400, detail="仅支持 http/https 地址")
@@ -515,7 +537,11 @@ def assert_public_http_url(url: str) -> None:
         raise HTTPException(status_code=400, detail="域名无法解析")
     for info in infos:
         ip = ipaddress.ip_address(info[4][0])
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+        # IPv4 映射地址（如 ::ffff:127.0.0.1）在部分 Python 版本上 is_loopback/is_private 均为 False，先解包再判
+        if ip.version == 6 and ip.ipv4_mapped:
+            ip = ip.ipv4_mapped
+        if (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+                or ip.is_multicast or ip.is_unspecified):
             raise HTTPException(status_code=400, detail="不允许访问内网地址")
 
 
@@ -569,8 +595,9 @@ import html as _html
 
 ARTICLE_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) WorkbenchReader/1.0"
 _IMG_CT = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
-           "gif": "image/gif", "webp": "image/webp", "svg": "image/svg+xml",
+           "gif": "image/gif", "webp": "image/webp",
            "bmp": "image/bmp", "avif": "image/avif", "ico": "image/x-icon"}
+# 不放行 svg：SVG 可内嵌 <script>，从本源直接导航到 /api/img?url=…svg 会在 workbench 源执行脚本（借登录用户之手调 API）
 
 
 @app.get("/api/article")
@@ -644,10 +671,13 @@ def img_proxy(url: str):
         raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"图片抓取失败: {exc}")
-    # 按 URL 扩展名判定类型；未知类型兜底 image/jpeg
+    # 按 URL 扩展名判定类型；未知类型兜底 image/jpeg。统一加 nosniff 防嗅探
     ext = _up.urlparse(url).path.rsplit(".", 1)[-1].lower() if "." in _up.urlparse(url).path else ""
     ctype = _IMG_CT.get(ext, "image/jpeg")
-    return Response(content=raw, media_type=ctype, headers={"Cache-Control": "public, max-age=86400"})
+    return Response(content=raw, media_type=ctype, headers={
+        "Cache-Control": "public, max-age=86400",
+        "X-Content-Type-Options": "nosniff",
+    })
 
 
 # ---------- 公考专用解析器 ----------
@@ -657,6 +687,9 @@ import re
 import html as _html
 
 GOV_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+
+# 网盘缩略图获取失败时的占位图（data URI，无网络请求）
+_THUMB_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='60'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%23888' font-size='14'%3E缩略图不可用%3C/text%3E%3C/svg%3E"
 
 # 每个源定义：入口 URL + 抽取条目的正则（返回 (link, title[, date]) 元组）
 GOV_SOURCES = {
@@ -934,50 +967,55 @@ def fund_search(q: str):
     return out[:10]
 
 
+def _fund_nav_one(code: str):
+    """单只基金：lsjz 最近两条日净值 + fundgz 名称；失败返回 None 不影响其余"""
+    try:
+        text = _fund_fetch(
+            f"https://api.fund.eastmoney.com/f10/lsjz?fundCode={code}&pageIndex=1&pageSize=2",
+            "https://fundf10.eastmoney.com/",
+        )
+        data = json.loads(text)
+        lst = ((data.get("Data") or {}).get("LSJZList") or [])
+        if len(lst) < 2:
+            return None  # 成立首日等无前日净值的情况跳过
+        cur, prev = lst[0], lst[1]
+        # 货币基金（FundType 005）接口口径不同：DWJZ 字段是「每万份收益」，净值恒 1；
+        # 交给前端用 isMoney 区分计算（市值=份额，当日收益=万份收益×份额/10000）
+        is_money = ((data.get("Data") or {}).get("SYType") or "").find("每万份收益") >= 0
+        item = {
+            "code": code,
+            "name": "",
+            "nav": float(cur.get("DWJZ") or 0),
+            "navDate": cur.get("FSRQ") or "",
+            "prevNav": float(prev.get("DWJZ") or 0),
+            "prevDate": prev.get("FSRQ") or "",
+            "pct": float(cur.get("JZZZL") or 0),
+            "isMoney": is_money,
+        }
+        try:  # 名称：fundgz 估值接口 jsonp，拿不到就留空
+            gz = _fund_fetch(f"https://fundgz.1234567.com.cn/js/{code}.js", "https://fund.eastmoney.com/")
+            m = re.search(r'"name":"(.*?)"', gz)
+            if m:
+                item["name"] = m.group(1)
+        except Exception:
+            pass
+        return item
+    except Exception:
+        return None
+
+
 @app.get("/api/fund/nav")
 def fund_nav(codes: str):
     """基金最新净值：codes=023636,000198 → [{code,name,nav,navDate,prevNav,prevDate,pct}]
     每只基金取最近两条日净值（最新 + 前一日），当日收益由前端按份额计算；
-    名称来自 fundgz 估算接口（jsonp 顺手带出，失败留空前端用记录名）"""
+    名称来自 fundgz 估算接口（jsonp 顺手带出，失败留空前端用记录名）。
+    各基金并行拉取（每只串行 2 个外网请求 ×20 只最坏可拖数分钟）"""
     codes = codes.strip()
     if not FUND_CODES_RE.match(codes):
         raise HTTPException(status_code=400, detail="codes 应为 6 位基金代码，逗号分隔，最多 20 只")
-    out = []
-    for code in codes.split(","):
-        try:
-            text = _fund_fetch(
-                f"https://api.fund.eastmoney.com/f10/lsjz?fundCode={code}&pageIndex=1&pageSize=2",
-                "https://fundf10.eastmoney.com/",
-            )
-            data = json.loads(text)
-            lst = ((data.get("Data") or {}).get("LSJZList") or [])
-            if len(lst) < 2:
-                continue  # 成立首日等无前日净值的情况跳过
-            cur, prev = lst[0], lst[1]
-            # 货币基金（FundType 005）接口口径不同：DWJZ 字段是「每万份收益」，净值恒 1；
-            # 交给前端用 isMoney 区分计算（市值=份额，当日收益=万份收益×份额/10000）
-            is_money = ((data.get("Data") or {}).get("SYType") or "").find("每万份收益") >= 0
-            item = {
-                "code": code,
-                "name": "",
-                "nav": float(cur.get("DWJZ") or 0),
-                "navDate": cur.get("FSRQ") or "",
-                "prevNav": float(prev.get("DWJZ") or 0),
-                "prevDate": prev.get("FSRQ") or "",
-                "pct": float(cur.get("JZZZL") or 0),
-                "isMoney": is_money,
-            }
-            try:  # 名称：fundgz 估值接口 jsonp，拿不到就留空
-                gz = _fund_fetch(f"https://fundgz.1234567.com.cn/js/{code}.js", "https://fund.eastmoney.com/")
-                m = re.search(r'"name":"(.*?)"', gz)
-                if m:
-                    item["name"] = m.group(1)
-            except Exception:
-                pass
-            out.append(item)
-        except Exception:
-            continue  # 单只失败不影响其余
-    return out
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        results = list(pool.map(_fund_nav_one, codes.split(",")))
+    return [r for r in results if r]
 
 
 # ---------- 智谱 AI 代理 ----------
@@ -1146,7 +1184,12 @@ async def quark_list(request: Request):
     size = payload.get("size", 100)
     try:
         # 注意：夸克的分页参数是 _page/_size（前面有下划线！）
-        data = quark_api("file/sort", {"pdir_fid": pdir_fid, "_page": page, "_size": size, "_fetch_total": 1, "_fetch_sub_dirs": 0, "_sort": "file_type:asc,updated_at:desc", "fetch_all_file": 1, "fetch_risk_file_name": 1}, cookie)
+        # quark_api 是同步 urllib 调用，必须进线程池，否则会阻塞整个事件循环 30s
+        data = await run_in_threadpool(
+            quark_api, "file/sort",
+            {"pdir_fid": pdir_fid, "_page": page, "_size": size, "_fetch_total": 1, "_fetch_sub_dirs": 0, "_sort": "file_type:asc,updated_at:desc", "fetch_all_file": 1, "fetch_risk_file_name": 1},
+            cookie,
+        )
         if data.get("code") != 0:
             raise HTTPException(status_code=502, detail=data.get("message", "接口调用失败"))
         # 标准化返回格式
@@ -1162,12 +1205,29 @@ async def quark_list(request: Request):
                 "parent_fid": pdir_fid,
             })
         return {"items": items, "current_path": pdir_fid, "total": data.get("data", {}).get("_count", 0)}
+    except HTTPException:
+        raise
     except urllib.error.HTTPError as e:
         if e.code == 401:
             raise HTTPException(status_code=401, detail="Cookie 已过期，请重新获取")
         raise HTTPException(status_code=502, detail=f"HTTP {e.code}")
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
+
+
+def _quark_get_download(cookie: str, fid: str) -> dict:
+    """取夸克下载信息；大文件限流（code=23018）时切换 Electron 客户端 UA 重试一次。
+    返回首个条目（含 download_url/preview_url/file_name），失败抛 HTTPException。"""
+    data = quark_api("file/download", None, cookie, method="POST", body={"fids": [fid]}, quiet=True)
+    if data.get("code") == 23018:
+        data = quark_api("file/download", None, cookie, method="POST", body={"fids": [fid]}, ua=QUARK_UA_ELECTRON)
+    if data.get("code") != 0:
+        raise HTTPException(status_code=502, detail=data.get("message", "获取下载链接失败"))
+    dl = data.get("data") or []
+    first = dl[0] if dl else {}
+    if not first.get("download_url"):
+        raise HTTPException(status_code=502, detail="下载链接为空")
+    return first
 
 
 @app.post("/api/drive/quark/download")
@@ -1182,23 +1242,15 @@ async def quark_download(request: Request):
     if not fid:
         raise HTTPException(status_code=400, detail="fid 不能为空")
     try:
-        # 注意：夸克下载接口要求 body 传 {"fids": [数组]}，字段是复数 fids；放 query 或单数 fid 会返回 302
-        data = quark_api("file/download", None, cookie, method="POST", body={"fids": [fid]}, quiet=True)
-        # 大文件下载限流（code=23018）：切换 Electron 客户端 UA 重试一次
-        if data.get("code") == 23018:
-            data = quark_api("file/download", None, cookie, method="POST", body={"fids": [fid]}, ua=QUARK_UA_ELECTRON)
-        if data.get("code") != 0:
-            raise HTTPException(status_code=502, detail=data.get("message", "获取下载链接失败"))
-        # 成功时 data 是数组，取第一个的 download_url
-        dl = data.get("data") or []
-        first = dl[0] if dl else {}
-        if not first.get("download_url"):
-            raise HTTPException(status_code=502, detail="下载链接为空")
+        # 同步 urllib 调用进线程池，避免阻塞事件循环
+        first = await run_in_threadpool(_quark_get_download, cookie, fid)
         return {
             "download_url": first.get("download_url", ""),
             "preview_url": first.get("preview_url", ""),
             "file_name": first.get("file_name", "")
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
 
@@ -1213,16 +1265,8 @@ async def quark_proxy(fid: str = ""):
     if not fid:
         raise HTTPException(status_code=400, detail="fid 不能为空")
     try:
-        data = quark_api("file/download", None, cookie, method="POST", body={"fids": [fid]}, quiet=True)
-        if data.get("code") == 23018:
-            data = quark_api("file/download", None, cookie, method="POST", body={"fids": [fid]}, ua=QUARK_UA_ELECTRON)
-        if data.get("code") != 0:
-            raise HTTPException(status_code=502, detail=data.get("message", "获取下载链接失败"))
-        dl = data.get("data") or []
-        first = dl[0] if dl else {}
-        download_url = first.get("download_url")
-        if not download_url:
-            raise HTTPException(status_code=502, detail="下载链接为空")
+        # 同步 urllib 调用进线程池，避免阻塞事件循环
+        download_url = (await run_in_threadpool(_quark_get_download, cookie, fid)).get("download_url")
         # Follow redirect and stream bytes
         # 关键：夸克 CDN（阿里云 OSS）要求 Referer + Cookie + UA 三件套，缺任一带 412
         # （Alist quark driver 的 Link 正是附带这三个头）；不能带 Content-Type（OSS 签名校验会失败）
@@ -1508,28 +1552,24 @@ async def baidu_thumbnail(path: str = ""):
             data = json.loads(res.read().decode("utf-8"))
         if data.get("errno") != 0:
             print(f"[baidu_thumbnail] {path}: errno={data.get('errno')}")
-            _placeholder_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='60'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%23888' font-size='14'%3E缩略图不可用%3C/text%3E%3C/svg%3E"
-            return RedirectResponse(_placeholder_svg, status_code=302)
+            return RedirectResponse(_THUMB_PLACEHOLDER, status_code=302)
         thumbs = (data.get("info") or [{}])[0].get("thumbs") or {}
         thumb_url = thumbs.get("url3") or thumbs.get("url2") or thumbs.get("url1") or thumbs.get("icon")
         if not thumb_url:
             print(f"[baidu_thumbnail] {path}: 无缩略图")
-            _placeholder_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='60'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%23888' font-size='14'%3E缩略图不可用%3C/text%3E%3C/svg%3E"
-            return RedirectResponse(_placeholder_svg, status_code=302)
+            return RedirectResponse(_THUMB_PLACEHOLDER, status_code=302)
         return RedirectResponse(thumb_url, status_code=302)
     except urllib.error.HTTPError as e:
         err_msg = f"HTTP {e.code}"
         if e.code in (401, 403):
             err_msg = "Cookie 已过期"
         print(f"[baidu_thumbnail] {path}: {err_msg}")
-        _placeholder_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='60'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%23888' font-size='14'%3E缩略图不可用%3C/text%3E%3C/svg%3E"
-        return RedirectResponse(_placeholder_svg, status_code=302)
+        return RedirectResponse(_THUMB_PLACEHOLDER, status_code=302)
     except HTTPException:
         raise
     except Exception as e:
         print(f"[baidu_thumbnail] {path}: {e}")
-        _placeholder_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='60'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%23888' font-size='14'%3E缩略图不可用%3C/text%3E%3C/svg%3E"
-        return RedirectResponse(_placeholder_svg, status_code=302)
+        return RedirectResponse(_THUMB_PLACEHOLDER, status_code=302)
 
 
 @app.post("/api/drive/baidu/config")

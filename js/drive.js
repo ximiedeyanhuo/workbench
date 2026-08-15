@@ -139,7 +139,7 @@
   // ========== 文件列表渲染
   function renderFileList(items, drive) {
     if (!items || items.length === 0) {
-      return `<div class="empty" style="cursor:pointer;" onclick="window.WB.drive.goBack()">目录为空<br><span class="sub">点击返回上一级</span></div>`;
+      return `<div class="empty" style="cursor:pointer;" data-drive-act="back">目录为空<br><span class="sub">点击返回上一级</span></div>`;
     }
     // 文件夹在前，按名称排序
     const sorted = items.slice().sort(function (a, b) {
@@ -154,7 +154,7 @@
     // 非根目录时，显示「..」返回项
     if (currentPathIndex > 0) {
       html += `
-      <div class="file-item dir dim" onclick="window.WB.drive.goBack()">
+      <div class="file-item dir dim" data-drive-act="back">
         <div class="file-icon">⬆️</div>
         <div class="file-info">
           <div class="file-name">返回上一级</div>
@@ -168,11 +168,16 @@
       // 可预览的文件类型（图片/视频/PDF）单独提供预览按钮
       const ft = item.is_dir ? "" : getFileType(item.name);
       const previewable = ft === "image" || ft === "video" || ft === "pdf";
+      // 事件走 data-* + 全局委托（见 bindDriveDelegation），不走内联 onclick：
+      // esc() 转义挡不住属性解码后的单引号截断，含引号文件名会造成注入
       html += `
       <div class="file-item ${item.is_dir ? "dir" : "file"}"
+           data-drive-act="open"
+           data-drive="${esc(drive)}"
            data-fid="${esc(item.fid)}"
            data-is-dir="${item.is_dir}"
-           onclick="window.WB.drive.openItem('${drive}', '${esc(item.fid)}', ${item.is_dir}, '${esc(item.name)}')">
+           data-name="${esc(item.name)}"
+           data-path="${esc(item.path || "")}">
         <div class="file-icon">${item.is_dir ? "📁" : getFileIcon(item.name)}</div>
         <div class="file-info">
           <div class="file-name">${esc(item.name)}</div>
@@ -181,7 +186,7 @@
             <span class="file-date">${formatDate(item.modified)}</span>
           </div>
         </div>
-        ${previewable ? `<button class="file-preview-btn" title="预览" onclick="event.stopPropagation(); window.WB.drive.preview('${drive}', '${esc(item.fid)}', '${esc(item.name)}', '${esc(item.path || '')}')">👁 预览</button>` : ""}
+        ${previewable ? `<button class="file-preview-btn" title="预览" data-drive-act="preview">👁 预览</button>` : ""}
       </div>`;
     }
     html += "</div>";
@@ -253,10 +258,35 @@
     }
   }
 
+// ========== 文件列表事件委托：替代旧的内联 onclick（防注入，见 renderFileList 注释）
+  let _driveDelegationBound = false;
+  function bindDriveDelegation() {
+    if (_driveDelegationBound) return;
+    _driveDelegationBound = true;
+    document.addEventListener("click", (e) => {
+      const previewBtn = e.target.closest("[data-drive-act='preview']");
+      if (previewBtn) {
+        const row = previewBtn.closest(".file-item");
+        if (!row) return;
+        e.stopPropagation();
+        preview(row.dataset.drive, row.dataset.fid, row.dataset.name, row.dataset.path);
+        return;
+      }
+      const actEl = e.target.closest("[data-drive-act]");
+      if (!actEl) return;
+      const act = actEl.dataset.driveAct;
+      if (act === "back") { goBack(); return; }
+      if (act === "open") {
+        openItem(actEl.dataset.drive, actEl.dataset.fid, actEl.dataset.isDir === "true", actEl.dataset.name);
+      }
+    });
+  }
+
 // ========== 路由注册
   routes.drive = {
     title: "网盘",
     async render(el) {
+      bindDriveDelegation();
       // 最简化测试
       el.innerHTML = '<div class="card"><div class="empty">网盘加载中...</div></div>';
 
@@ -749,6 +779,7 @@
     searchFiles: searchFiles,
     refreshAll: refreshAll,
     backToList: backToList,
+    download: download,
     preview: preview,
     closePreview: closePreview,
     renderSettingsForm: renderSettingsForm,

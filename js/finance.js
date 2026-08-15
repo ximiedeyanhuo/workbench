@@ -22,7 +22,7 @@
  */
 (function () {
   "use strict";
-  const { routes, repo, esc, uid, todayStr, fmtMoney, getSetting, getSettings, setSetting, flashInvalid, cssVar } = window.WB;
+  const { routes, repo, esc, uid, todayStr, fmtMoney, getSetting, getSettings, setSetting, debounce, flashInvalid, cssVar } = window.WB;
   const financeRepo = repo("finance");
 
   // 预置分类（用户可通过分类管理追加自定义分类，存 settings.finCategories）
@@ -1042,7 +1042,7 @@
       expense: new Map(cats.expense.map((c) => [c.name, c.id])),
     };
     const catAdd = { income: [], expense: [] };
-    const records = [];
+    let records = [];
     let skipped = 0;
     const stamp = nowStamp();
     for (const r of rows.slice(1)) {
@@ -1398,7 +1398,7 @@
         if (listEl) listEl.innerHTML = buildListHtml(cats, txs);
       };
       on("#finFilterCat", "change", (e) => { finFilterCat = e.target.value; finPage = 1; finEditId = null; finDetailId = null; refreshList(); });
-      on("#finKeyword", "input", (e) => { finKeyword = e.target.value.trim(); finPage = 1; finEditId = null; finDetailId = null; refreshList(); });
+      on("#finKeyword", "input", debounce((e) => { finKeyword = e.target.value.trim(); finPage = 1; finEditId = null; finDetailId = null; refreshList(); }, 250));
       on("#finDateStart", "change", (e) => { finDateStart = e.target.value; finPage = 1; finEditId = null; finDetailId = null; refreshList(); });
       on("#finDateEnd", "change", (e) => { finDateEnd = e.target.value; finPage = 1; finEditId = null; finDetailId = null; refreshList(); });
       on("#finResetFilter", "click", () => {

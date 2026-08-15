@@ -179,7 +179,7 @@
     document.body.appendChild(p);
     syncPanel();
     el("focusClose").addEventListener("click", closePanel);
-    el("focusStart").addEventListener("click", () => { if (state.phase === "paused") { startTimer(); } else { startTimer(); } syncPanel(); });
+    el("focusStart").addEventListener("click", () => { startTimer(); syncPanel(); });
     el("focusPause").addEventListener("click", () => { pauseTimer(); syncPanel(); });
     el("focusReset").addEventListener("click", () => { resetTimer(); });
     el("focusType").addEventListener("change", (e) => { resetTimer(e.target.value); });

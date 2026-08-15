@@ -7,7 +7,7 @@
  */
 (function () {
   if (!window.WB) return;
-  const { routes, repo, uid, esc, icon, flashInvalid } = window.WB;
+  const { routes, repo, uid, esc, icon, flashInvalid, debounce } = window.WB;
   const mRepo = () => repo("media");
   // showToast 不是 WB 公开 API（app.js 内部函数），这里用轻量替代
   const toast = (t) => {
@@ -134,8 +134,13 @@
       el.querySelectorAll("#mediaStatus [data-s]").forEach((b) =>
         b.addEventListener("click", () => { curStatus = b.dataset.s; routes.media.render(el); })
       );
-      // 搜索
-      el.querySelector("#mSearch").addEventListener("input", (e) => { mediaQ = e.target.value.trim(); routes.media.render(el); });
+      // 搜索：只重建列表区并防抖——整页重渲染会替换掉正在输入的输入框（焦点丢失）
+      const searchInput = el.querySelector("#mSearch");
+      if (searchInput) searchInput.addEventListener("input", debounce(() => {
+        mediaQ = searchInput.value.trim();
+        const listEl = el.querySelector("#mList");
+        if (listEl) listEl.innerHTML = renderList(items);
+      }, 200));
 
       // 添加
       const addBtn = el.querySelector("#mAdd");

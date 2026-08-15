@@ -80,7 +80,7 @@
     if (btnTop) btnTop.textContent = label;
     // 同步 meta theme-color，让移动端状态栏/地址栏跟随主题
     const mc = document.querySelector('meta[name="theme-color"]');
-    if (mc) mc.setAttribute("content", THEME_BAR[resolved] || "#f3eee2");
+    if (mc) mc.setAttribute("content", THEME_BAR[resolved] || "#e8ecef");
   }
   function toggleTheme() {
     const cur = document.documentElement.getAttribute("data-theme");
@@ -259,7 +259,7 @@
   let dashCharts = []; // 重渲染前销毁旧实例，避免 Chart.js 残留引用
   let dashArchiveOpen = false; // 归档区（数据概览）展开状态：重渲染后保留用户选择
 
-  function renderCharts(el, tasks, habits, finance) {
+  function renderCharts(el, tasks, habits, finance, stockCostVal) {
     if (typeof Chart === "undefined") return; // chart.umd.min.js 未加载时静默降级
     dashCharts.forEach((c) => c.destroy());
     dashCharts = [];
@@ -755,11 +755,11 @@
       if (archiveEl) {
         archiveEl.addEventListener("toggle", () => {
           dashArchiveOpen = archiveEl.open;
-          if (archiveEl.open) renderCharts(el, tasks, habits, finance);
+          if (archiveEl.open) renderCharts(el, tasks, habits, finance, stockCostVal);
         });
-        if (archiveEl.open) renderCharts(el, tasks, habits, finance);
+        if (archiveEl.open) renderCharts(el, tasks, habits, finance, stockCostVal);
       } else {
-        renderCharts(el, tasks, habits, finance);
+        renderCharts(el, tasks, habits, finance, stockCostVal);
       }
 
       // finesse number roll-up：统计卡数字 0 → 目标滚动（零依赖；尊重 prefers-reduced-motion）
