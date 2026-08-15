@@ -11,6 +11,9 @@
 (function () {
   try {
     var t = localStorage.getItem("wb2_theme") || "light";
+    if (t === "auto") {
+      t = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
     document.documentElement.setAttribute("data-theme", t);
   } catch (e) { /* 隐私模式等忽略 */ }
 })();

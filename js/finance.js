@@ -1196,6 +1196,13 @@
       const cats = mergeCats(finCatsCustom);
       const txs = records.map(normalizeTx);
 
+      // 全局快捷键 F：跳转并聚焦记一笔金额输入框；若在“全部”视图则切到支出
+      const focusFin = !!(window.WB.jump && window.WB.jump.financeFocus);
+      if (focusFin) {
+        window.WB.jump.financeFocus = null;
+        if (finTab === "all") finTab = "expense";
+      }
+
       // 全期储蓄
       const saved = txs.filter((t) => t.type === "saving").reduce((s, t) => s + t.amount, 0);
       const pct = target > 0 ? Math.min(100, Math.round((saved / target) * 100)) : 0;
@@ -1296,6 +1303,7 @@
       on("#finAdd", "click", addFin);
       on("#finNote", "keydown", (e) => { if (e.key === "Enter") addFin(); });
       on("#finAmount", "keydown", (e) => { if (e.key === "Enter") addFin(); });
+      if (focusFin) setTimeout(() => { const fi = $("#finAmount"); if (fi) fi.focus(); }, 0);
 
       // 目标
       on("#finTarget", "change", async (e) => {

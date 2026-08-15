@@ -329,6 +329,12 @@
       );
       el.querySelector("#tTitle").addEventListener("keydown", (e) => { if (e.key === "Enter") addTask(); });
 
+      // 全局快捷键 N：跳转并聚焦新建任务输入框
+      if (WB.jump.taskFocus) {
+        WB.jump.taskFocus = null;
+        setTimeout(() => { const ti = el.querySelector("#tTitle"); if (ti) ti.focus(); }, 0);
+      }
+
       // AI 拆解：把标题框里的大任务拆成 3-6 个子任务，勾选确认后批量入库
       const aiBtn = el.querySelector("#tAiSplit");
       if (!window.WB.USE_API) {

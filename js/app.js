@@ -39,6 +39,8 @@
 
   // ================= 主题 =================
   const THEME_KEY = "wb2_theme"; // localStorage 仅作即时缓存防闪烁，正式值在 settings
+  const AUTO_THEME = "auto";
+  const THEME_MQ = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
   // 主题按钮循环：只保留 亮/暗 两档（日常快切）
   const THEMES = [
     { key: "light", icon: "☀️", text: "亮色模式" },
@@ -48,6 +50,7 @@
   const ALL_THEMES = [
     { key: "light", icon: "☀️", text: "亮色模式", desc: "莫兰迪治愈 · 明亮" },
     { key: "dark", icon: "🌙", text: "暗色模式", desc: "莫兰迪治愈 · 暗色" },
+    { key: "auto", icon: "🌗", text: "自动", desc: "跟随系统明暗自动切换" },
     { key: "mint", icon: "🌿", text: "打工小账本", desc: "米黄纸 + 薄荷绿记账风" },
     { key: "daily", icon: "📖", text: "日常集", desc: "衬线报刊排版" },
     { key: "glass", icon: "🫧", text: "玻璃拟态", desc: "深蓝玻璃模糊" },
@@ -65,7 +68,10 @@
     terminal: "#050505", newsprint: "#f3eee2", "mint-dark": "#1B2A24",
   };
   function applyTheme(theme) {
-    document.documentElement.setAttribute("data-theme", theme);
+    const resolved = theme === AUTO_THEME
+      ? (THEME_MQ && THEME_MQ.matches ? "dark" : "light")
+      : theme;
+    document.documentElement.setAttribute("data-theme", resolved);
     const m = ALL_THEMES.find((x) => x.key === theme);
     const label = (m && m.icon) || "🎨", text = (m && m.text) || "主题";
     const btn = document.getElementById("themeBtn");
@@ -74,7 +80,7 @@
     if (btnTop) btnTop.textContent = label;
     // 同步 meta theme-color，让移动端状态栏/地址栏跟随主题
     const mc = document.querySelector('meta[name="theme-color"]');
-    if (mc) mc.setAttribute("content", THEME_BAR[theme] || "#f3eee2");
+    if (mc) mc.setAttribute("content", THEME_BAR[resolved] || "#f3eee2");
   }
   function toggleTheme() {
     const cur = document.documentElement.getAttribute("data-theme");
@@ -97,6 +103,13 @@
     applyTheme(t);
     document.getElementById("themeBtn").addEventListener("click", toggleTheme);
     document.getElementById("themeBtnTop").addEventListener("click", toggleTheme);
+    if (THEME_MQ) {
+      THEME_MQ.addEventListener("change", () => {
+        let cur = "light";
+        try { cur = localStorage.getItem(THEME_KEY) || "light"; } catch (e) { /* ignore */ }
+        if (cur === AUTO_THEME) applyTheme(cur);
+      });
+    }
   }
 
   // ================= 路由 =================
@@ -123,6 +136,7 @@
         g.classList.add("open");
         const p = g.querySelector(".nav-parent");
         if (p) p.setAttribute("aria-expanded", "true");
+        saveNavOpen();
       }
     }
     // 移动端：当前路由属于「更多」面板时高亮底栏更多按钮；切换路由后关闭面板
@@ -1249,7 +1263,8 @@
       // 外观：主题选择器（高亮当前主题，点击即应用）
       const picker = el.querySelector("#themePicker");
       if (picker) {
-        const curT = document.documentElement.getAttribute("data-theme");
+        let curT = document.documentElement.getAttribute("data-theme");
+        try { curT = localStorage.getItem(THEME_KEY) || curT; } catch (e) { /* ignore */ }
         picker.querySelectorAll("[data-tp]").forEach((b) => {
           if (b.dataset.tp === curT) b.classList.add("on");
           b.addEventListener("click", () => {
@@ -1370,8 +1385,10 @@
     initGlobalSearch();
     initNavGroups();
     initMoreSheet();
+    initGlobalShortcuts();
     // 先探测后端，确定 USE_API 后再渲染业务模块，避免 settings/repo 抓错源
     await window.WB.ready;
+    window.WB._booted = true;
     renderModeBadge();
     // 与 settings 中的主题对齐（首次无 localStorage 缓存时）
     getSetting("theme", null).then((t) => {
@@ -1388,13 +1405,58 @@
 
   /** 定义侧边栏分组的展开/收起：点击父级标题切换 open 状态 */
   function initNavGroups() {
+    restoreNavOpen();
     document.querySelectorAll(".nav-parent").forEach((btn) => {
       btn.addEventListener("click", () => {
         const g = btn.closest(".nav-group");
         if (!g) return;
         const open = g.classList.toggle("open");
         btn.setAttribute("aria-expanded", open ? "true" : "false");
+        saveNavOpen();
       });
+    });
+  }
+
+  // 侧边栏分组展开状态持久化：记住用户手动展开/收起，刷新后保持
+  function readNavOpen() {
+    try { return JSON.parse(localStorage.getItem("wb2_nav_open") || "{}"); } catch (e) { return {}; }
+  }
+  function saveNavOpen() {
+    const map = {};
+    document.querySelectorAll(".nav-group").forEach((g) => {
+      const key = g.getAttribute("data-group");
+      if (key) map[key] = g.classList.contains("open");
+    });
+    try { localStorage.setItem("wb2_nav_open", JSON.stringify(map)); } catch (e) { /* 隐私模式忽略 */ }
+  }
+  function restoreNavOpen() {
+    const map = readNavOpen();
+    document.querySelectorAll(".nav-group").forEach((g) => {
+      const key = g.getAttribute("data-group");
+      if (key && map[key]) {
+        g.classList.add("open");
+        const p = g.querySelector(".nav-parent");
+        if (p) p.setAttribute("aria-expanded", "true");
+      }
+    });
+  }
+
+  /** 全局快捷键：N 快速新建任务，F 快速记账（输入框内不拦截，避免打字误触） */
+  function initGlobalShortcuts() {
+    document.addEventListener("keydown", (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey || !window.WB._booted) return;
+      const tag = (e.target && e.target.tagName || "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select" || (e.target && e.target.isContentEditable)) return;
+      const k = e.key.toLowerCase();
+      if (k === "n") {
+        e.preventDefault();
+        window.WB.jump.taskFocus = true;
+        if (location.hash === "#/tasks") navigate(); else location.hash = "#/tasks";
+      } else if (k === "f") {
+        e.preventDefault();
+        window.WB.jump.financeFocus = true;
+        if (location.hash === "#/finance") navigate(); else location.hash = "#/finance";
+      }
     });
   }
 
