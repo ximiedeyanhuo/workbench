@@ -6,6 +6,20 @@
 (function () {
   "use strict";
 
+  // ---------- 轻提示（全局 UI 基础设施，必须在最先加载的本文件里定义）----------
+  // 注意：业务模块在 IIFE 顶层解构 window.WB（早于 app.js 加载），toast 若定义在
+  // app.js 里，这些模块拿到的会是 undefined（曾导致 anniv/quick/reminders 添加后抛错不重渲）
+  function showToast(text, type = "info") {
+    const el = document.createElement("div");
+    el.className = "wb-toast " + (type === "success" || type === "ok" ? "success" : type === "error" ? "error" : type === "warning" ? "warning" : "");
+    el.textContent = text;
+    document.body.appendChild(el);
+    setTimeout(function () {
+      el.classList.add("hide");
+      setTimeout(function () { return el.parentNode && el.parentNode.removeChild(el); }, 300);
+    }, 3000);
+  }
+
   // ---------- 数据后端开关 ----------
   // 启动时探测后端：ping /api/ping，超时 1.5s，成功走 ApiRepository（SQLite），
   // 失败降级 IndexedDB（纯本地模式）。手机端 PWA 离线时会自动落到本地。
@@ -161,7 +175,11 @@
   const MEDIA_DB = "workbench_media";
   const MEDIA_VERSION = 1;
   const MEDIA_STORES = ["media"];
-  const ALL_STORES = STORES.concat(FEEDS_STORES, HEALTH_STORES, STOCKS_STORES, MOCKEXAMS_STORES, QUICK_STORES, ANNIV_STORES, REMIND_STORES, MEDIA_STORES); // 导入导出覆盖全部业务数据
+  // timeline（人生时间轴/重大事件）同理独立建库
+  const TIMELINE_DB = "workbench_timeline";
+  const TIMELINE_VERSION = 1;
+  const TIMELINE_STORES = ["timeline"];
+  const ALL_STORES = STORES.concat(FEEDS_STORES, HEALTH_STORES, STOCKS_STORES, MOCKEXAMS_STORES, QUICK_STORES, ANNIV_STORES, REMIND_STORES, MEDIA_STORES, TIMELINE_STORES); // 导入导出覆盖全部业务数据
   const EXPORT_VERSION = 1;
 
   const dbCache = {};
@@ -202,6 +220,7 @@
     if (ANNIV_STORES.indexOf(store) !== -1) return open(ANNIV_DB, ANNIV_VERSION, ANNIV_STORES);
     if (REMIND_STORES.indexOf(store) !== -1) return open(REMIND_DB, REMIND_VERSION, REMIND_STORES);
     if (MEDIA_STORES.indexOf(store) !== -1) return open(MEDIA_DB, MEDIA_VERSION, MEDIA_STORES);
+    if (TIMELINE_STORES.indexOf(store) !== -1) return open(TIMELINE_DB, TIMELINE_VERSION, TIMELINE_STORES);
     return open(DB_NAME, DB_VERSION, STORES);
   }
 
@@ -596,6 +615,7 @@
     fmtMoney,
     safeUrl,
     parseTags,
+    showToast,
     cssVar,
     daysDiff,
     weekRange,

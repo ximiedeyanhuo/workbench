@@ -47,7 +47,7 @@ HOST = "0.0.0.0"
 PORT = 8642
 
 # 与前端 db.js 的 ALL_STORES 保持一致；settings 的主键字段是 key，其余为 id
-STORES = ("tasks", "notes", "bookmarks", "habits", "finance", "quicklinks", "settings", "feeds", "health", "stocks", "mockexams", "quicknotes", "anniv", "reminders", "media")
+STORES = ("tasks", "notes", "bookmarks", "habits", "finance", "quicklinks", "settings", "feeds", "health", "stocks", "mockexams", "quicknotes", "anniv", "reminders", "media", "timeline")
 
 FEED_TIMEOUT = 20  # RSS 抓取超时（秒），公共 RSSHub 实例较慢，需给足余量
 FEED_MAX_BYTES = 2 * 1024 * 1024  # 单个源最大 2MB，防异常大响应

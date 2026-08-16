@@ -3,7 +3,7 @@
  */
 (function () {
   "use strict";
-  const { routes, repo, esc, uid, todayStr, fmtMoney, safeUrl, getSetting, getSettings, setSetting, exportAll, importAll, debounce, flashInvalid, clearAllData, cssVar } = window.WB;
+  const { routes, repo, esc, uid, todayStr, fmtMoney, safeUrl, getSetting, getSettings, setSetting, exportAll, importAll, debounce, flashInvalid, clearAllData, cssVar, showToast } = window.WB;
 
   // ========== 全局 Loading / Toast 提示 ==========
   function showLoading(text = "加载中...") {
@@ -22,20 +22,8 @@
     };
   }
 
-  function showToast(text, type = "info") {
-    const el = document.createElement("div");
-    el.className = "wb-toast " + (type === "success" ? "success" : type === "error" ? "error" : type === "warning" ? "warning" : "");
-    el.textContent = text;
-    document.body.appendChild(el);
-    setTimeout(function () {
-      el.classList.add("hide");
-      setTimeout(function () { return el.parentNode && el.parentNode.removeChild(el); }, 300);
-    }, 3000);
-  }
-
-  // 导出到全局
+  // 导出到全局（showToast 已上移 db.js——它是最先加载的模块，业务模块加载期解构才拿得到）
   window.WB.showLoading = showLoading;
-  window.WB.showToast = showToast;
 
   // ================= 主题 =================
   const THEME_KEY = "wb2_theme"; // localStorage 仅作即时缓存防闪烁，正式值在 settings
@@ -376,7 +364,7 @@
   routes.dashboard = {
     title: "仪表盘",
     async render(el) {
-      const [tasks, habits, finance, notes, stocks, exams, st, reminders, anniv] = await Promise.all([
+      const [tasks, habits, finance, notes, stocks, exams, st, reminders, anniv, timelineEvs, bookmarks] = await Promise.all([
         repo("tasks").list(),
         repo("habits").list(),
         repo("finance").list(),
@@ -620,6 +608,40 @@
       ];
       const wrCached = weeklyCache && weeklyCache.week === monStr ? weeklyCache : null;
 
+      // 往年今日：聚合各 store 同月同日的历史数据（timeline.js 提供纯函数聚合器）
+      let otdHtml = "";
+      if (window.WB.timeline) {
+        const otdYears = window.WB.timeline.onThisDay({ today, finance, tasks, notes, bookmarks, stocks, timeline: timelineEvs });
+        if (otdYears.length) {
+          const g = otdYears[0];
+          otdHtml = `<div class="card dash-otd">
+            <h2>往年今日<span class="count">${g.year} 年的今天</span></h2>
+            ${g.items.slice(0, 4).map((i) => `<div class="otd-item" data-go="${i.go || ""}" style="cursor:${i.go ? "pointer" : "default"}">${i.icon} ${esc(i.text)}</div>`).join("")}
+            ${otdYears.length > 1 || g.items.length > 4 ? `<a href="#/timeline" class="c-accent" style="font-size:12.5px">更多年份与回忆 →</a>` : ""}
+          </div>`;
+        }
+      }
+
+      // 成就：近 7 天解锁的以一条轻量横幅展示（数据只读 settings，计算在成就页/启动日检）
+      let achStrip = "";
+      if (window.WB.achievements && st.achUnlocked) {
+        const weekAgo = new Date(Date.now() - 7 * 86400000);
+        const pad = (n) => String(n).padStart(2, "0");
+        const wkStr = `${weekAgo.getFullYear()}-${pad(weekAgo.getMonth() + 1)}-${pad(weekAgo.getDate())}`;
+        const recentAch = Object.keys(st.achUnlocked)
+          .filter((id) => st.achUnlocked[id] >= wkStr)
+          .map((id) => ({ id, at: st.achUnlocked[id], rule: window.WB.achievements.RULES.find((r) => r.id === id) }))
+          .filter((x) => x.rule)
+          .sort((a, b) => b.at.localeCompare(a.at))
+          .slice(0, 3);
+        if (recentAch.length) {
+          achStrip = `<div class="card ach-banner">
+            <div class="ach-banner-in">🎉 新成就：${recentAch.map((a) => `${a.rule.icon} ${esc(a.rule.name)}`).join(" · ")} <a href="#/achievements" class="c-accent">成就殿堂 →</a></div>
+          </div>`;
+        }
+      }
+
+
       // 行动入口：打卡 / 记一笔 / 最近笔记，在仪表盘直接操作不用跳页
       const habitRows = habits.length
         ? habits
@@ -671,6 +693,8 @@
         ${annivBanner}
         ${saveBanner}
         ${budgetBanner}
+        ${achStrip}
+        ${otdHtml}
         <div class="card">
           <h2>今日焦点<span class="count">今日 ${focus.length} 项 · 本周 ${weekCnt} 项</span></h2>
           <div class="focus-tl" id="focusList">
@@ -1567,6 +1591,15 @@
     if (!location.hash) location.hash = "#/dashboard";
     navigate();
 
+    // 成就日检：每天首次打开静默计算一次，新解锁弹 toast（localStorage 记当日已查，避免每次刷新重算）
+    try {
+      const today = todayStr();
+      if (localStorage.getItem("wb2_ach_day") !== today && window.WB.achievements) {
+        localStorage.setItem("wb2_ach_day", today);
+        setTimeout(() => window.WB.achievements.checkNew(false), 2500);
+      }
+    } catch (e) { /* 隐私模式忽略 */ }
+
     // 网络状态变化时刷新徽标（离线后再回来时提示用户可重连）
     window.addEventListener("online", renderModeBadge);
     window.addEventListener("offline", renderModeBadge);
@@ -1630,7 +1663,7 @@
   }
 
   // 移动端底栏「更多」面板容纳的低频路由（与 index.html 中 .more-grid 保持一致）
-  const MORE_ROUTES = ["life", "calendar", "reports", "stocks", "gongkao", "drive", "links", "settings", "help"];
+  const MORE_ROUTES = ["life", "calendar", "timeline", "achievements", "reports", "stocks", "gongkao", "drive", "links", "settings", "help"];
 
   /** 关闭「更多」上滑面板 */
   function closeMoreSheet() {

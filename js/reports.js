@@ -723,6 +723,135 @@
     }
   }
 
+  // ========== 年度报告：聚合当年全部业务数据的人生年报 ==========
+  let annualYear = new Date().getFullYear();
+
+  function renderAnnualPanel(panel, ctx) {
+    var finance = ctx.finance, habits = ctx.habits, tasks = ctx.tasks, notes = ctx.notes;
+    var media = ctx.media || [], timeline = ctx.timeline || [], stocks = ctx.stocks || [], bookmarks = ctx.bookmarks || [];
+    var now = new Date();
+    // 年份候选：出现在任一数据源里的年份（倒序）
+    var ySet = new Set([String(now.getFullYear())]);
+    finance.forEach(function (r) { if (r.date) ySet.add(r.date.slice(0, 4)); });
+    tasks.forEach(function (t) {
+      if (t.doneAt) ySet.add(t.doneAt.slice(0, 4));
+      if (t.createdAt) ySet.add(t.createdAt.slice(0, 4));
+    });
+    timeline.forEach(function (e) { if (e.date) ySet.add(e.date.slice(0, 4)); });
+    var years = Array.from(ySet).filter(function (y) { return y >= "1990"; }).sort(function (a, b) { return b.localeCompare(a); });
+    var y = String(annualYear);
+    var inYear = function (d) { return (d || "").slice(0, 4) === y; };
+
+    var yTx = finance.filter(function (r) { return inYear(r.date); });
+    var inc = yTx.filter(function (r) { return r.type === "income"; }).reduce(function (s, r) { return s + Number(r.amount || 0); }, 0);
+    var exp = yTx.filter(function (r) { return r.type === "expense"; }).reduce(function (s, r) { return s + Number(r.amount || 0); }, 0);
+    var sav = yTx.filter(function (r) { return r.type === "saving"; }).reduce(function (s, r) { return s + Number(r.amount || 0); }, 0);
+    var done = tasks.filter(function (t) { return t.done && inYear(t.doneAt); }).length;
+    var created = tasks.filter(function (t) { return inYear((t.createdAt || "").slice(0, 10)); }).length;
+    var checkins = 0;
+    habits.forEach(function (h) {
+      Object.keys(h.checkins || {}).forEach(function (ds) { if (inYear(ds) && h.checkins[ds]) checkins++; });
+    });
+    var healthN = ctx.health.filter(function (r) { return inYear(r.date); }).length;
+    var noteN = notes.filter(function (n) { return inYear((n.createdAt || "").slice(0, 10)); }).length;
+    var bmN = bookmarks.filter(function (b) { return inYear((b.createdAt || "").slice(0, 10)); }).length;
+    var mediaN = media.filter(function (m) { return m.status === "done" && inYear(m.finishedAt); }).length;
+    var tlN = timeline.filter(function (e) { return inYear(e.date); }).length;
+    var stk = stocks.filter(function (s) { return inYear((s.date || s.createdAt || "").slice(0, 10)); });
+    var buy = stk.filter(function (s) { return s.action !== "sell"; }).reduce(function (s, t) { return s + Number(t.shares || 0) * Number(t.action ? t.price : t.cost || 0); }, 0);
+    var sell = stk.filter(function (s) { return s.action === "sell"; }).reduce(function (s, t) { return s + Number(t.shares || 0) * Number(t.price || 0); }, 0);
+
+    // 12 个月收支（图表用）
+    var mInc = [], mExp = [];
+    for (var m = 0; m < 12; m++) {
+      var mk = y + "-" + String(m + 1).padStart(2, "0");
+      mInc.push(yTx.filter(function (r) { return r.type === "income" && (r.date || "").slice(0, 7) === mk; }).reduce(function (s, r) { return s + Number(r.amount || 0); }, 0));
+      mExp.push(yTx.filter(function (r) { return r.type === "expense" && (r.date || "").slice(0, 7) === mk; }).reduce(function (s, r) { return s + Number(r.amount || 0); }, 0));
+    }
+
+    panel.innerHTML = '<div class="card">' +
+      '<h2>📖 年度报告<span class="count">' + y + ' 年 · 人生年报</span></h2>' +
+      '<div class="row sp-b-md"><select id="rptAnnualYear">' +
+        years.map(function (yy) { return '<option value="' + yy + '"' + (yy === y ? " selected" : "") + '>' + yy + ' 年</option>'; }).join("") +
+      '</select></div>' +
+      '<div class="stat-grid">' +
+        '<div class="stat"><div class="s-lab">全年收入</div><div class="s-val" style="color:var(--ok)">+' + fmtYuan(inc) + '</div><div class="s-sub">' + yTx.filter(function (r) { return r.type === "income"; }).length + ' 笔</div></div>' +
+        '<div class="stat"><div class="s-lab">全年支出</div><div class="s-val" style="color:var(--danger)">-' + fmtYuan(exp) + '</div><div class="s-sub">' + yTx.filter(function (r) { return r.type === "expense"; }).length + ' 笔</div></div>' +
+        '<div class="stat"><div class="s-lab">年度结余</div><div class="s-val">' + (inc - exp >= 0 ? "+" : "") + fmtYuan(inc - exp) + '</div><div class="s-sub">储蓄新增 ' + fmtYuan(sav) + '</div></div>' +
+        '<div class="stat"><div class="s-lab">理财买卖</div><div class="s-val">' + fmtYuan(buy) + '</div><div class="s-sub">买入 / 卖出 ' + fmtYuan(sell) + ' · 净投入 ' + fmtYuan(buy - sell) + '</div></div>' +
+        '<div class="stat"><div class="s-lab">任务完成</div><div class="s-val">' + done + '</div><div class="s-sub">新建 ' + created + ' 个</div></div>' +
+        '<div class="stat"><div class="s-lab">习惯打卡</div><div class="s-val">' + checkins + '</div><div class="s-sub">' + habits.length + ' 个习惯</div></div>' +
+        '<div class="stat"><div class="s-lab">健康记录</div><div class="s-val">' + healthN + '</div><div class="s-sub">体重/步数等</div></div>' +
+        '<div class="stat"><div class="s-lab">笔记沉淀</div><div class="s-val">' + noteN + '</div><div class="s-sub">收藏 ' + bmN + ' 条</div></div>' +
+        '<div class="stat"><div class="s-lab">书影音</div><div class="s-val">' + mediaN + '</div><div class="s-sub">看完/读完</div></div>' +
+        '<div class="stat"><div class="s-lab">人生大事</div><div class="s-val">' + tlN + '</div><div class="s-sub">时间轴事件</div></div>' +
+      '</div>' +
+      '<div class="chart-box sp-t-md"><div class="chart-tt">' + y + ' 年各月收入 / 支出（元）</div><canvas id="chartAnnual" height="160"></canvas></div>' +
+      '<div id="annualAi"></div>' +
+      '<div class="row sp-t-md"><button class="btn" id="annualGen">✨ 生成 AI 年度总结</button></div>' +
+      '</div>';
+
+    // 月度柱状图
+    var cvs = panel.querySelector("#chartAnnual");
+    if (cvs && window.Chart) {
+      charts.push(new Chart(cvs, {
+        type: "bar",
+        data: {
+          labels: ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
+          datasets: [
+            { label: "收入", data: mInc, backgroundColor: cssVar("--ok") || "#5a9e6f", borderRadius: 3 },
+            { label: "支出", data: mExp, backgroundColor: cssVar("--danger") || "#c96a5f", borderRadius: 3 },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+          plugins: { legend: { position: "bottom" } },
+        },
+      }));
+    }
+
+    // 年份切换：只重渲染本面板
+    var yearSel = panel.querySelector("#rptAnnualYear");
+    if (yearSel) {
+      yearSel.addEventListener("change", function (e) {
+        annualYear = Number(e.target.value);
+        for (var i = 0; i < charts.length; i++) { try { charts[i].destroy(); } catch (err) {} }
+        charts = [];
+        renderAnnualPanel(panel, ctx);
+      });
+    }
+
+    // AI 年度总结（只分析不写数据；按年缓存在 settings.annualAi）
+    var genBtn = panel.querySelector("#annualGen");
+    if (genBtn) {
+      (async function () {
+        var cache = (await getSetting("annualAi", null)) || {};
+        var cached = cache[y];
+        var body = panel.querySelector("#annualAi");
+        if (cached && body) body.innerHTML = '<div class="ai-panel">' + MD.render(cached.text) + "</div>";
+        genBtn.addEventListener("click", async function () {
+          var body2 = panel.querySelector("#annualAi");
+          body2.innerHTML = '<div class="ai-loading">AI 正在写年度总结，请稍候…</div>';
+          genBtn.disabled = true;
+          try {
+            var sys = "你是个人效率助理，为用户写一份简洁温暖的中文年度总结。基于提供的全年数据，分 3-5 个方面（财务/任务/习惯/生活记录）各给 1-2 句，肯定坚持、点出可改进处，不夸大不奉承。markdown 列表输出，总长 300 字内，不要寒暄。";
+            var prompt = y + " 年全年数据：\n- 收入 " + Math.round(inc) + " 元 / 支出 " + Math.round(exp) + " 元 / 结余 " + Math.round(inc - exp) + " 元\n- 储蓄新增 " + Math.round(sav) + " 元；理财买入 " + Math.round(buy) + " 元 / 卖出 " + Math.round(sell) + " 元\n- 任务完成 " + done + " 个（新建 " + created + "）\n- 习惯打卡 " + checkins + " 次（" + habits.length + " 个习惯）\n- 健康记录 " + healthN + " 条 / 笔记 " + noteN + " 篇 / 收藏 " + bmN + " 条 / 书影音 " + mediaN + " 部\n- 人生大事 " + tlN + " 件";
+            var text = await ai.chat(sys, prompt, 0.6);
+            var cache2 = (await getSetting("annualAi", null)) || {};
+            cache2[y] = { text: text, at: new Date().toLocaleString("zh-CN") };
+            await setSetting("annualAi", cache2);
+            body2.innerHTML = '<div class="ai-panel">' + MD.render(text) + "</div>";
+          } catch (e) {
+            body2.innerHTML = '<div class="empty" style="color:var(--danger)">AI 生成失败：' + esc(e.message) + "</div>";
+          } finally {
+            genBtn.disabled = false;
+          }
+        });
+      })();
+    }
+  }
+
   // ========== 主渲染 ==========
   routes.reports = {
     title: "数据统计",
@@ -733,6 +862,11 @@
         healthRepo.list(),
         tasksRepo.list(),
         window.WB.getSettings ? window.WB.getSettings({ finCategories: { income: [], expense: [] } }) : Promise.resolve({ finCategories: { income: [], expense: [] } }),
+        repo("notes").list().catch(function () { return []; }),
+        repo("media").list().catch(function () { return []; }),
+        repo("timeline").list().catch(function () { return []; }),
+        repo("bookmarks").list().catch(function () { return []; }),
+        repo("stocks").list().catch(function () { return []; }),
       ]);
       // #view 常驻文档、isConnected 恒为 true；校验 hash 防止慢请求覆写已切走的页面
       if (location.hash !== "#/reports") return;
@@ -756,6 +890,7 @@
         { k: "habits", label: "习惯" },
         { k: "health", label: "健康" },
         { k: "tasks", label: "任务" },
+        { k: "annual", label: "📖 年度" },
         { k: "ai", label: "✨ AI 月报" },
       ];
       var tabHtml = tabs.map(function (t) {
@@ -774,6 +909,7 @@
       else if (reportTab === "habits") renderHabitsPanel(panel, habits);
       else if (reportTab === "health") renderHealthPanel(panel, health);
       else if (reportTab === "tasks") renderTasksPanel(panel, tasks);
+      else if (reportTab === "annual") renderAnnualPanel(panel, { finance: finance, habits: habits, health: health, tasks: tasks, notes: data[5], media: data[6], timeline: data[7], bookmarks: data[8], stocks: data[9] });
       else if (reportTab === "ai") renderAiReportPanel(panel, { finance: finance, habits: habits, health: health, tasks: tasks });
 
       // Tab 切换事件

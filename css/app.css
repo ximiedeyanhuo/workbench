@@ -5001,3 +5001,84 @@ input.w-150, input.w-160, input.w-170, input.w-180, input.w-200 { border-radius:
 [data-theme="dark"] input:not([type]), [data-theme="dark"] select, [data-theme="dark"] textarea {
   border-color: rgba(255, 255, 255, 0.14);
 }
+
+/* ================= 时间轴（人生大事）+ 往年今日 ================= */
+.tl-year-group { margin-bottom: 6px; }
+.tl-year {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--muted);
+  margin: 14px 0 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px dashed var(--line);
+  letter-spacing: 1px;
+}
+.tl-ev {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.tl-ev:last-child { border-bottom: none; }
+.tl-ev-date { min-width: 52px; text-align: center; line-height: 1.25; }
+.tl-ev-date b { display: block; font-size: 15px; }
+.tl-ev-date small { color: var(--muted); font-size: 11px; }
+.tl-ev-body { flex: 1; min-width: 0; }
+.tl-ev-title { font-weight: 600; font-size: 14px; }
+.tl-ev-cat { font-size: 11px; color: var(--muted); margin-left: 6px; font-weight: 400; }
+.tl-ev-desc { font-size: 12.5px; color: var(--muted); margin-top: 3px; line-height: 1.6; word-break: break-all; }
+.tl-ev-meta { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; }
+.tl-ev-ops { display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s; }
+.tl-ev:hover .tl-ev-ops { opacity: 1; }
+@media (hover: none) { .tl-ev-ops { opacity: 1; } }
+.otd-year { margin-bottom: 10px; }
+.otd-y-label { font-size: 12.5px; font-weight: 700; color: var(--accent, var(--primary)); margin-bottom: 4px; }
+.otd-item { font-size: 13px; padding: 5px 8px; border-radius: 8px; line-height: 1.5; }
+.otd-item:hover { background: var(--line); }
+
+/* ================= 成就系统 ================= */
+.ach-banner { padding: 10px 16px; }
+.ach-banner-in { font-size: 13.5px; font-weight: 600; }
+.ach-recent { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.ach-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--line);
+  font-weight: 600;
+}
+.ach-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.ach-row:last-child { border-bottom: none; }
+.ach-row.off { opacity: 0.45; }
+.ach-ic { font-size: 22px; min-width: 30px; text-align: center; }
+.ach-main { flex: 1; min-width: 0; }
+.ach-name { font-weight: 600; font-size: 13.5px; }
+.ach-unlock { font-size: 11px; color: var(--ok); margin-left: 8px; font-weight: 400; }
+.ach-desc { font-size: 12px; color: var(--muted); margin: 2px 0 5px; }
+.ach-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+}
+.ach-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--primary), var(--ok));
+  transition: width 0.4s ease;
+}
+.ach-row.done .ach-bar i { background: var(--ok); }
+.ach-ops { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; }
+.ach-row:hover .ach-ops { opacity: 1; }
+@media (hover: none) { .ach-ops { opacity: 1; } }
