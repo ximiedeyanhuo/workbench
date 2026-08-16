@@ -384,9 +384,11 @@
         repo("stocks").list(),
         repo("mockexams").list(),
         // 一次批量读全部 settings，避免 5 次独立 API 往返
-        getSettings({ nickname: "朋友", saveTarget: 60000, gongkao_targets: [], monthBudget: 0, weeklyReview: null, reminderDone: {} }),
+        getSettings({ nickname: "朋友", saveTarget: 60000, gongkao_targets: [], monthBudget: 0, weeklyReview: null, reminderDone: {}, achUnlocked: {} }),
         repo("reminders").list().catch(() => []),
         repo("anniv").list().catch(() => []),
+        repo("timeline").list().catch(() => []),
+        repo("bookmarks").list().catch(() => []),
       ]);
       const nickname = st.nickname, target = st.saveTarget, gkTargets = st.gongkao_targets, monthBudget = st.monthBudget, weeklyCache = st.weeklyReview;
 
@@ -579,7 +581,7 @@
         ? `<div class="card">
             <h2>净资产总览<span class="count">储蓄 + 持仓</span></h2>
             <div class="stat-grid">
-              <div class="stat" data-go="#/finance"><div class="s-lab">累计储蓄</div><div class="s-val">${fmtMoney(saved)}</div><div class="s-sub">「储蓄」类型合计</div></div>
+              <div class="stat" data-go="#/finance"><div class="s-lab">本年结余</div><div class="s-val" style="color:${yNetColor}">${yNetSign}${fmtMoney(Math.abs(yNet))}</div><div class="s-sub">收 ${fmtMoney(yIncome)} · 支 ${fmtMoney(yExpense)}</div></div>
               <div class="stat" data-go="#/stocks"><div class="s-lab">持仓市值</div><div class="s-val" id="nwStock">${fmtMoney(stockCostVal)}</div><div class="s-sub" id="nwStockSub">${holdings.length ? "行情加载中…" : "暂无持仓"}</div></div>
               <div class="stat" data-go="#/stocks"><div class="s-lab">今日盈亏</div><div class="s-val c-muted" id="nwDay">—</div><div class="s-sub">股票涨跌 + 基金净值差</div></div>
               <div class="stat"><div class="s-lab">净资产合计</div><div class="s-val" id="nwTotal">${fmtMoney(saved + stockCostVal)}</div><div class="s-sub">储蓄 + 市值</div></div>
@@ -662,21 +664,15 @@
             <div class="dh-cell" data-go="#/finance" title="去记账页"><span class="dh-lab">本月结余</span><span class="dh-val" style="color:${netColor}">${netSign}${fmtMoney(Math.abs(mNet))}</span><span class="dh-sub">收 ${fmtMoney(mIncome)} · 支 ${fmtMoney(mExpense)}</span></div>
             <div class="dh-cell" data-go="#/finance" title="去记账页"><span class="dh-lab">本月支出</span><span class="dh-val">${fmtMoney(mExpense)}</span><span class="dh-sub">${monthBudget > 0 ? "预算 " + fmtMoney(monthBudget) : "未设预算"}</span></div>
             <div class="dh-cell" data-go="#/tasks" title="去事务页"><span class="dh-lab">今日待办</span><span class="dh-val">${dueToday.length} / ${overdue.length}</span><span class="dh-sub">到期 / 逾期 · 共 ${active.length} 项</span></div>
-            <div class="dh-cell" data-go="#/life" title="去生活页"><span class="dh-lab">储蓄进度</span><span class="dh-val">${pct}%</span><span class="dh-sub">${fmtMoney(saved)} / ${fmtMoney(target)}</span></div>
+            <div class="dh-cell" data-go="#/life" title="去生活页"><span class="dh-lab">今日打卡</span><span class="dh-val">${habitDone} / ${habits.length}</span><span class="dh-sub">${habits.length === 0 ? "还没有习惯" : habitDone >= habits.length ? "全部完成 🎉" : "还差 " + (habits.length - habitDone) + " 个"}</span></div>
           </div>
         </div>
         ${gkBanner}
         ${annivBanner}
         ${saveBanner}
         ${budgetBanner}
-        <div class="stat-grid">
-          <div class="stat" data-go="#/tasks"><span class="s-ico">⏰</span><div class="s-lab">今日到期 / 逾期</div><div class="s-val">${dueToday.length} / ${overdue.length}</div><div class="s-sub">共 ${active.length} 项进行中</div></div>
-          <div class="stat" data-go="#/tasks"><span class="s-ico">📅</span><div class="s-lab">本周待办</div><div class="s-val">${weekCnt}</div><div class="s-sub">${monStr.slice(5)} ~ ${sunStr.slice(5)}</div></div>
-          <div class="stat" data-go="#/life"><span class="s-ico">🌱</span><div class="s-lab">今日打卡</div><div class="s-val">${habitDone} / ${habits.length}</div><div class="s-sub">${habits.length === 0 ? "还没有习惯" : habitDone >= habits.length ? "全部完成" : "继续加油"}</div></div>
-          <div class="stat" data-go="#/finance"><span class="s-ico">💰</span><div class="s-lab">本年结余</div><div class="s-val" style="color:${yNetColor}">${yNetSign}${fmtMoney(Math.abs(yNet))}</div><div class="s-sub">收入 ${fmtMoney(yIncome)} · 支出 ${fmtMoney(yExpense)}</div></div>
-        </div>
         <div class="card">
-          <h2>今日焦点<span class="count">${focus.length} 项</span></h2>
+          <h2>今日焦点<span class="count">今日 ${focus.length} 项 · 本周 ${weekCnt} 项</span></h2>
           <div class="focus-tl" id="focusList">
             ${focus.length === 0 ? '<div class="empty">今天没有到期或逾期的任务，去 <a href="#/tasks">事务</a> 里安排一下？</div>' : focusSorted.map((t) => tlRow(t, false)).join("")}
             ${doneToday.length ? '<div class="tl-sep"><span>已检票 · 今日完成</span></div>' + doneToday.slice(0, 8).map((t) => tlRow(t, true)).join("") : ""}
@@ -706,7 +702,6 @@
                 <input class="grow" id="dFinNote" placeholder="备注（可选）" maxlength="50" />
                 <button class="btn sm" id="dFinAdd">记账</button>
               </div>
-              <div class="mini-bar"><i style="width:${pct}%"></i></div>
               <div class="mini-bar-lab">年度储蓄 ${fmtMoney(saved)} / ${fmtMoney(target)}（${pct}%） · <a href="#/finance" class="c-accent">去记账页</a></div>
               <div class="save-ring" id="dashRing" style="--p:${pct}" title="年度储蓄目标进度">
                 <svg viewBox="0 0 36 36" aria-hidden="true">
