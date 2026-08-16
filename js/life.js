@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  const { routes, repo, esc, uid, todayStr, dateStr, fmtMoney, flashInvalid, cssVar, streakOf, weekRange } = window.WB;
+  const { routes, repo, esc, uid, todayStr, dateStr, flashInvalid, cssVar, streakOf, weekRange } = window.WB;
   const habitsRepo = repo("habits");
   const healthRepo = repo("health");
 
@@ -48,7 +48,7 @@
             let weekCnt = 0;
             const [monStr] = weekRange();
             for (let i = 0; i < 7; i++) {
-              const ds = dateStr(new Date(new Date(monStr).getTime() + i * 86400000));
+              const ds = dateStr(new Date(new Date(monStr + "T00:00:00").getTime() + i * 86400000));
               if (ck[ds]) weekCnt++;
               if (ds === today) break;
             }
@@ -168,6 +168,8 @@
         habitsRepo.list(),
         healthRepo.list(),
       ]);
+      // 慢请求返回时用户可能已切走路由：不校验会把生活页覆写到当前页面上
+      if (location.hash !== "#/life") return;
 
       // 重渲染前销毁所有旧图表实例
       lifeCharts.forEach((c) => c.destroy());

@@ -312,8 +312,10 @@
 
   // ---------- 全量导出 / 导入 ----------
   async function exportAll() {
+    // 并行拉全部 store：API 模式下串行 await 是 15+ 次 HTTP 往返，慢一个量级
+    const rows = await Promise.all(ALL_STORES.map((s) => repo(s).list()));
     const data = {};
-    for (const s of ALL_STORES) data[s] = await repo(s).list();
+    ALL_STORES.forEach((s, i) => { data[s] = rows[i]; });
     return { app: "workbench", version: EXPORT_VERSION, exportedAt: new Date().toISOString(), data };
   }
 
@@ -359,8 +361,9 @@
 
   /** 强制从浏览器 IndexedDB 导出（迁移旧数据到服务器专用，不走 API 路由） */
   async function exportLocal() {
+    const rows = await Promise.all(ALL_STORES.map((s) => idbRepo(s).list()));
     const data = {};
-    for (const s of ALL_STORES) data[s] = await idbRepo(s).list();
+    ALL_STORES.forEach((s, i) => { data[s] = rows[i]; });
     return { app: "workbench", version: EXPORT_VERSION, exportedAt: new Date().toISOString(), data };
   }
 

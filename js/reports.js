@@ -15,7 +15,7 @@
  */
 (function () {
   "use strict";
-  const { routes, repo, esc, uid, todayStr, dateStr, cssVar, streakOf, getSetting, setSetting, ai, icon } = window.WB;
+  const { routes, repo, esc, todayStr, dateStr, cssVar, streakOf, getSetting, setSetting, ai } = window.WB;
   const financeRepo = repo("finance");
   const habitsRepo = repo("habits");
   const healthRepo = repo("health");
@@ -73,9 +73,6 @@
     return Number(n || 0).toLocaleString("zh-CN", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
   }
   const udColor = (n) => (n > 0.005 ? "var(--rise)" : n < -0.005 ? "var(--fall)" : "var(--muted)");
-  function monthDays(year, month) {
-    return new Date(year, month + 1, 0).getDate();
-  }
   function getYears(list, dateField) {
     var s = new Set([String(new Date().getFullYear())]);
     list.forEach(function (r) {
@@ -146,7 +143,7 @@
     var now = new Date();
     var daysPassed = (year === now.getFullYear())
       ? Math.max(1, Math.floor((now - new Date(year, 0, 1)) / 86400000) + 1)
-      : (new Date(year, 12, 0).getDate() > 365 ? 366 : 365);
+      : (new Date(year, 1, 29).getMonth() === 1 ? 366 : 365);
     var dailyExp = expAmt / daysPassed;
     var yearOpts = getYears(records).map(function (y) {
       return '<option value="' + y + '"' + (y === String(year) ? " selected" : "") + '>' + y + "年</option>";
@@ -209,8 +206,10 @@
       "<tbody>" + monthRows.join("") + "</tbody></table></div></div></div>";
 
     renderFinanceCharts(el, monthlyInc, monthlyExp, catEntries);
-    fillStockStats(el);
-    renderStockFlow(el, year);
+    // 两个理财面板共用一份数据：只拉一次 stocks（API 模式省一次 HTTP 往返）
+    var stocksPromise = stocksRepo.list();
+    fillStockStats(el, stocksPromise);
+    renderStockFlow(el, year, stocksPromise);
   }
 
   /** 按 code 聚合流水为持仓组（ES5，含旧快照迁移）：holding=Σ买-Σ卖，avgCost=Σ(买量×价)/Σ买量 */
@@ -234,8 +233,8 @@
     });
   }
 
-  async function fillStockStats(el) {
-    var list = await stocksRepo.list();
+  async function fillStockStats(el, stocksPromise) {
+    var list = await stocksPromise;
     var txs = (list || []).map(function (r) {
       if (!r.action) { r.action = "buy"; r.price = r.cost; r.date = (r.createdAt || "").slice(0, 10); }
       return { id: r.id, code: r.code || "", name: r.name || r.code || "",
@@ -309,10 +308,10 @@
   }
 
   /** 理财买卖流水月度统计：按月汇总当年买入（流出红）/卖出（流入绿）/净额 */
-  async function renderStockFlow(el, year) {
+  async function renderStockFlow(el, year, stocksPromise) {
     var box = el.querySelector("#rptStkFlow");
     if (!box) return;
-    var records = await stocksRepo.list();
+    var records = await stocksPromise;
     if (!el.isConnected) return;
     var txs = (records || []).map(function (r) {
       var date = (r.date || r.createdAt || "").slice(0, 10) || "";
@@ -735,7 +734,8 @@
         tasksRepo.list(),
         window.WB.getSettings ? window.WB.getSettings({ finCategories: { income: [], expense: [] } }) : Promise.resolve({ finCategories: { income: [], expense: [] } }),
       ]);
-      if (!el.isConnected) return;
+      // #view 常驻文档、isConnected 恒为 true；校验 hash 防止慢请求覆写已切走的页面
+      if (location.hash !== "#/reports") return;
       var finance = data[0], habits = data[1], health = data[2], tasks = data[3];
       // 自定义分类（Excel 导入/手动新建）：合并进 catName/catColor，否则图例显示原始 ID
       var finCats = (data[4] && data[4].finCategories) || { income: [], expense: [] };

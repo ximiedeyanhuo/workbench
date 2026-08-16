@@ -203,13 +203,11 @@
       const moreBtn = more > 0 ? `<button class="kb-more" data-act="kb-show" data-pri="${c.key}">展开剩余 ${more} 条</button>` : "";
       return `<div class="kb-col"><div class="kb-col-head"><span class="kb-ico">${c.icon}</span><span class="kb-tt" style="color:${c.color}">${c.title}</span><span class="kb-cnt">${list.length}</span></div><ul class="kb-list">${cards}</ul>${moreBtn}</div>`;
     }).join("");
+    const foot = expandPri
+      ? `<div class="kb-foot">已展开全部 · <button class="btn ghost sm" id="kbCollapse">收起</button></div>`
+      : `<div class="kb-foot">看板仅展示未完成任务；切换到「已完成」可看历史</div>`;
     return `<div class="kb-board" id="kbBoard">${colHtml}</div>
-      <div class="kb-foot">看板仅展示未完成任务；切换到「已完成」可看历史</div>`;
-  }
-
-  // 看板展开整列后的渲染：复用 renderKanban（传 expandPri 让该列不限条数）
-  function renderKanbanExpanded(tasks, today, pri) {
-    return renderKanban(tasks, today, pri);
+      ${foot}`;
   }
 
   // ---------- 主渲染 ----------
@@ -217,6 +215,8 @@
     title: "事务",
     async render(el) {
       const tasks = await tasksRepo.list();
+      // 慢请求返回时用户可能已切走路由：不校验会把任务页覆写到当前页面上
+      if (location.hash !== "#/tasks") return;
       const today = todayStr();
       const activeCnt = tasks.filter((t) => !t.done).length;
       const overdueTasks = tasks.filter((t) => !t.done && t.dueDate && t.dueDate < today);
@@ -286,7 +286,8 @@
           </div>
         </div>`;
 
-      const rerender = () => routes.tasks.render(el);
+      // rerender 统一守卫：AI 排序/拆解等秒级回调期间用户切走路由后，不再把任务视图写回 #view
+      const rerender = () => { if (location.hash !== "#/tasks") return; routes.tasks.render(el); };
 
       // 新建任务
       const addTask = async () => {
@@ -509,8 +510,7 @@
             // 看板列展开剩余：临时把限制放到 999，重新渲染
             const pri = actEl.dataset.pri;
             const tb = el.querySelector("#taskBody");
-            const newHtml = `<div class="kb-board" id="kbBoard">${renderKanbanExpanded(tasks, today, pri)}</div>
-              <div class="kb-foot">已展开全部 · <button class="btn ghost sm" id="kbCollapse">收起</button></div>`;
+            const newHtml = renderKanban(tasks, today, pri);
             tb.innerHTML = newHtml;
             tb.querySelector("#kbCollapse").addEventListener("click", () => rerender());
             return;

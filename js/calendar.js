@@ -23,7 +23,7 @@
  */
 (function () {
   "use strict";
-  const { routes, repo, esc, uid, todayStr, fmtMoney, getSetting, setSetting, flashInvalid, cssVar } = window.WB;
+  const { routes, repo, esc, todayStr, fmtMoney, getSetting } = window.WB;
   const tasksRepo = repo("tasks");
   const financeRepo = repo("finance");
   const habitsRepo = repo("habits");
@@ -289,7 +289,8 @@
       var all = await Promise.all([tasksPromise, financesPromise, habitsPromise, budgetPromise]);
       var tasks = all[0], finances = all[1], habits = all[2], monthBudget = all[3];
 
-      if (!el.isConnected) return;
+      // #view 常驻文档、isConnected 恒为 true 拦不住；校验 hash 才能防止慢请求覆写已切走的页面
+      if (location.hash !== "#/calendar") return;
 
       var dailyIdx = buildDayIndex(tasks, finances, habits);
 
@@ -298,10 +299,13 @@
       var rerender = function () { routes.calendar.render(el); };
 
       // el 是跨路由复用的 #view：事件用单个委托处理器 + 绑定一次守卫，
-      // 否则每次 render 重绑 4 个监听器会累积（点一次翻 N 个月），且切路由后残留
+      // 否则每次 render 重绑 4 个监听器会累积（点一次翻 N 个月），且切路由后残留。
+      // 处理器必须先校验当前路由：任务页迷你日历也用 #calPrev/#calNext/[data-day]，
+      // 生活热力格/记账月历也用 [data-day]，不校验会劫持它们的点击把页面覆写成日历
       if (!el._calClickBound) {
         el._calClickBound = true;
         el.addEventListener("click", function (e) {
+          if (location.hash !== "#/calendar") return;
           var prev = e.target.closest("#calPrev");
           var next = e.target.closest("#calNext");
           var today = e.target.closest("#calToday");
