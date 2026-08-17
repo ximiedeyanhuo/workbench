@@ -166,22 +166,38 @@
     async function doSearch() {
       const q = input.value.trim().toLowerCase();
       if (!q) return close();
-      const [tasks, notes, marks, links, finances, habits] = await Promise.all([
+      const [tasks, notes, marks, links, finances, habits, trackers] = await Promise.all([
         repo("tasks").list(), repo("notes").list(), repo("bookmarks").list(), repo("quicklinks").list(),
-        repo("finance").list(), repo("habits").list(),
-      ]).catch(() => [[], [], [], [], [], []]);
+        repo("finance").list(), repo("habits").list(), repo("trackers").list().catch(() => []),
+      ]).catch(() => [[], [], [], [], [], [], []]);
       const hit = (s) => String(s || "").toLowerCase().includes(q);
       const groups = [
         { name: "✅ 任务", type: "task", rows: tasks.filter((t) => hit(t.title) || hit(t.note) || (t.tags || []).some(hit)) },
         { name: "📚 笔记", type: "note", rows: notes.filter((n) => hit(n.title) || hit(n.content) || hit(n.folder)) },
         { name: "💰 记账", type: "fin", rows: finances.filter((f) => hit(f.note) || hit(f.category)) },
         { name: "🌱 习惯", type: "habit", rows: habits.filter((h) => hit(h.name)) },
+        { name: "📊 追踪器", type: "tracker", rows: trackers.filter((t) => hit(t.name)) },
         { name: "🔖 收藏", type: "url", rows: marks.filter((m) => hit(m.title) || hit(m.url) || (m.tags || []).some(hit)) },
         { name: "🚀 快捷入口", type: "url", rows: links.filter((l) => hit(l.name) || hit(l.url)) },
       ].filter((g) => g.rows.length);
 
+      // 快速录入：查询里带数字且命中追踪器名 → 顶部出现「记录」动作（如「跑步5.2」→ 记 5.2）
+      let quickRec = "";
+      const numMatch = input.value.trim().match(/^(.{1,20}?)[\s:]*(-?\d+(?:\.\d+)?)\s*(.*)$/);
+      if (numMatch && window.WB.tracker && trackers.length) {
+        const namePart = numMatch[1].replace(/^记录\s*/, "").trim().toLowerCase();
+        const tk = trackers.find((t) => namePart && (String(t.name).toLowerCase().includes(namePart) || namePart.includes(String(t.name).toLowerCase())));
+        if (tk && Number(numMatch[2]) > 0) {
+          quickRec = `<div class="gs-item" data-qrec="${tk.id}" data-qrec-v="${numMatch[2]}" data-t="qrec">
+            <span class="gs-ic">⚡</span>
+            <div class="gs-main"><b>记录 ${esc(tk.icon || "")}${esc(tk.name)}：${esc(numMatch[2])}${esc(tk.unit || "")}</b><span class="gs-sub">回车或点击直接录入今天</span></div>
+          </div>`;
+        }
+      }
+
       if (!groups.length) {
-        panel.innerHTML = '<div class="gs-empty">没有找到匹配内容</div>';
+        // 无分组命中也要展示「⚡ 记录」快捷项（如「咖啡2」只有数字部分不同）
+        panel.innerHTML = quickRec + '<div class="gs-empty">没有找到匹配内容</div>';
         panel.hidden = false;
         return;
       }
@@ -207,26 +223,45 @@
             }
             if (g.type === "habit")
               return `<div class="gs-item" data-t="habit" data-id="${r.id}"><span class="gs-txt">${title}</span><span class="gs-sub">连续 ${esc(r.streak || "") || "打卡"}</span></div>`;
+            if (g.type === "tracker")
+              return `<div class="gs-item" data-t="tracker" data-id="${r.id}"><span class="gs-txt">${esc(r.icon || "📊")} ${title}</span><span class="gs-sub">追踪器 →</span></div>`;
             return `<div class="gs-item" data-t="url" data-url="${esc(r.url)}"><span class="gs-txt">${title}</span><span class="gs-sub">打开 ↗</span></div>`;
           }).join("");
           return `<div class="gs-group">${g.name}</div>${body}${moreHtml}`;
         })
         .join("");
+      panel.innerHTML = quickRec + panel.innerHTML;
       panel.hidden = false;
     }
 
     input.addEventListener("input", debounce(doSearch, 250));
     input.addEventListener("focus", () => { if (input.value.trim()) doSearch(); });
-    input.addEventListener("keydown", (e) => { if (e.key === "Escape") { close(); input.blur(); } });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { close(); input.blur(); }
+      // 回车：若有「⚡ 记录」快捷项则直接录入
+      if (e.key === "Enter" && !panel.hidden) {
+        const qrec = panel.querySelector('.gs-item[data-t="qrec"]');
+        if (qrec) qrec.click();
+      }
+    });
     document.addEventListener("click", (e) => { if (!wrap.contains(e.target)) close(); });
 
-    panel.addEventListener("click", (e) => {
+    panel.addEventListener("click", async (e) => {
       const item = e.target.closest(".gs-item");
       if (item) {
+        if (item.dataset.t === "qrec") {
+          try {
+            await window.WB.tracker.quickLog(item.dataset.qrec, item.dataset.qrecV);
+            showToast("已记录", "ok");
+          } catch (err) { showToast("记录失败：" + err.message, "error"); }
+          close();
+          return;
+        }
         if (item.dataset.t === "task") { WB.jump.taskId = item.dataset.id; go("#/tasks"); }
         else if (item.dataset.t === "note") { WB.jump.noteId = item.dataset.id; go("#/notes"); }
         else if (item.dataset.t === "fin") { go("#/finance"); }
         else if (item.dataset.t === "habit") { go("#/life"); }
+        else if (item.dataset.t === "tracker") { go("#/tracker"); }
         else window.open(safeUrl(item.dataset.url), "_blank", "noopener");
         return;
       }
@@ -364,7 +399,7 @@
   routes.dashboard = {
     title: "仪表盘",
     async render(el) {
-      const [tasks, habits, finance, notes, stocks, exams, st, reminders, anniv, timelineEvs, bookmarks] = await Promise.all([
+      const [tasks, habits, finance, notes, stocks, exams, st, reminders, anniv, timelineEvs, bookmarks, trackers, trackerlogs, subscriptions] = await Promise.all([
         repo("tasks").list(),
         repo("habits").list(),
         repo("finance").list(),
@@ -377,6 +412,9 @@
         repo("anniv").list().catch(() => []),
         repo("timeline").list().catch(() => []),
         repo("bookmarks").list().catch(() => []),
+        repo("trackers").list().catch(() => []),
+        repo("trackerlogs").list().catch(() => []),
+        repo("subscriptions").list().catch(() => []),
       ]);
       const nickname = st.nickname, target = st.saveTarget, gkTargets = st.gongkao_targets, monthBudget = st.monthBudget, weeklyCache = st.weeklyReview;
 
@@ -641,6 +679,51 @@
         }
       }
 
+      // 订阅到期横幅：未来 7 天内将扣费的订阅（subs.js 提供计算）
+      let subBanner = "";
+      if (window.WB.subs && (subscriptions || []).length) {
+        const upc = window.WB.subs.upcoming(subscriptions, today);
+        if (upc.length) {
+          subBanner = `<div class="dash-banner warn" data-go="#/subs" title="去订阅中心">🔁 ${upc
+            .slice(0, 2)
+            .map((x) => `${esc(x.s.name)} ${x.days === 0 ? "今天" : x.days + " 天后"}扣费 ${(x.s.currency === "USD" ? "$" : "¥") + Number(x.s.amount || 0).toFixed(0)}`)
+            .join(" · ")}${upc.length > 2 ? ` 等 ${upc.length} 项` : ""} · <span class="c-accent">订阅中心 →</span></div>`;
+        }
+      }
+
+      // 追踪器快速记录卡（有追踪器才显示）
+      let trackerCard = "";
+      if ((trackers || []).length && window.WB.tracker) {
+        const fmtV = window.WB.tracker.fmtVal;
+        const rows = trackers
+          .slice()
+          .sort((a, b) => (a.order || 0) - (b.order || 0))
+          .slice(0, 6)
+          .map((t) => {
+            const tl = (trackerlogs || []).filter((l) => l.tid === t.id && l.date === today);
+            const sum = tl.reduce((s, l) => s + Number(l.value || 0), 0);
+            const ctl =
+              t.dtype === "count"
+                ? `<button class="btn sm" data-dashlog="${t.id}" data-v="1">＋1</button>`
+                : t.dtype === "bool"
+                ? `<button class="btn sm ${sum > 0 ? "ghost" : ""}" data-dashlog="${t.id}" data-v="1">${sum > 0 ? "✓ 已记" : "记录"}</button>`
+                : t.dtype === "rating"
+                ? [1, 2, 3, 4, 5].map((n) => `<button class="btn sm ghost" data-dashlog="${t.id}" data-v="${n}">${n}</button>`).join("")
+                : `<input type="number" step="0.1" placeholder="数值" style="max-width:84px" data-dashlogval="${t.id}" /><button class="btn sm ghost" data-dashloggo="${t.id}">记</button>`;
+            return `<li class="item">
+              <span class="dot" style="background:${esc(t.color || "#c9956b")}"></span>
+              <span class="txt" ${sum ? "" : ""}>${esc(t.icon || "📊")} ${esc(t.name)}</span>
+              <span class="meta">${tl.length ? esc(fmtV(t, t.dtype === "number" && tl.length ? tl[tl.length - 1].value : sum)) : "今天未记"}</span>
+              ${ctl}
+            </li>`;
+          })
+          .join("");
+        trackerCard = `<div class="card">
+          <h2>追踪器<span class="count"><a href="#/tracker" class="c-accent">全部 →</a></span></h2>
+          <ul class="list" id="dashTrackers">${rows}</ul>
+        </div>`;
+      }
+
 
       // 行动入口：打卡 / 记一笔 / 最近笔记，在仪表盘直接操作不用跳页
       const habitRows = habits.length
@@ -693,6 +776,7 @@
         ${annivBanner}
         ${saveBanner}
         ${budgetBanner}
+        ${subBanner}
         ${achStrip}
         ${otdHtml}
         <div class="card">
@@ -703,6 +787,7 @@
           </div>
         </div>
         ${remindersHtml}
+        ${trackerCard}
         <div class="dash-actions">
           <div class="card">
             <h2>今日打卡<span class="count">${habitDone} / ${habits.length}</span></h2>
@@ -834,6 +919,35 @@
         await repo("habits").put(hb);
         navigate();
       });
+
+      // 追踪器快速记录：+1 / 评分 / 数值（记账后整页刷新，看到当日累计）
+      const dashTrackersEl = el.querySelector("#dashTrackers");
+      if (dashTrackersEl) {
+        dashTrackersEl.addEventListener("click", async (e) => {
+          const go = e.target.closest("[data-dashloggo]");
+          const btn = e.target.closest("[data-dashlog]");
+          if (!go && !btn) return;
+          try {
+            if (go) {
+              const input = el.querySelector(`[data-dashlogval="${go.dataset.dashloggo}"]`);
+              const v = Number(input.value);
+              if (!input.value || isNaN(v) || v <= 0) return flashInvalid(input);
+              await window.WB.tracker.quickLog(go.dataset.dashloggo, v);
+            } else {
+              await window.WB.tracker.quickLog(btn.dataset.dashlog, btn.dataset.v);
+            }
+            showToast("已记录", "ok");
+            navigate();
+          } catch (err) {
+            showToast("记录失败：" + err.message, "error");
+          }
+        });
+        dashTrackersEl.addEventListener("keydown", (e) => {
+          if (e.key !== "Enter" || !e.target.dataset.dashlogval) return;
+          const go = el.querySelector(`[data-dashloggo="${e.target.dataset.dashlogval}"]`);
+          if (go) go.click();
+        });
+      }
 
       // 快速记支出：仪表盘小卡快速录一笔当日支出（跳去记账页看更多）
       const dFinAdd = async () => {
@@ -1663,7 +1777,7 @@
   }
 
   // 移动端底栏「更多」面板容纳的低频路由（与 index.html 中 .more-grid 保持一致）
-  const MORE_ROUTES = ["life", "calendar", "timeline", "achievements", "reports", "stocks", "gongkao", "drive", "links", "settings", "help"];
+  const MORE_ROUTES = ["life", "calendar", "timeline", "achievements", "tracker", "time", "subs", "reports", "stocks", "gongkao", "drive", "links", "settings", "help"];
 
   /** 关闭「更多」上滑面板 */
   function closeMoreSheet() {

@@ -67,30 +67,36 @@
     return "b-primary";
   }
 
-  function buildDayIndex(tasks, finances, habits) {
+  function buildDayIndex(tasks, finances, habits, trackerLogs, trackers) {
     var idx = new Map();
+    var slot = function (d) {
+      var entry = idx.get(d);
+      if (!entry) { entry = { tasks: [], txs: [], checkins: [], tlogs: [] }; idx.set(d, entry); }
+      return entry;
+    };
     tasks.forEach(function (t) {
       var due = (t.dueDate || "").slice(0, 10);
       if (!due) return;
-      var entry = idx.get(due);
-      if (!entry) { entry = { tasks: [], txs: [], checkins: [] }; idx.set(due, entry); }
-      entry.tasks.push(t);
+      slot(due).tasks.push(t);
     });
     finances.forEach(function (tx) {
       var d = (tx.date || "").slice(0, 10);
       if (!d) return;
-      var entry = idx.get(d);
-      if (!entry) { entry = { tasks: [], txs: [], checkins: [] }; idx.set(d, entry); }
-      entry.txs.push(tx);
+      slot(d).txs.push(tx);
     });
     habits.forEach(function (h) {
       var ck = h.checkins || {};
       Object.keys(ck).forEach(function (d) {
         if (!ck[d]) return;
-        var entry = idx.get(d);
-        if (!entry) { entry = { tasks: [], txs: [], checkins: [] }; idx.set(d, entry); }
-        entry.checkins.push(h);
+        slot(d).checkins.push(h);
       });
+    });
+    (trackerLogs || []).forEach(function (l) {
+      var d = (l.date || "").slice(0, 10);
+      if (!d || !l.tid) return;
+      var t = (trackers || []).filter(function (x) { return x.id === l.tid; })[0];
+      if (!t) return;
+      slot(d).tlogs.push({ log: l, tracker: t });
     });
     return idx;
   }
@@ -212,7 +218,7 @@
     if (!calSelDay) return '<div class="empty sp-t-2x">\u70B9\u51FB\u65E5\u671F\u67E5\u770B\u5F53\u65E5\u8BE6\u60C5</div>';
 
     var entry = dailyIdx.get(calSelDay);
-    if (!entry || (!entry.tasks.length && !entry.txs.length && !entry.checkins.length)) {
+    if (!entry || (!entry.tasks.length && !entry.txs.length && !entry.checkins.length && !entry.tlogs.length)) {
       return '<div class="card sp-t-2x"><div class="empty">\u5F53\u65E5\u65E0\u8BB0\u5F55</div></div>';
     }
 
@@ -230,6 +236,17 @@
           (pLabel ? '<span class="badge ' + priorityBadge(t.priority) + '">' + pLabel + '</span>' : "") +
           (isOverdue(t) ? '<span class="badge b-danger mla">\u903E\u671F</span>' : "") +
           '</div>';
+      });
+    }
+
+    if (entry.tlogs && entry.tlogs.length) {
+      html += '<div class="cal-detail-section">追踪</div>';
+      entry.tlogs.forEach(function (x) {
+        var t = x.tracker, l = x.log;
+        var v = t.dtype === "duration" ? (Number(l.value) >= 60 ? (Number(l.value) / 60).toFixed(1) + "h" : Math.round(Number(l.value)) + "m") : Number(l.value) + (t.unit || "");
+        html += '<div class="cal-detail-task"><span class="pri-dot" style="background:' + esc(t.color || "#c9956b") + '"></span>' +
+          '<span class="cal-detail-txt">' + esc((t.icon || "📊") + " " + t.name) + "</span>" +
+          '<span class="badge b-primary mla">' + esc(String(v)) + "</span></div>";
       });
     }
 
@@ -285,14 +302,16 @@
       var financesPromise = financeRepo.list();
       var habitsPromise = habitsRepo.list();
       var budgetPromise = getSetting("monthBudget", 0);
+      var trackersPromise = repo("trackers").list().catch(function () { return []; });
+      var tlogsPromise = repo("trackerlogs").list().catch(function () { return []; });
 
-      var all = await Promise.all([tasksPromise, financesPromise, habitsPromise, budgetPromise]);
-      var tasks = all[0], finances = all[1], habits = all[2], monthBudget = all[3];
+      var all = await Promise.all([tasksPromise, financesPromise, habitsPromise, budgetPromise, trackersPromise, tlogsPromise]);
+      var tasks = all[0], finances = all[1], habits = all[2], monthBudget = all[3], trackers = all[4] || [], trackerLogs = all[5] || [];
 
       // #view 常驻文档、isConnected 恒为 true 拦不住；校验 hash 才能防止慢请求覆写已切走的页面
       if (location.hash !== "#/calendar") return;
 
-      var dailyIdx = buildDayIndex(tasks, finances, habits);
+      var dailyIdx = buildDayIndex(tasks, finances, habits, trackerLogs, trackers);
 
       el.innerHTML = ctrlHtml() + overviewHtml(dailyIdx, finances, monthBudget) + gridHtml(dailyIdx) + detailHtml(dailyIdx);
 

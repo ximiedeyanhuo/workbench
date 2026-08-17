@@ -179,7 +179,19 @@
   const TIMELINE_DB = "workbench_timeline";
   const TIMELINE_VERSION = 1;
   const TIMELINE_STORES = ["timeline"];
-  const ALL_STORES = STORES.concat(FEEDS_STORES, HEALTH_STORES, STOCKS_STORES, MOCKEXAMS_STORES, QUICK_STORES, ANNIV_STORES, REMIND_STORES, MEDIA_STORES, TIMELINE_STORES); // 导入导出覆盖全部业务数据
+  // tracker（自定义追踪器定义+记录）同理独立建库
+  const TRACKER_DB = "workbench_tracker";
+  const TRACKER_VERSION = 1;
+  const TRACKER_STORES = ["trackers", "trackerlogs"];
+  // timeentries（时间账本）同理独立建库
+  const TIME_DB = "workbench_time";
+  const TIME_VERSION = 1;
+  const TIME_STORES = ["timeentries"];
+  // subscriptions（订阅中心）同理独立建库
+  const SUBS_DB = "workbench_subs";
+  const SUBS_VERSION = 1;
+  const SUBS_STORES = ["subscriptions"];
+  const ALL_STORES = STORES.concat(FEEDS_STORES, HEALTH_STORES, STOCKS_STORES, MOCKEXAMS_STORES, QUICK_STORES, ANNIV_STORES, REMIND_STORES, MEDIA_STORES, TIMELINE_STORES, TRACKER_STORES, TIME_STORES, SUBS_STORES); // 导入导出覆盖全部业务数据
   const EXPORT_VERSION = 1;
 
   const dbCache = {};
@@ -221,6 +233,9 @@
     if (REMIND_STORES.indexOf(store) !== -1) return open(REMIND_DB, REMIND_VERSION, REMIND_STORES);
     if (MEDIA_STORES.indexOf(store) !== -1) return open(MEDIA_DB, MEDIA_VERSION, MEDIA_STORES);
     if (TIMELINE_STORES.indexOf(store) !== -1) return open(TIMELINE_DB, TIMELINE_VERSION, TIMELINE_STORES);
+    if (TRACKER_STORES.indexOf(store) !== -1) return open(TRACKER_DB, TRACKER_VERSION, TRACKER_STORES);
+    if (TIME_STORES.indexOf(store) !== -1) return open(TIME_DB, TIME_VERSION, TIME_STORES);
+    if (SUBS_STORES.indexOf(store) !== -1) return open(SUBS_DB, SUBS_VERSION, SUBS_STORES);
     return open(DB_NAME, DB_VERSION, STORES);
   }
 

@@ -7,7 +7,7 @@
  * - 离线时：展示缓存的页面，API 部分降级提示
  */
 
-const CACHE = "workbench-v136";
+const CACHE = "workbench-v137";
 const STATIC = [
   "/",
   "/index.html",
@@ -32,6 +32,9 @@ const STATIC = [
   "/js/media.js",
   "/js/timeline.js",
   "/js/achievements.js",
+  "/js/tracker.js",
+  "/js/timeledger.js",
+  "/js/subs.js",
   "/lib/md.js",
   "/lib/chart.umd.min.js",
   "/lib/xlsx.mini.min.js",

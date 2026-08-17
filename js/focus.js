@@ -90,6 +90,10 @@
       // 同一日仅保留 200 段，避免无限增长
       if (log[day].length > 200) log[day] = log[day].slice(-200);
       await setSetting("focusLog", log);
+      // 时间账本联动：专注段完成后自动写一条时间记录（开关在时间账本页，默认开）
+      if (state.type === "focus" && window.WB.timeledger) {
+        window.WB.timeledger.logFocus(Math.round(state.totalMs / 60000), "focus");
+      }
     }
     // 浮窗轻提示
     if ("Notification" in window && Notification.permission === "granted") {
