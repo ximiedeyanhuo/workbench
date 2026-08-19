@@ -281,6 +281,17 @@
   // ================= 仪表盘 =================
   let dashCharts = []; // 重渲染前销毁旧实例，避免 Chart.js 残留引用
   let dashArchiveOpen = false; // 归档区（数据概览）展开状态：重渲染后保留用户选择
+  let dashCfgOpen = false; // 首页自定义面板展开状态（Workspace 轻量版）
+  // 首页可开关的区块（key 对应 settings.dashLayout 的字段）
+  const DASH_SECTIONS = [
+    { k: "banners", name: "横幅提醒（考公 / 倒数日 / 储蓄 / 预算 / 订阅 / 新成就）" },
+    { k: "otd", name: "往年今日" },
+    { k: "focus", name: "今日焦点" },
+    { k: "reminders", name: "今日提醒" },
+    { k: "trackers", name: "追踪器速记" },
+    { k: "actions", name: "打卡 / 快速记支出 / 最近沉淀" },
+    { k: "archive", name: "数据概览与每周回顾（归档区）" },
+  ];
 
   function renderCharts(el, tasks, habits, finance, stockCostVal) {
     if (typeof Chart === "undefined") return; // chart.umd.min.js 未加载时静默降级
@@ -407,7 +418,7 @@
         repo("stocks").list(),
         repo("mockexams").list(),
         // 一次批量读全部 settings，避免 5 次独立 API 往返
-        getSettings({ nickname: "朋友", saveTarget: 60000, gongkao_targets: [], monthBudget: 0, weeklyReview: null, reminderDone: {}, achUnlocked: {} }),
+        getSettings({ nickname: "朋友", saveTarget: 60000, gongkao_targets: [], monthBudget: 0, weeklyReview: null, reminderDone: {}, achUnlocked: {}, dashLayout: {} }),
         repo("reminders").list().catch(() => []),
         repo("anniv").list().catch(() => []),
         repo("timeline").list().catch(() => []),
@@ -417,6 +428,8 @@
         repo("subscriptions").list().catch(() => []),
       ]);
       const nickname = st.nickname, target = st.saveTarget, gkTargets = st.gongkao_targets, monthBudget = st.monthBudget, weeklyCache = st.weeklyReview;
+      // 首页布局（Workspace 轻量版）：各区块显示开关，settings.dashLayout 覆盖默认全显
+      const layout = Object.assign({ banners: 1, otd: 1, focus: 1, reminders: 1, trackers: 1, actions: 1, archive: 1 }, st.dashLayout || {});
 
       const today = todayStr();
       const now = new Date();
@@ -757,13 +770,25 @@
       // v96：回退到紧凑 hero 架构（不再做大色卡 + 插画）。
       // hero 区保留 v94 的小数字条（4 格），但本次只做调色与质感，
       // 不再加新结构。skill-v96 = 「米黄纸 + 奶油白 + 细描边」记账 App 质感。
+      const dashCfgHtml = dashCfgOpen
+        ? `<div class="card" id="dashCfgCard">
+            <h2>自定义首页<span class="count">勾选要显示的区块，立即生效</span></h2>
+            ${DASH_SECTIONS.map((s) => `<div class="set-row"><label class="an-yearly"><input type="checkbox" data-dashsec="${s.k}" ${layout[s.k] !== 0 ? "checked" : ""} /> ${s.name}</label></div>`).join("")}
+            <div class="row sp-t-sm">
+              <button class="btn sm ghost" id="dashPresetDefault">恢复默认</button>
+              <button class="btn sm ghost" id="dashPresetMin">极简模式（只留今日焦点）</button>
+              <button class="btn sm" id="dashCfgDone">完成</button>
+            </div>
+          </div>`
+        : "";
+
       el.innerHTML = `
         <div class="dash-hero">
           <div class="dh-head">
             <div class="hero-greet">${greet}，${esc(nickname)}！</div>
             <div class="hero-date">${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 · 星期${wk}${
               focus.length ? " · 今天有 " + focus.length + " 件事需要关注" : " · 今天没有到期事项，安心推进"
-            }${notifyBtnHtml}</div>
+            }${notifyBtnHtml} <button class="icon-btn plain" id="dashCfgBtn" title="自定义首页显示的区块">⚙</button></div>
           </div>
           <div class="dh-stats" id="dashHeroStats">
             <div class="dh-cell" data-go="#/finance" title="去记账页"><span class="dh-lab">本月结余</span><span class="dh-val" style="color:${netColor}">${netSign}${fmtMoney(Math.abs(mNet))}</span><span class="dh-sub">收 ${fmtMoney(mIncome)} · 支 ${fmtMoney(mExpense)}</span></div>
@@ -772,13 +797,10 @@
             <div class="dh-cell" data-go="#/life" title="去生活页"><span class="dh-lab">今日打卡</span><span class="dh-val">${habitDone} / ${habits.length}</span><span class="dh-sub">${habits.length === 0 ? "还没有习惯" : habitDone >= habits.length ? "全部完成 🎉" : "还差 " + (habits.length - habitDone) + " 个"}</span></div>
           </div>
         </div>
-        ${gkBanner}
-        ${annivBanner}
-        ${saveBanner}
-        ${budgetBanner}
-        ${subBanner}
-        ${achStrip}
-        ${otdHtml}
+        ${dashCfgHtml}
+        ${layout.banners ? gkBanner + annivBanner + saveBanner + budgetBanner + subBanner + achStrip : ""}
+        ${layout.otd ? otdHtml : ""}
+        ${layout.focus ? `
         <div class="card">
           <h2>今日焦点<span class="count">今日 ${focus.length} 项 · 本周 ${weekCnt} 项</span></h2>
           <div class="focus-tl" id="focusList">
@@ -786,8 +808,10 @@
             ${doneToday.length ? '<div class="tl-sep"><span>已检票 · 今日完成</span></div>' + doneToday.slice(0, 8).map((t) => tlRow(t, true)).join("") : ""}
           </div>
         </div>
-        ${remindersHtml}
-        ${trackerCard}
+        ` : ""}
+        ${layout.reminders ? remindersHtml : ""}
+        ${layout.trackers ? trackerCard : ""}
+        ${layout.actions ? `
         <div class="dash-actions">
           <div class="card">
             <h2>今日打卡<span class="count">${habitDone} / ${habits.length}</span></h2>
@@ -826,6 +850,8 @@
             </div>
           </div>
         </div>
+        ` : ""}
+        ${layout.archive ? `
         <details class="archive" id="dashArchive" ${dashArchiveOpen ? "open" : ""}>
           <summary>
             <span class="ar-title"><span class="ar-diamond"></span>数据概览与每周回顾</span>
@@ -852,7 +878,8 @@
             </div>
           </div>
         </details>
-        <div class="footnote">数据保存在服务器 SQLite（workbench.db） · 建议定期到「设置」导出 JSON 备份</div>`;
+        ` : ""}
+        <div class="footnote">数据保存在服务器 SQLite（workbench.db） · 建议定期到「设置」导出 JSON 备份 · 右上 ⚙ 可自定义首页区块</div>`;
 
       // 图表位于折叠归档区：折叠时 canvas 无尺寸，展开时才（重新）渲染
       const archiveEl = el.querySelector("#dashArchive");
@@ -864,6 +891,27 @@
         if (archiveEl.open) renderCharts(el, tasks, habits, finance, stockCostVal);
       } else {
         renderCharts(el, tasks, habits, finance, stockCostVal);
+      }
+
+      // 首页自定义（Workspace 轻量版）：⚙ 开关面板、勾选即时保存、预设
+      const cfgBtn = el.querySelector("#dashCfgBtn");
+      if (cfgBtn) cfgBtn.addEventListener("click", () => { dashCfgOpen = !dashCfgOpen; navigate(); });
+      const cfgCard = el.querySelector("#dashCfgCard");
+      if (cfgCard) {
+        cfgCard.addEventListener("change", async (e) => {
+          const k = e.target.dataset && e.target.dataset.dashsec;
+          if (!k) return;
+          const cur = { ...((await getSetting("dashLayout", {})) || {}) };
+          cur[k] = e.target.checked ? 1 : 0;
+          await setSetting("dashLayout", cur);
+          navigate();
+        });
+        const applyPreset = async (obj) => { await setSetting("dashLayout", obj); navigate(); };
+        el.querySelector("#dashPresetDefault").addEventListener("click", () => applyPreset({}));
+        el.querySelector("#dashPresetMin").addEventListener("click", () =>
+          applyPreset({ banners: 0, otd: 0, focus: 1, reminders: 0, trackers: 0, actions: 0, archive: 0 })
+        );
+        el.querySelector("#dashCfgDone").addEventListener("click", () => { dashCfgOpen = false; navigate(); });
       }
 
       // finesse number roll-up：统计卡数字 0 → 目标滚动（零依赖；尊重 prefers-reduced-motion）
@@ -893,7 +941,9 @@
       }
 
       el.querySelectorAll("[data-go]").forEach((s) => s.addEventListener("click", () => (location.hash = s.dataset.go)));
-      el.querySelector("#focusList").addEventListener("click", async (e) => {
+      // 以下区块可能被「自定义首页」隐藏：绑定前判空
+      const focusListEl = el.querySelector("#focusList");
+      if (focusListEl) focusListEl.addEventListener("click", async (e) => {
         const chk = e.target.closest('[data-act="toggle"]');
         if (!chk) return;
         const id = chk.closest("[data-id]").dataset.id;
@@ -909,7 +959,8 @@
       });
 
       // 今日打卡：点击 toggle 当天打卡状态（与生活页同一份数据）
-      el.querySelector("#dashHabits").addEventListener("click", async (e) => {
+      const dashHabitsEl = el.querySelector("#dashHabits");
+      if (dashHabitsEl) dashHabitsEl.addEventListener("click", async (e) => {
         const btn = e.target.closest("[data-hid]");
         if (!btn) return;
         const hb = await repo("habits").get(btn.dataset.hid);
@@ -963,11 +1014,14 @@
         });
         navigate();
       };
-      el.querySelector("#dFinAdd").addEventListener("click", dFinAdd);
-      el.querySelector("#dFinNote").addEventListener("keydown", (e) => { if (e.key === "Enter") dFinAdd(); });
+      const dFinAddBtn = el.querySelector("#dFinAdd");
+      if (dFinAddBtn) dFinAddBtn.addEventListener("click", dFinAdd);
+      const dFinNoteEl = el.querySelector("#dFinNote");
+      if (dFinNoteEl) dFinNoteEl.addEventListener("keydown", (e) => { if (e.key === "Enter") dFinAdd(); });
 
       // 最近沉淀：经 WB.jump 句柄跳到笔记页并定位到该篇
-      el.querySelector("#dashNotes").addEventListener("click", (e) => {
+      const dashNotesEl = el.querySelector("#dashNotes");
+      if (dashNotesEl) dashNotesEl.addEventListener("click", (e) => {
         const li = e.target.closest("[data-nid]");
         if (!li) return;
         WB.jump.noteId = li.dataset.nid;
@@ -1058,7 +1112,8 @@
       });
 
       // 每周回顾：AI 点评按周缓存（settings.weeklyReview），重新生成会覆盖
-      el.querySelector("#wrGen").addEventListener("click", async () => {
+      const wrGenBtn = el.querySelector("#wrGen");
+      if (wrGenBtn) wrGenBtn.addEventListener("click", async () => {
         if (!window.WB.USE_API) return showToast("离线中，AI 点评不可用", "error");
         const st = await WB.ai.status();
         if (!st.configured) return showToast("未配置智谱 API Key：设环境变量 ZHIPU_API_KEY 或在项目根创建 zhipu.key 文件后重启服务", "error");
