@@ -5121,3 +5121,14 @@ input.w-150, input.w-160, input.w-170, input.w-180, input.w-200 { border-radius:
 
 /* 订阅停用行 */
 .set-row.off .s-name, .set-row.off .s-desc { opacity: 0.5; }
+
+/* ================= 联系人 ================= */
+.ct-row { border-bottom: 1px solid var(--line); padding: 6px 0; }
+.ct-row:last-child { border-bottom: none; }
+.ct-main-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ct-rel { font-size: 16px; min-width: 22px; text-align: center; }
+.ct-name { font-weight: 600; font-size: 14px; }
+.ct-name small { font-weight: 400; color: var(--muted); margin-left: 4px; }
+.ct-info { font-size: 12px; color: var(--muted); }
+.ct-ops { margin-left: auto; display: flex; gap: 4px; }
+.ct-log-box { margin-top: 8px; padding-left: 30px; }

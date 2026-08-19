@@ -49,6 +49,7 @@
           </div>
           <div class="row sp-t-sm">
             <input data-ef="tags" placeholder="标签（逗号分隔）" class="w-160" maxlength="60" value="${esc((t.tags || []).join(", "))}" />
+            <input data-ef="est" type="number" min="5" step="5" placeholder="预估（分）" class="w-80" value="${t.estMins || ""}" />
             <input class="grow" data-ef="note" placeholder="备注" maxlength="200" value="${esc(t.note || "")}" />
             <button class="btn sm" data-act="save-edit">保存</button>
             <button class="btn ghost sm" data-act="cancel-edit">取消</button>
@@ -70,6 +71,8 @@
       <span class="txt">${esc(t.title)}${t.note ? `<div class="sub">${esc(t.note)}</div>` : ""}</span>
       ${(t.tags || []).map((tg) => `<span class="tag">${esc(tg)}</span>`).join("")}
       ${t.repeat ? `<span class="tag" title="完成后自动生成下一期">🔁 ${repeatLab(t.repeat)}</span>` : ""}
+      ${t.estMins ? `<span class="tag" title="预计耗时">⏱ ${Math.round(t.estMins / 60 * 10) / 10}h 预计</span>` : ""}
+      ${t._realMins ? `<span class="tag" style="color:${t._realMins > (t.estMins || Infinity) ? "var(--danger)" : "var(--ok)"}" title="时间账本已写入时长">⏱ ${t._realMins >= 60 ? Math.floor(t._realMins / 60) + "h" + (t._realMins % 60 ? (t._realMins % 60) + "m" : "") : t._realMins + "m"} 实际</span>` : ""}
       ${dueBadge}
       <button class="icon-btn plain" data-act="edit" title="编辑">${WB.icon("edit")}</button>
       <button class="icon-btn" data-act="del" title="删除">${WB.icon("del")}</button>
@@ -214,9 +217,13 @@
   routes.tasks = {
     title: "事务",
     async render(el) {
-      const tasks = await tasksRepo.list();
+      const [tasks, timeEntries] = await Promise.all([tasksRepo.list(), repo("timeentries").list().catch(() => [])]);
       // 慢请求返回时用户可能已切走路由：不校验会把任务页覆写到当前页面上
       if (location.hash !== "#/tasks") return;
+      // 时间账本联动：按 taskId 聚合实际耗时，UI 上作"预计 / 实际"对比
+      const realByTask = {};
+      (timeEntries || []).forEach((e) => { if (e.taskId) realByTask[e.taskId] = (realByTask[e.taskId] || 0) + Number(e.minutes || 0); });
+      tasks.forEach((t) => { if (realByTask[t.id]) t._realMins = realByTask[t.id]; });
       const today = todayStr();
       const activeCnt = tasks.filter((t) => !t.done).length;
       const overdueTasks = tasks.filter((t) => !t.done && t.dueDate && t.dueDate < today);
@@ -257,6 +264,7 @@
               <option value="weekly">每周</option>
             </select>
             <input id="tTags" placeholder="标签（逗号分隔）" class="w-150" maxlength="60" />
+            <input id="tEst" type="number" min="5" step="5" placeholder="预估（分）" title="预计耗时" class="w-80" />
             <button class="btn in-card-btn" id="tAdd">添加</button>
             <button class="btn ghost in-card-btn" id="tAiSplit" title="AI 把大任务拆成可执行小任务">${WB.icon("sparkle")} AI 拆解</button>
             <button class="btn ghost in-card-btn" id="tAiSort" title="AI 按紧急+重要给未完成任务排序">${WB.icon("sparkle")} AI 排序</button>
@@ -302,6 +310,7 @@
           priority: el.querySelector("#tPri").value,
           tags: parseTags(el.querySelector("#tTags").value),
           repeat: el.querySelector("#tRepeat").value,
+          estMins: Number(el.querySelector("#tEst").value) || undefined,
           done: false,
           createdAt: new Date().toISOString(),
         });
@@ -501,6 +510,7 @@
               t.dueDate = li.querySelector('[data-ef="due"]').value || "";
               t.priority = li.querySelector('[data-ef="pri"]').value;
               t.tags = parseTags(li.querySelector('[data-ef="tags"]').value);
+              t.estMins = Number(li.querySelector('[data-ef="est"]').value) || undefined;
               t.note = li.querySelector('[data-ef="note"]').value.trim();
               t.repeat = li.querySelector('[data-ef="repeat"]').value;
               await tasksRepo.put(t);
