@@ -67,6 +67,7 @@
       const today = todayStr();
       const items = (await aRepo().list().catch(() => [])) || [];
 
+      if (!/^#\/anniv/.test(location.hash || "")) return;
       el.innerHTML = `
         <div class="card">
           <h2>添加倒数日 / 纪念日</h2>

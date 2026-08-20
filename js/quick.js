@@ -69,7 +69,7 @@
     const inp = el("quickInput");
     inp.focus();
     await renderList();
-    openOverlay("quick", closePanel);
+    window.WB.openOverlay("quick", closePanel);
     // Esc 关闭
     p.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.stopPropagation(); closePanel(); } });
   }
@@ -78,7 +78,7 @@
     visible = false;
     const p = el("quickPanel");
     if (p) { p.remove(); }
-    closeOverlay("quick");
+    window.WB.closeOverlay("quick");
     // 路由切走后输入框也被清掉
   }
 

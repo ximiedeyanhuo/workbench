@@ -53,7 +53,14 @@
       </div>`;
     document.body.appendChild(modal);
 
-    const close = () => modal.remove();
+    const onEsc = (e) => {
+      if (e.key === "Escape") userClose();
+    };
+    // 监听器清理放进 close：无论按钮关闭、手机返回键还是 ESC 都会执行，避免泄漏
+    const close = () => {
+      modal.remove();
+      document.removeEventListener("keydown", onEsc);
+    };
     const userClose = () => window.WB.closeOverlay("cred");
     modal.addEventListener("click", (e) => {
       const t = e.target;
@@ -64,12 +71,7 @@
         copyText(val).then(() => window.WB.showToast(btn.id === "credAcct" ? "账号已复制" : "密码已复制"));
       }
     });
-    document.addEventListener("keydown", function onEsc(e) {
-      if (e.key === "Escape") {
-        userClose();
-        document.removeEventListener("keydown", onEsc);
-      }
-    });
+    document.addEventListener("keydown", onEsc);
     // 登记到历史栈：手机返回键能先关浮层
     window.WB.openOverlay("cred", close);
   }
@@ -78,6 +80,8 @@
     title: "入口",
     async render(el) {
       const links = (await qlRepo.list()).sort((a, b) => (a.sort || 0) - (b.sort || 0));
+      // await 期间可能已切走路由，避免慢回调污染其它页面
+      if (!/^#\/links/.test(location.hash || "")) return;
 
       const cards = links.length
         ? links

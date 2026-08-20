@@ -386,6 +386,7 @@
         fresh.forEach((x) => notes.push(x));
       }
 
+      if (!/^#\/notes/.test(location.hash || "")) return;
       el.innerHTML = `
         <div class="tabs sp-b-xl">
           <button class="tab ${subtab === "notes" ? "on" : ""}" data-st="notes">${WB.icon("notes")} 笔记（${notes.length}）</button>

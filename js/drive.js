@@ -360,6 +360,8 @@
     try {
       const data = await Drive[driveKey].list("0");
       hideLoading();
+      // await 期间可能已切走路由（如返回仪表盘），避免慢回调覆盖 #view
+      if (!/^#\/drive/.test(location.hash || "")) return;
       // 存储当前目录的文件列表供搜索使用
       window.WB.drive._currentItems = data.items;
 
@@ -487,9 +489,7 @@
           </div>
         </div>`;
         document.body.insertAdjacentHTML("beforeend", modalHtml);
-        document.addEventListener("keydown", function onEsc(e) {
-          if (e.key === "Escape") { closePreview(); document.removeEventListener("keydown", onEsc); }
-        });
+        document.addEventListener("keydown", onPreviewEsc);
         return;
       } else if (fileType === "video" || fileType === "pdf") {
         window.WB.showToast("正在打开百度网盘网页版...", "info");
@@ -539,19 +539,20 @@
       document.body.insertAdjacentHTML("beforeend", modalHtml);
 
       // ESC 关闭
-      document.addEventListener("keydown", function onEsc(e) {
-        if (e.key === "Escape") {
-          closePreview();
-          document.removeEventListener("keydown", onEsc);
-        }
-      });
+      document.addEventListener("keydown", onPreviewEsc);
     } catch (e) {
       window.WB.showToast("预览失败：" + e.message, "error");
     }
   }
 
+  // 预览浮层的 ESC 监听：统一具名，closePreview 负责移除，避免多次预览后监听器泄漏
+  function onPreviewEsc(e) {
+    if (e.key === "Escape") closePreview();
+  }
+
   // ========== 关闭预览
   function closePreview() {
+    document.removeEventListener("keydown", onPreviewEsc);
     const modal = document.getElementById("previewModal");
     if (modal) modal.remove();
   }

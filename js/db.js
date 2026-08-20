@@ -218,10 +218,15 @@
         db.onversionchange = () => db.close();
         resolve(db);
       };
-      req.onerror = () => reject(req.error);
+      req.onerror = () => {
+        delete dbCache[name]; // 失败的 Promise 不留缓存，否则永久拒绝无法重试
+        reject(req.error);
+      };
       // 升级被其它旧连接阻塞：给出可操作提示，不再无限等待
-      req.onblocked = () =>
+      req.onblocked = () => {
+        delete dbCache[name];
         reject(new Error("数据库升级被占用，请关闭本应用的其它标签页后刷新"));
+      };
     });
     return dbCache[name];
   }

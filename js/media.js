@@ -112,6 +112,7 @@
     async render(el) {
       const items = (await mRepo().list().catch(() => [])) || [];
 
+      if (!/^#\/media/.test(location.hash || "")) return;
       el.innerHTML = `
         ${renderTypeTabs()}
         <div class="row sp-b-xl">

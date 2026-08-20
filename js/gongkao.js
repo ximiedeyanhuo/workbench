@@ -268,6 +268,7 @@
       const subjectOpts = [...new Set(exams.map((e) => e.subject))];
       if (examFilter !== "all" && !subjectOpts.includes(examFilter)) examFilter = "all";
 
+      if (!/^#\/gongkao/.test(location.hash || "")) return;
       el.innerHTML = `
         <div class="hero-greet">考公作战室</div>
         <div class="hero-date">今天 ${today.slice(0, 7)}-${today.slice(8)} · 共 ${gkTasks.length} 个复习任务 · ${gkHabits.length} 个备考习惯</div>

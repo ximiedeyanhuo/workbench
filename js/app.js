@@ -1049,6 +1049,7 @@
       // 股票走 /api/stock/quote，基金走 /api/fund/nav（净值），合并计算市值与当日盈亏
       const nwCodes = [...new Set(holdings.map((r) => r.code).filter(Boolean))];
       if (showNetWorth && nwCodes.length && window.WB.USE_API) {
+        const token = navSeq; // 记住本次渲染代数：仪表盘频繁自重渲染，防止过期行情覆盖新页面
         (async () => {
           try {
             const [stockRes, fundRes] = await Promise.all([
@@ -1058,9 +1059,9 @@
             const qmap = {};
             if (stockRes && stockRes.ok) (await stockRes.json()).forEach((q) => { qmap[q.code] = q; });
             if (fundRes && fundRes.ok) (await fundRes.json()).forEach((q) => { qmap[q.code] = { price: q.isMoney ? 1 : q.nav, change: q.isMoney ? q.nav / 10000 : q.nav - q.prevNav }; });
-            // await 期间可能已切走或重渲染，元素不在了就放弃
+            // await 期间可能已切走或重渲染，元素不在了或代数变了就放弃
             const stockEl = el.querySelector("#nwStock");
-            if (currentRoute() !== "dashboard" || !stockEl) return;
+            if (token !== navSeq || !stockEl) return;
             let mv = 0, day = 0, quoted = false;
             holdings.forEach((r) => {
               const q = qmap[r.code];

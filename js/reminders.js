@@ -161,6 +161,7 @@
       const doneSet = st[DONE_KEY] || {};
       const today = todayStr();
 
+      if (!/^#\/reminders/.test(location.hash || "")) return;
       el.innerHTML = `
         ${renderForm()}
         <div class="card">

@@ -1259,6 +1259,7 @@
       const ytx = txs.filter((t) => (t.date || "").slice(0, 4) === String(finYear));
 
       // 销毁旧图表
+      if (!/^#\/finance/.test(location.hash || "")) return;
       finCharts.forEach((c) => c.destroy());
       finCharts = [];
 

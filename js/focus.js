@@ -187,12 +187,12 @@
     el("focusPause").addEventListener("click", () => { pauseTimer(); syncPanel(); });
     el("focusReset").addEventListener("click", () => { resetTimer(); });
     el("focusType").addEventListener("change", (e) => { resetTimer(e.target.value); });
-    openOverlay("focus", closePanel);
+    window.WB.openOverlay("focus", closePanel);
   }
   function closePanel() {
     const p = el("focusPanel"); if (!p) return;
     p.remove();
-    closeOverlay("focus");
+    window.WB.closeOverlay("focus");
   }
   // 路由变化时不关闭面板（让它"跨路由存在"）；但每次路由完成要重新挂 FAB（被 innerHTML 清掉了）
   function bootstrap() {
