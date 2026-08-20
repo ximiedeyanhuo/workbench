@@ -222,6 +222,18 @@
   }
 
   /** 固定支出模板卡：房租/话费这类每月固定项一键记入今天（模板存 settings.finTemplates） */
+  let finPanelTpl = false;   // 模板：右栏聚光，默认只露出摘要
+  let finPanelSched = false; // 日程：右栏聚光，默认只露出摘要
+  function templateSummary(templates) {
+    if (!templates.length) return "把房租、话费、会员等固定支出存成模板，每月一键记入";
+    const first = templates.slice(0, 2).map((tp) => esc(tp.name)).join("、");
+    return `${templates.length} 个模板 · ${first}${templates.length > 2 ? "…" : ""}`;
+  }
+  function schedSummary(list) {
+    if (!list.length) return "到期自动入账或 6 天内弹提示（仅记录，无自动化扣款）";
+    const active = list.filter((s) => s.enabled !== false).length;
+    return `${active} 个生效 / ${list.length} 个 · 到期自动记或到期提醒`;
+  }
   function templateHtml(cats, templates) {
     const rows = templates.length
       ? templates
@@ -237,7 +249,9 @@
           .join("")
       : '<div class="empty">把房租、话费、会员这类固定支出存成模板，每月一键记入</div>';
     const catOpts = (cats.expense || []).map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
-    return `<div class="card" id="finTplCard">
+    return `<div class="card tx-minor-card ${finPanelTpl ? "is-open" : "is-collapsed"}" id="finTplCard">
+      <div class="tx-minor-head" data-act="panel-tpl"><span class="tx-minor-ic">⚡</span><span class="tx-minor-tt">常用模板</span><span class="tx-minor-sum">${esc(templateSummary(templates))}</span><span class="tx-minor-chev">${finPanelTpl ? "▾" : "▸"}</span></div>
+      <div class="tx-minor-body">
       <h2>固定支出模板<span class="count">${templates.length} 个</span></h2>
       <ul class="list">${rows}</ul>
       <div class="row sp-t-md">
@@ -245,6 +259,7 @@
         <select id="tplCat">${catOpts}</select>
         <input type="number" id="tplAmount" placeholder="金额" class="w-90" min="0.01" step="0.01" />
         <button class="btn sm" id="tplAdd">存模板</button>
+      </div>
       </div>
     </div>`;
   }
@@ -266,7 +281,9 @@
           .join("")
       : '<div class="empty">把房贷、房租这类每月固定日期扣款设成定期账单：到日子自动记入，或到期未记提醒你</div>';
     const catOpts = (cats.expense || []).map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
-    return `<div class="card" id="finSchedCard">
+    return `<div class="card tx-minor-card ${finPanelSched ? "is-open" : "is-collapsed"}" id="finSchedCard">
+      <div class="tx-minor-head" data-act="panel-sched"><span class="tx-minor-ic">🕰</span><span class="tx-minor-tt">定期账单</span><span class="tx-minor-sum">${esc(schedSummary(schedules))}</span><span class="tx-minor-chev">${finPanelSched ? "▾" : "▸"}</span></div>
+      <div class="tx-minor-body">
       <h2>定期账单<span class="count">${schedules.length} 项</span></h2>
       <ul class="list">${rows}</ul>
       <div class="stack-md sp-t-md">
@@ -282,6 +299,7 @@
           <span class="sub nowrap">号自动记入 / 到期提醒</span>
           <button class="btn sm mla" id="schedAdd">添加</button>
         </div>
+      </div>
       </div>
     </div>`;
   }
@@ -693,17 +711,24 @@
       </h2>
       <div class="tabs sp-b-lg" id="txTabs">${typeToggle}</div>
       ${addFormHtml}
-      <div class="row tx-filter sp-b-sm">
-        <select id="finFilterCat">${filterOpts}</select>
-        <input id="finKeyword" placeholder="搜备注…" value="${esc(finKeyword)}" class="w-110" />
+      ${(finFilterCat || finKeyword || finDateStart || finDateEnd) ? `<div class="tx-filter-chips"><span class="tx-chip-all">已筛：</span>${finFilterCat ? `<span class="tx-chip">${esc((tabCats.find((c)=>c.id===finFilterCat)||{name:finFilterCat}).name)}<i data-act="chip-cat" title="清除分类">×</i></span>` : ""}${finKeyword ? `<span class="tx-chip">“${esc(finKeyword)}”<i data-act="chip-kw">×</i></span>` : ""}${finDateStart || finDateEnd ? `<span class="tx-chip">${esc(finDateStart||"起")} ~ ${esc(finDateEnd||"止")}<i data-act="chip-range">×</i></span>` : ""}<button class="btn ghost sm" id="finResetFilter" title="清空筛选">重置</button></div>` : ""}
+      <div class="tx-toolbar" id="finToolbar">
+        <div class="row tx-tools">
+          <select id="finFilterCat">${filterOpts}</select>
+          <input id="finKeyword" placeholder="搜备注…" value="${esc(finKeyword)}" class="w-110" />
+          <button class="btn sm ghost ${finDateStart || finDateEnd ? "is-on" : ""}" id="finDateBtn" title="按交易日期筛选">📅 日历</button>
+          ${finTab !== "saving" && finTab !== "all" ? `<button class="btn sm ghost" id="finCatMgrBtn">${finShowCatMgr ? "收起分类管理" : "分类管理"}</button>` : ""}
+        </div>
+        <div class="row tx-actions">
+          <button class="btn sm ghost" id="finImport" title="导入流水（支持 CSV / xlsx；本站导出、海豚云记录格式、Excel GBK 文件）">导入</button>
+          <button class="btn sm ghost" id="finExport" title="导出当前筛选结果">导出 CSV</button>
+          <input type="file" id="finImportFile" accept=".csv,text/csv,.xlsx,.xlsm" hidden />
+        </div>
+      </div>
+      <div class="tx-date-panel ${finDateStart || finDateEnd ? "is-open" : ""}" id="finDatePanel">
         <input type="date" id="finDateStart" value="${esc(finDateStart)}" title="交易日期-起" />
         <span class="tx-range-sep">~</span>
         <input type="date" id="finDateEnd" value="${esc(finDateEnd)}" title="交易日期-止" />
-        <button class="btn sm ghost" id="finResetFilter" title="清空筛选条件">重置</button>
-        ${finTab !== "saving" && finTab !== "all" ? `<button class="btn sm ghost" id="finCatMgrBtn">${finShowCatMgr ? "收起分类管理" : "分类管理"}</button>` : ""}
-        <button class="btn sm ghost" id="finImport" title="导入流水（支持 CSV / xlsx；本站导出、海豚云记录格式、Excel GBK 文件）">导入 CSV</button>
-        <button class="btn sm ghost" id="finExport" title="导出当前筛选结果">导出 CSV</button>
-        <input type="file" id="finImportFile" accept=".csv,text/csv,.xlsx,.xlsm" hidden />
       </div>
       ${finShowCatMgr ? catMgrHtml(cats, custom) : ""}
       <div id="finList" class="sp-t-lg">${buildListHtml(cats, txs)}</div>
@@ -722,9 +747,16 @@
       .map((o) => `<button class="tab ${finStatView === o.k ? "on" : ""}" data-tx-view="${o.k}">${o.label}</button>`)
       .join("");
 
-    // 头部导航：日历切月份，周账/月账切年份，年账无导航
+    // 年/月寻址：日历切月、周账/月账切年，年账自身带年表
     const isYearNav = finStatView === "week" || finStatView === "month";
-    const navLabel = finStatView === "year" ? "全部年份" : isYearNav ? `${finYear}年` : `${finYear}年${finMonth + 1}月`;
+    const statYears = (() => {
+      const set = new Set([String(now.getFullYear())]);
+      txs.forEach((t) => { if (t.date) set.add(t.date.slice(0, 4)); });
+      return [...set].sort((a, b) => b.localeCompare(a));
+    })();
+    const statYearOpts = statYears.map((y) => `<option value="${y}" ${y === String(finYear) ? "selected" : ""}>${y}年</option>`).join("");
+    const showMonthNav = finStatView === "cal";
+    const showYearNav = isYearNav;
     const showNav = finStatView !== "year";
 
     let body = "";
@@ -733,15 +765,16 @@
     else if (finStatView === "month") body = buildMonthHtml(txs);
     else body = buildYearHtml(txs);
 
-    return `<div class="card">
-      <h2>统计
-        <span class="count" style="display:flex;gap:6px;align-items:center">
-          ${showNav ? `<button class="icon-btn plain" id="statPrev" title="上一${isYearNav ? "年" : "个月"}">${WB.icon("prev")}</button>` : ""}
-          ${navLabel}
-          ${showNav ? `<button class="icon-btn plain" id="statNext" title="下一${isYearNav ? "年" : "个月"}">${WB.icon("next")}</button>` : ""}
-        </span>
-      </h2>
-      <div class="tabs sp-b-lg" id="txViews">${viewToggle}</div>
+    return `<div class="card tx-stat-card">
+      <h2>统计</h2>
+      <div class="tx-stat-head">
+        <div class="tx-stat-seg" id="txViews">${viewToggle}</div>
+        <div class="tx-stat-nav">
+          ${showMonthNav ? `<select id="statMonth" class="tx-year-sel" title="选择月份">${Array.from({length:12},(_,i)=>`<option value="${i}" ${i===finMonth?"selected":""}>${i+1}月</option>`).join("")}</select>` : ""}
+          ${showYearNav ? `<select id="statYear" class="tx-year-sel" title="选择年份">${statYearOpts}</select>` : ""}
+          ${showNav ? `<button class="icon-btn plain" id="statPrev" title="上一${isYearNav ? "年" : "个月"}">${WB.icon("prev")}</button><button class="icon-btn plain" id="statNext" title="下一${isYearNav ? "年" : "个月"}">${WB.icon("next")}</button>` : ""}
+        </div>
+      </div>
       ${body}
     </div>`;
   }
@@ -1264,8 +1297,10 @@
         finSelDay = null; finEditId = null; finDetailId = null; rerender();
       });
 
-      // 统计卡：日历切月份，周账/月账切年份（与明细卡共享 finYear/finMonth）
+      // 统计卡：翻页与年/月直接寻址共存（明细卡共享 finYear/finMonth）
       const statYearNav = () => finStatView === "week" || finStatView === "month";
+      on("#statYear", "change", (e) => { finYear = Number(e.target.value); finSelDay = null; finEditId = null; finDetailId = null; rerender(); });
+      on("#statMonth", "change", (e) => { finMonth = Number(e.target.value); finSelDay = null; finEditId = null; finDetailId = null; rerender(); });
       on("#statPrev", "click", () => {
         if (statYearNav()) { finYear--; }
         else { finMonth--; if (finMonth < 0) { finMonth = 11; finYear--; } }
@@ -1412,6 +1447,31 @@
       };
       on("#finFilterCat", "change", (e) => { finFilterCat = e.target.value; finPage = 1; finEditId = null; finDetailId = null; refreshList(); });
       on("#finKeyword", "input", debounce((e) => { finKeyword = e.target.value.trim(); finPage = 1; finEditId = null; finDetailId = null; refreshList(); }, 250));
+      on("#finTplCard", "click", (e) => {
+        const head = e.target.closest('[data-act="panel-tpl"]');
+        if (!head) return;
+        if (e.target.closest("[data-tpl], [data-act]")) return;
+        finPanelTpl = !finPanelTpl;
+        rerender();
+      });
+      on("#finSchedCard", "click", (e) => {
+        const head = e.target.closest('[data-act="panel-sched"]');
+        if (!head) return;
+        if (e.target.closest("[data-sched], [data-act]")) return;
+        finPanelSched = !finPanelSched;
+        rerender();
+      });
+      on("#finDateBtn", "click", () => { const p = $("#finDatePanel"); if (p) p.classList.toggle("is-open"); });
+      on("#finListCard", "click", (e) => {
+        const chip = e.target.closest("[data-act^='chip-']");
+        if (!chip) return;
+        const act = chip.dataset.act;
+        if (act === "chip-cat") { finFilterCat = ""; }
+        else if (act === "chip-kw") { finKeyword = ""; }
+        else if (act === "chip-range") { finDateStart = ""; finDateEnd = ""; }
+        finPage = 1; finEditId = null; finDetailId = null;
+        rerender();
+      });
       on("#finDateStart", "change", (e) => { finDateStart = e.target.value; finPage = 1; finEditId = null; finDetailId = null; refreshList(); });
       on("#finDateEnd", "change", (e) => { finDateEnd = e.target.value; finPage = 1; finEditId = null; finDetailId = null; refreshList(); });
       on("#finResetFilter", "click", () => {

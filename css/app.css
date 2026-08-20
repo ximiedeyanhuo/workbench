@@ -3204,22 +3204,42 @@ mark.news-kw {
 .view { min-height: 60vh; }
 
 /* ============ 补充布局：记账双栏 / 筛选行 / 行内数字输入 ============ */
-/* 记账：左列明细+统计，右列预算/目标/模板/图表 */
+/* 记账：左列明细+统计，右列预算/目标/模板/图表（视觉更轻，首屏先看明细） */
 .fin-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 0.92fr);
+  gap: 14px;
   align-items: start;
 }
 .fin-col-left, .fin-col-right {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   min-width: 0;
 }
 .fin-col-left .card + .card, .fin-col-right .card + .card { margin-top: 0; }
-/* 记账：筛选行（金额/类别等内联筛选控件） */
-.tx-filter { align-items: center; }
+/* 记账：次级卡默认只露出标题行（右栏模板/日程聚光，不抢占首屏） */
+.tx-minor-head { display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none; }
+.tx-minor-tt { font-weight:800; font-size: 14px; }
+.tx-minor-sum { margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; overflow:hidden; text-overflow: ellipsis; }
+.tx-minor-chev { font-size: 12px; color: var(--muted); }
+.tx-minor-body { margin-top: 10px; }
+.tx-minor-card.is-collapsed .tx-minor-body { display: none; }
+.tx-minor-ic { width: 22px; height: 22px; display:inline-flex; align-items:center; justify-content:center; border-radius: 8px; background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.tx-flat { display: inline-flex; align-items:center; gap:6px; margin-left: 8px; font-size: 12px; color: var(--muted); }
+.tx-flat .tag { font-size: 11px; }
+.tx-tools { flex-wrap: wrap; }
+.tx-actions { flex-wrap: wrap; justify-content: flex-end; }
+.tx-filter-chips { display:flex; gap:6px; flex-wrap:wrap; align-items:center; padding-bottom: 6px; color: var(--muted); font-size: 12px; }
+.tx-filter-chips .tx-chip-all { font-size: 11px; }
+.tx-chip { display:inline-flex; align-items:center; gap:4px; padding: 3px 8px; border-radius: 999px; background: var(--card2); border: 1px solid var(--line); font-size: 12px; color: var(--ink); }
+.tx-chip i { cursor: pointer; font-style: normal; }
+.tx-toolbar { display:flex; justify-content: space-between; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.tx-date-panel { display:none; gap:6px; align-items:center; flex-wrap: wrap; padding-top: 6px; }
+.tx-date-panel.is-open { display: flex; }
+.tx-stat-head { display:flex; align-items:center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.tx-stat-seg { display:inline-flex; gap: 6px; flex-wrap: wrap; }
+.tx-stat-nav { display:inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 /* 股票：持仓行内编辑数字输入 */
 .stk-in {
   width: 110px; padding: 5px 9px; font-size: 12.5px;
