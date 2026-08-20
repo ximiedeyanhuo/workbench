@@ -212,13 +212,18 @@
     renderStockFlow(el, year, stocksPromise);
   }
 
-  /** 按 code 聚合流水为持仓组（ES5，含旧快照迁移）：holding=Σ买-Σ卖，avgCost=Σ(买量×价)/Σ买量 */
+  /** 按 code 聚合流水为持仓组（与 stocks.js 同款：卖出按均成本扣底数） */
   function aggregateStockHoldings(txs) {
     var groups = {};
     txs.forEach(function (tx) {
       if (!tx.code) return;
-      var g = groups[tx.code] || (groups[tx.code] = { code: tx.code, name: tx.name, type: tx.type, holding: 0, avgCost: 0, buyShares: 0, buyAmt: 0 });
+      var g = groups[tx.code] || (groups[tx.code] = { code: tx.code, name: tx.name, type: tx.type, holding: 0, avgCost: 0, buyShares: 0, buyAmt: 0, realized: 0, lastAvg: 0 });
       if (tx.action === "sell") {
+        var curAvg = g.holding > 0 ? g.buyAmt / g.holding : 0;
+        if (curAvg) g.lastAvg = curAvg;
+        var cps = g.holding > 0 ? g.buyAmt / g.holding : 0;
+        g.realized += tx.shares * (tx.price - cps);
+        g.buyAmt = Math.max(0, g.buyAmt - cps * tx.shares);
         g.holding -= tx.shares;
       } else {
         g.holding += tx.shares;
@@ -228,7 +233,7 @@
     });
     return Object.keys(groups).map(function (code) {
       var g = groups[code];
-      g.avgCost = g.buyShares > 0 ? g.buyAmt / g.buyShares : 0;
+      g.avgCost = g.holding > 0 ? g.buyAmt / g.holding : (g.lastAvg || 0);
       return g;
     });
   }

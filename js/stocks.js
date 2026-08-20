@@ -54,16 +54,25 @@
     };
   }
 
-  /** 按 code 聚合流水为持仓组：holding=Σ买-Σ卖，avgCost=Σ(买量×买价)/Σ买量 */
+  /** 按 code 聚合流水为持仓组（已实现盈亏版）：
+   *  - 卖出按当前均成本扣底数：avgCost = buyAmt / holding，costDeduct = avgCost × 卖出量
+   *  - holding / avgCost 始终基于剩余量，少量卖出不再虚高成本
+   *  - realized = Σ(卖出成交 − 当时均成本) 累进每笔卖出瞬间
+   *  纯内存计算，无副作用；旧快照无 action 视为买入 */
   function aggregateHoldings(txs) {
     const groups = {};
     txs.forEach((tx) => {
       if (!tx.code) return;
       let g = groups[tx.code];
       if (!g) {
-        g = groups[tx.code] = { code: tx.code, name: tx.name, type: tx.type, holding: 0, avgCost: 0, buyList: [], sellList: [], buyShares: 0, buyAmt: 0 };
+        g = groups[tx.code] = { code: tx.code, name: tx.name, type: tx.type, holding: 0, avgCost: 0, buyList: [], sellList: [], buyAmt: 0, buyShares: 0, realized: 0, lastAvg: 0 };
       }
       if (tx.action === "sell") {
+        const curAvg = g.holding > 0 ? g.buyAmt / g.holding : 0;
+        if (curAvg) g.lastAvg = curAvg;
+        const costPerShare = g.holding > 0 ? g.buyAmt / g.holding : 0;
+        g.realized += tx.shares * (tx.price - costPerShare);
+        g.buyAmt = Math.max(0, g.buyAmt - costPerShare * tx.shares);
         g.holding -= tx.shares;
         g.sellList.push(tx);
       } else {
@@ -75,7 +84,7 @@
     });
     return Object.keys(groups).map((code) => {
       const g = groups[code];
-      g.avgCost = g.buyShares > 0 ? g.buyAmt / g.buyShares : 0;
+      g.avgCost = g.holding > 0 ? g.buyAmt / g.holding : (g.lastAvg || 0);
       return g;
     });
   }
@@ -141,28 +150,32 @@
     return s.length === 14 ? `${s.slice(4, 6)}-${s.slice(6, 8)} ${s.slice(8, 10)}:${s.slice(10, 12)}:${s.slice(12)}` : "";
   }
 
-  /** 顶部汇总：总市值/总成本/持仓盈亏/今日盈亏（仅统计 holding>0 的组，无行情按成本兜底） */
+  /** 顶部汇总：总市值/总成本/持仓盈亏/已实现盈亏/今日盈亏
+   *  - 已实现盈亏改成"卖出时按均成本扣"的累计值，不再因为部分卖出就“消失”
+   *  - 持仓成本用扣减后的剩余成本，避免卖半仓后成本虚高 */
   function summaryHtml(groups, isFund) {
-    let mv = 0, cost = 0, day = 0, quoted = false;
+    let mv = 0, cost = 0, day = 0, realizedSum = 0, quoted = false;
     groups.forEach((g) => {
       if (g.holding <= 0) return;
-      cost += g.avgCost * g.holding;
+      cost += (g.avgCost || 0) * g.holding;
       if (g.q) {
         quoted = true;
         mv += g.q.price * g.holding;
         day += g.q.change * g.holding;
       } else {
-        mv += g.avgCost * g.holding; // 无行情按成本兜底，避免汇总失真为 0
+        mv += (g.avgCost || 0) * g.holding; // 无行情按成本兜底，避免汇总失真为 0
       }
     });
+    groups.forEach((g) => { realizedSum += g.realized || 0; });
     const pl = quoted ? mv - cost : 0;
     const plPct = quoted && cost > 0 ? (pl / cost) * 100 : 0;
     const dash = (v, suffix) => (quoted ? v : "—" + (suffix || ""));
     const heldCount = groups.filter((g) => g.holding > 0).length;
     return `<div class="stat-grid">
       <div class="stat"><div class="s-lab">总市值</div><div class="s-val">${dash(fmt2(mv))}</div><div class="s-sub">共 ${heldCount} 个持仓</div></div>
-      <div class="stat"><div class="s-lab">总成本</div><div class="s-val">${fmt2(cost)}</div><div class="s-sub">买入金额合计</div></div>
+      <div class="stat"><div class="s-lab">总成本</div><div class="s-val">${fmt2(cost)}</div><div class="s-sub">剩余持仓按均成本</div></div>
       <div class="stat"><div class="s-lab">持仓盈亏</div><div class="s-val" style="color:${quoted ? udColor(pl) : "var(--muted)"}">${dash(signed2(pl))}</div><div class="s-sub">${quoted ? signed2(plPct) + "%" : "行情不可用"}</div></div>
+      <div class="stat"><div class="s-lab">已实现</div><div class="s-val" style="color:${udColor(realizedSum)}">${signed2(realizedSum)}</div><div class="s-sub">累计卖出盈亏</div></div>
       <div class="stat"><div class="s-lab">${isFund ? "当日收益" : "今日盈亏"}</div><div class="s-val" style="color:${quoted ? udColor(day) : "var(--muted)"}">${dash(signed2(day))}</div><div class="s-sub">${isFund ? "按净值差×份额" : "按当日涨跌估算"}</div></div>
     </div>`;
   }

@@ -1069,18 +1069,31 @@
     }
     if (!records.length) return { err: `没有可导入的有效行（跳过 ${skipped} 行）` };
 
-    // 按 id 去重：已有记录跳过，避免重复导入
+    // 去重两道闸：
+    // 1) id 命中（自己导的重复文件）; 2) 内容指纹（date|type|amount|note 与已有重复，跨来源也拦）
     const existing = await financeRepo.list();
     const existingIds = new Set(existing.map((r) => r.id));
+    const contentHash = (r) => [r.date || "", r.type || "", String(r.amount || 0), (r.note || "").trim()].join("|");
+    const existingHashes = new Set(existing.map(contentHash));
     const before = records.length;
+    const idDup = records.filter((r) => existingIds.has(r.id)).length;
     records = records.filter((r) => !existingIds.has(r.id));
+    const hashesSeen = new Set(existingHashes);
+    const contentDup = [];
+    records = records.filter((r) => {
+      const h = contentHash(r);
+      if (hashesSeen.has(h)) { contentDup.push(r); return false; }
+      hashesSeen.add(h);
+      return true;
+    });
     const deduped = before - records.length;
-    if (!records.length) return { err: `所有 ${before} 条记录均已存在，无需导入` };
+    if (!records.length) return { err: `所有 ${before} 条记录均已存在或内容重复，无需导入` };
     skipped += deduped;
 
     const newCats = catAdd.income.concat(catAdd.expense).map((c) => c.name);
     let msg = `解析到 ${rows.length - 1} 行，可导入 ${records.length} 条`;
-    if (deduped) msg += `，已存在跳过 ${deduped} 条`;
+    if (idDup) msg += `，id 已存在跳过 ${idDup} 条`;
+    if (contentDup.length) msg += `，内容重复跳过 ${contentDup.length} 条`;
     if (skipped) msg += `，无效跳过 ${skipped} 行`;
     if (newCats.length) msg += `\n将自动新建分类：${newCats.join("、")}`;
     if (!window.confirm(msg + "\n\n确认导入？")) return { cancelled: true };

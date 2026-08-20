@@ -593,20 +593,26 @@
         : "";
 
       // 净资产总览：累计储蓄 + 持仓市值（股票行情 / 基金净值异步补齐，先按成本价兜底显示）
-      // 按 code 聚合流水（含旧快照迁移：无 action 视为买入，price=cost）；holding=Σ买-Σ卖，avgCost=Σ买额/Σ买量
+      // 按 code 聚合流水（含旧快照迁移：无 action 视为买入）；卖出按均成本扣底数，剩余成本=∑买额−∑卖出扣减
       const aggregateStocks = (txs) => {
         const groups = {};
         txs.forEach((tx) => {
           if (!tx.code) return;
-          const g = groups[tx.code] || (groups[tx.code] = { code: tx.code, name: tx.name, type: tx.type, holding: 0, buyShares: 0, buyAmt: 0 });
+          const g = groups[tx.code] || (groups[tx.code] = { code: tx.code, name: tx.name, type: tx.type, holding: 0, buyShares: 0, buyAmt: 0, realized: 0, lastAvg: 0 });
           const shares = Number(tx.shares || 0);
           const price = Number(tx.action ? (tx.price || 0) : (tx.cost || 0));
-          if (tx.action === "sell") g.holding -= shares;
-          else { g.holding += shares; g.buyShares += shares; g.buyAmt += shares * price; }
+          if (tx.action === "sell") {
+            const cps = g.holding > 0 ? g.buyAmt / g.holding : 0;
+            const curAvg = g.holding > 0 ? g.buyAmt / g.holding : 0;
+            if (curAvg) g.lastAvg = curAvg;
+            g.realized += shares * (price - cps);
+            g.buyAmt = Math.max(0, g.buyAmt - cps * shares);
+            g.holding -= shares;
+          } else { g.holding += shares; g.buyShares += shares; g.buyAmt += shares * price; }
         });
         return Object.keys(groups).map((code) => {
           const g = groups[code];
-          g.avgCost = g.buyShares > 0 ? g.buyAmt / g.buyShares : 0;
+          g.avgCost = g.holding > 0 ? g.buyAmt / g.holding : (g.lastAvg || 0);
           return g;
         });
       };

@@ -855,6 +855,9 @@ def fetch_title(url: str):
 #   [1]名称 [2]代码 [3]现价 [4]昨收 [5]今开 [30]时间 [31]涨跌额 [32]涨跌幅% [33]最高 [34]最低
 STOCK_TIMEOUT = 10
 STOCK_CODES_RE = re.compile(r"^(?:sh|sz|bj)\d{6}(?:,(?:sh|sz|bj)\d{6}){0,49}$")  # 最多 50 只，防滥用
+STOCK_QUOTE_CACHE_TTL = 5.0        # 行情/净值短缓存：首页轮询+持仓页同时请求共 path 时命中
+_stock_quote_cache: dict = {}     # {codes -> (ts, result)}
+_fund_nav_cache: dict = {}        # {codes -> (ts, result)}
 
 
 def _stock_fetch(url: str) -> str:
@@ -865,10 +868,14 @@ def _stock_fetch(url: str) -> str:
 
 @app.get("/api/stock/quote")
 def stock_quote(codes: str):
-    """批量行情：codes=sh600519,sz000858 → [{code,name,price,prevClose,open,high,low,change,pct,time}]"""
+    """批量行情：codes=sh600519,sz000858 → [{code,name,price,prevClose,open,high,low,change,pct,time}]
+    5 秒短缓存（内存）：dashboard 轮询免重复打上游"""
     codes = codes.strip().lower()
     if not STOCK_CODES_RE.match(codes):
         raise HTTPException(status_code=400, detail="codes 格式应为 sh/sz/bj + 6 位数字，逗号分隔，最多 50 只")
+    hit = _stock_quote_cache.get(codes)
+    if hit and time.time() - hit[0] < STOCK_QUOTE_CACHE_TTL:
+        return hit[1]
     try:
         text = _stock_fetch("https://qt.gtimg.cn/q=" + codes)
     except Exception as exc:
@@ -901,6 +908,7 @@ def stock_quote(codes: str):
             "pct": num(p[32]),
             "time": p[30],
         })
+    _stock_quote_cache[codes] = (time.time(), out)
     return out
 
 
@@ -1013,13 +1021,18 @@ def fund_nav(codes: str):
     """基金最新净值：codes=023636,000198 → [{code,name,nav,navDate,prevNav,prevDate,pct}]
     每只基金取最近两条日净值（最新 + 前一日），当日收益由前端按份额计算；
     名称来自 fundgz 估算接口（jsonp 顺手带出，失败留空前端用记录名）。
-    各基金并行拉取（每只串行 2 个外网请求 ×20 只最坏可拖数分钟）"""
+    各基金并行拉取（每只串行 2 个外网请求 ×20 只最坏可拖数分钟）；5 秒短缓存"""
     codes = codes.strip()
     if not FUND_CODES_RE.match(codes):
         raise HTTPException(status_code=400, detail="codes 应为 6 位基金代码，逗号分隔，最多 20 只")
+    hit = _fund_nav_cache.get(codes)
+    if hit and time.time() - hit[0] < STOCK_QUOTE_CACHE_TTL:
+        return hit[1]
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
         results = list(pool.map(_fund_nav_one, codes.split(",")))
-    return [r for r in results if r]
+    out = [r for r in results if r]
+    _fund_nav_cache[codes] = (time.time(), out)
+    return out
 
 
 # ---------- 智谱 AI 代理 ----------
