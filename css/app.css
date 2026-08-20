@@ -742,6 +742,13 @@ textarea {
 }
 input::placeholder, textarea::placeholder { color: var(--muted-2); }
 select { cursor: pointer; }
+/* 原生 select 展开的 option 弹层由系统绘制：color-scheme 在部分浏览器/select 已设 background 时压不住系统白底，
+   给暗色主题显式指定不透明深色底做跨 Chromium/Firefox 兜底（必须不透明，半透明会露出系统白底） */
+[data-theme="dark"] option, [data-theme="dark"] optgroup { background: #262b31; color: #eef0f3; }
+[data-theme="midnight"] option, [data-theme="midnight"] optgroup { background: #131a2a; color: #e6eaf2; }
+[data-theme="terminal"] option, [data-theme="terminal"] optgroup { background: #0d0d0d; color: #c9ffd1; }
+[data-theme="mint-dark"] option, [data-theme="mint-dark"] optgroup { background: #243730; color: #dde6d9; }
+[data-theme="glass"] option, [data-theme="glass"] optgroup { background: #16233d; color: #eaf0fa; }
 input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 
 /* 按钮 */
