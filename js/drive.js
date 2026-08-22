@@ -253,6 +253,8 @@
       hideLoading();
     } catch (e) {
       hideLoading();
+      // 慢请求期间可能已切走路由：toast 和 DOM 都不要再打到别的页面上
+      if (!/^#\/drive/.test(location.hash || "")) return;
       window.WB.showToast("网盘状态加载失败：" + e.message, "error");
       grid.innerHTML = `<div class="empty">加载失败：${esc(e.message)}</div>`;
     }
@@ -476,6 +478,8 @@
 
   // ========== 预览文件
   async function preview(driveKey, fid, fileName, filePath) {
+    // 重入守卫：快速双击预览会往 body 叠两个 #previewModal，而 closePreview 只删第一个
+    closePreview();
     // 百度网盘：图片走缩略图，视频/PDF 跳网页版（dlink 浏览器无法直连）
     if (driveKey === "baidu") {
       const fileType = getFileType(fileName);
@@ -514,13 +518,15 @@
 
       const fileType = getFileType(fileName);
       let contentHtml = "";
+      // download_url 来自服务端响应，进 src 前必须转义（防属性逃逸注入 onerror）
+      const dlUrl = esc(data.download_url);
 
       if (fileType === "image") {
-        contentHtml = `<img src="${data.download_url}" class="lb-media" />`;
+        contentHtml = `<img src="${dlUrl}" class="lb-media" />`;
       } else if (fileType === "video") {
-        contentHtml = `<video src="${data.download_url}" controls autoplay class="lb-media">您的浏览器不支持视频播放</video>`;
+        contentHtml = `<video src="${dlUrl}" controls autoplay class="lb-media">您的浏览器不支持视频播放</video>`;
       } else if (fileType === "pdf") {
-        contentHtml = `<iframe src="${data.download_url}" class="lb-frame"></iframe>`;
+        contentHtml = `<iframe src="${dlUrl}" class="lb-frame"></iframe>`;
       } else {
         window.WB.showToast("该文件类型暂不支持预览", "info");
         return;

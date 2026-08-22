@@ -107,7 +107,9 @@
     box.innerHTML = tags.map((t) => `<span class="quick-tag">#${esc(t)}</span>`).join("");
   }
 
+  let quickSaving = false; // 锁防双击/连按重复保存速记
   async function saveNote() {
+    if (quickSaving) return;
     const inp = el("quickInput");
     const text = (inp.value || "").trim();
     if (!text) return;
@@ -119,7 +121,10 @@
       tags,
       createdAt: new Date().toISOString(),
     };
-    await qkRepo().put(n);
+    quickSaving = true;
+    try {
+      await qkRepo().put(n);
+    } finally { quickSaving = false; }
     inp.value = "";
     renderTags();
     renderList();

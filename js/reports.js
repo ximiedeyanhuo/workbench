@@ -15,7 +15,7 @@
  */
 (function () {
   "use strict";
-  const { routes, repo, esc, todayStr, dateStr, cssVar, streakOf, getSetting, setSetting, ai } = window.WB;
+  const { routes, repo, esc, todayStr, dateStr, cssVar, streakOf, getSetting, setSetting, ai, isSaving } = window.WB;
   const financeRepo = repo("finance");
   const habitsRepo = repo("habits");
   const healthRepo = repo("health");
@@ -212,30 +212,10 @@
     renderStockFlow(el, year, stocksPromise);
   }
 
-  /** 按 code 聚合流水为持仓组（与 stocks.js 同款：卖出按均成本扣底数） */
+  /** 按 code 聚合流水为持仓组：唯一实现在 db.js 的 WB.aggregateStocks（按日期排序 +
+   *  卖出钳制），此处直接复用；list 可传原始记录（公共实现内置旧快照兼容） */
   function aggregateStockHoldings(txs) {
-    var groups = {};
-    txs.forEach(function (tx) {
-      if (!tx.code) return;
-      var g = groups[tx.code] || (groups[tx.code] = { code: tx.code, name: tx.name, type: tx.type, holding: 0, avgCost: 0, buyShares: 0, buyAmt: 0, realized: 0, lastAvg: 0 });
-      if (tx.action === "sell") {
-        var curAvg = g.holding > 0 ? g.buyAmt / g.holding : 0;
-        if (curAvg) g.lastAvg = curAvg;
-        var cps = g.holding > 0 ? g.buyAmt / g.holding : 0;
-        g.realized += tx.shares * (tx.price - cps);
-        g.buyAmt = Math.max(0, g.buyAmt - cps * tx.shares);
-        g.holding -= tx.shares;
-      } else {
-        g.holding += tx.shares;
-        g.buyShares += tx.shares;
-        g.buyAmt += tx.shares * tx.price;
-      }
-    });
-    return Object.keys(groups).map(function (code) {
-      var g = groups[code];
-      g.avgCost = g.holding > 0 ? g.buyAmt / g.holding : (g.lastAvg || 0);
-      return g;
-    });
+    return window.WB.aggregateStocks(txs);
   }
 
   async function fillStockStats(el, stocksPromise) {
@@ -640,8 +620,9 @@
     const prevKey = prevDate.getFullYear() + "-" + String(prevDate.getMonth() + 1).padStart(2, "0");
     const prevTx = finance.filter((t) => (t.date || "").slice(0, 7) === prevKey);
     const sum = (arr, type) => arr.filter((t) => t.type === type).reduce((s, t) => s + Number(t.amount || 0), 0);
-    const inc = sum(monthTx, "income"), exp = sum(monthTx, "expense"), sav = sum(monthTx, "saving");
-    const pInc = sum(prevTx, "income"), pExp = sum(prevTx, "expense"), pSav = sum(prevTx, "saving");
+    const sumSaving = (arr) => arr.filter((t) => isSaving(t)).reduce((s, t) => s + Number(t.amount || 0), 0); // 旧记录无 type 也算储蓄
+    const inc = sum(monthTx, "income"), exp = sum(monthTx, "expense"), sav = sumSaving(monthTx);
+    const pInc = sum(prevTx, "income"), pExp = sum(prevTx, "expense"), pSav = sumSaving(prevTx);
     // 分类 top 3（支出）
     const catMap = {};
     monthTx.filter((t) => t.type === "expense").forEach((t) => { catMap[t.category || "other-e"] = (catMap[t.category || "other-e"] || 0) + Number(t.amount || 0); });
@@ -750,7 +731,7 @@
     var yTx = finance.filter(function (r) { return inYear(r.date); });
     var inc = yTx.filter(function (r) { return r.type === "income"; }).reduce(function (s, r) { return s + Number(r.amount || 0); }, 0);
     var exp = yTx.filter(function (r) { return r.type === "expense"; }).reduce(function (s, r) { return s + Number(r.amount || 0); }, 0);
-    var sav = yTx.filter(function (r) { return r.type === "saving"; }).reduce(function (s, r) { return s + Number(r.amount || 0); }, 0);
+    var sav = yTx.filter(function (r) { return isSaving(r); }).reduce(function (s, r) { return s + Number(r.amount || 0); }, 0);
     var done = tasks.filter(function (t) { return t.done && inYear(t.doneAt); }).length;
     var created = tasks.filter(function (t) { return inYear((t.createdAt || "").slice(0, 10)); }).length;
     var checkins = 0;

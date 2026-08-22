@@ -457,21 +457,26 @@
         rerender();
       });
 
-      // 快速添加复习任务：自动带「考公」标签，与事务页字段完全一致
+      // 快速添加复习任务：自动带「考公」标签，与事务页字段完全一致；锁防双击/双 Enter 重复添加
+      let gkTaskAdding = false;
       const addGkTask = async () => {
+        if (gkTaskAdding) return;
         const titleInput = el.querySelector("#gkTaskTitle");
         const title = titleInput.value.trim();
         if (!title) return flashInvalid(titleInput);
-        await tasksRepo.put({
-          id: uid(),
-          title,
-          note: "",
-          dueDate: el.querySelector("#gkTaskDue").value || "",
-          priority: el.querySelector("#gkTaskPri").value,
-          tags: ["考公"],
-          done: false,
-          createdAt: new Date().toISOString(),
-        });
+        gkTaskAdding = true;
+        try {
+          await tasksRepo.put({
+            id: uid(),
+            title,
+            note: "",
+            dueDate: el.querySelector("#gkTaskDue").value || "",
+            priority: el.querySelector("#gkTaskPri").value,
+            tags: ["考公"],
+            done: false,
+            createdAt: new Date().toISOString(),
+          });
+        } finally { gkTaskAdding = false; }
         if (!stillHere()) return;
         rerender();
       };
@@ -505,8 +510,10 @@
         location.hash = "#/notes";
       });
 
-      // 模考录入
+      // 模考录入；锁防双击/双 Enter 重复录入
+      let examAdding = false;
       const addExam = async () => {
+        if (examAdding) return;
         const dateInput = el.querySelector("#examDate");
         const subjInput = el.querySelector("#examSubject");
         const scoreInput = el.querySelector("#examScore");
@@ -521,17 +528,20 @@
         if (!subject) return flashInvalid(subjInput);
         if (!(score >= 0)) return flashInvalid(scoreInput);
         lastSubject = subject; // 记住科目，连续录入不用反复改
-        await examsRepo.put({
-          id: uid(),
-          date,
-          subject,
-          score,
-          fullScore: Number(fullInput.value) || 100,
-          rank: rankInput.value ? Number(rankInput.value) : null,
-          cutoff: cutoffInput.value ? parseFloat(cutoffInput.value) : null,
-          note: noteInput.value.trim(),
-          createdAt: new Date().toISOString(),
-        });
+        examAdding = true;
+        try {
+          await examsRepo.put({
+            id: uid(),
+            date,
+            subject,
+            score,
+            fullScore: Number(fullInput.value) || 100,
+            rank: rankInput.value ? Number(rankInput.value) : null,
+            cutoff: cutoffInput.value ? parseFloat(cutoffInput.value) : null,
+            note: noteInput.value.trim(),
+            createdAt: new Date().toISOString(),
+          });
+        } finally { examAdding = false; }
         if (!stillHere()) return;
         rerender();
       };

@@ -175,7 +175,9 @@
 
       // 新建
       const addBtn = el.querySelector("#rmAdd");
+      let rmAdding = false; // 锁防双击重复添加提醒
       addBtn.addEventListener("click", async () => {
+        if (rmAdding) return;
         const titleInput = el.querySelector("#rmTitle");
         const title = titleInput.value.trim();
         if (!title) return flashInvalid(titleInput);
@@ -183,14 +185,17 @@
         const weekdays = [...el.querySelectorAll(".rm-dow.on")].map((b) => Number(b.dataset.dow));
         const dayOfMonth = Number(el.querySelector("#rmDom").value) || 1;
         if (period === "weekly" && !weekdays.length) return showToast("请至少勾选一个星期", "error");
-        await rRepo().put({
-          id: uid(),
-          title,
-          period,
-          weekdays: period === "weekly" ? weekdays : [],
-          dayOfMonth: period === "monthly" ? dayOfMonth : 1,
-          createdAt: new Date().toISOString(),
-        });
+        rmAdding = true;
+        try {
+          await rRepo().put({
+            id: uid(),
+            title,
+            period,
+            weekdays: period === "weekly" ? weekdays : [],
+            dayOfMonth: period === "monthly" ? dayOfMonth : 1,
+            createdAt: new Date().toISOString(),
+          });
+        } finally { rmAdding = false; }
         showToast("已添加提醒", "ok");
         routes.reminders.render(el);
       });

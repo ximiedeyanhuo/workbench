@@ -273,25 +273,30 @@
       $$("#tkType").addEventListener("change", (e) => {
         $$("#tkTypeHint").textContent = DTYPES[e.target.value].hint + " · 目标留空表示暂不设目标";
       });
+      let tkSaving = false; // 锁防双击重复创建/保存追踪器
       $$("#tkSave").addEventListener("click", async () => {
+        if (tkSaving) return;
         const nameInput = $$("#tkName");
         const name = nameInput.value.trim();
         if (!name) return flashInvalid(nameInput);
         const base = editingId ? list.find((x) => x.id === editingId) : null;
-        await tDefRepo().put({
-          id: base ? base.id : uid(),
-          name,
-          icon: $$("#tkIcon").value.trim() || "📊",
-          color: $$("#tkColor").value,
-          dtype: $$("#tkType").value,
-          unit: $$("#tkUnit").value.trim(),
-          freq: $$("#tkFreq").value,
-          goalOp: $$("#tkGoalOp").value,
-          goalVal: Number($$("#tkGoalVal").value) || 0,
-          order: (base && base.order) || (defs.length || 0) + 1,
-          createdAt: (base && base.createdAt) || new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
+        tkSaving = true;
+        try {
+          await tDefRepo().put({
+            id: base ? base.id : uid(),
+            name,
+            icon: $$("#tkIcon").value.trim() || "📊",
+            color: $$("#tkColor").value,
+            dtype: $$("#tkType").value,
+            unit: $$("#tkUnit").value.trim(),
+            freq: $$("#tkFreq").value,
+            goalOp: $$("#tkGoalOp").value,
+            goalVal: Number($$("#tkGoalVal").value) || 0,
+            order: (base && base.order) || (defs.length || 0) + 1,
+            createdAt: (base && base.createdAt) || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+        } finally { tkSaving = false; }
         showToast(editingId ? "已保存" : "已创建", "ok");
         editingId = null;
         routes.tracker.render(el);
@@ -307,6 +312,7 @@
         if (!q) return flashInvalid(input);
         const box = $$("#tkAiBox");
         box.innerHTML = '<div class="ai-loading">AI 正在分析…</div>';
+        aiBtn.disabled = true; // 请求期间防重复点击
         try {
           const sys = '你是追踪器配置助手。根据用户描述返回 JSON：{"name":"短名称","dtype":"count|number|duration|bool|rating","unit":"单位或空","freq":"daily|weekly|monthly","goalOp":"ge|le","goalVal":数字,"icon":"一个emoji"}。goalVal 不确定时给合理默认值。只返回 JSON。';
           const text = await window.WB.ai.chat(sys, "用户想追踪：" + q, 0.3);
@@ -330,6 +336,8 @@
           $$("#tkAiNo").addEventListener("click", () => { box.innerHTML = ""; });
         } catch (e) {
           box.innerHTML = `<div class="empty" style="color:var(--danger)">AI 建议失败：${esc(e.message)}</div>`;
+        } finally {
+          aiBtn.disabled = false;
         }
       });
 

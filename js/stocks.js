@@ -54,39 +54,11 @@
     };
   }
 
-  /** 按 code 聚合流水为持仓组（已实现盈亏版）：
-   *  - 卖出按当前均成本扣底数：avgCost = buyAmt / holding，costDeduct = avgCost × 卖出量
-   *  - holding / avgCost 始终基于剩余量，少量卖出不再虚高成本
-   *  - realized = Σ(卖出成交 − 当时均成本) 累进每笔卖出瞬间
-   *  纯内存计算，无副作用；旧快照无 action 视为买入 */
+  /** 按 code 聚合流水为持仓组：唯一实现在 db.js 的 WB.aggregateStocks（先按日期排序，
+   *  补录历史交易顺序正确；卖出量钳制到持仓，卖超不再虚计利润）。此处保留函数名做委托，
+   *  页内 buyList/sellList 字段仍由公共实现提供 */
   function aggregateHoldings(txs) {
-    const groups = {};
-    txs.forEach((tx) => {
-      if (!tx.code) return;
-      let g = groups[tx.code];
-      if (!g) {
-        g = groups[tx.code] = { code: tx.code, name: tx.name, type: tx.type, holding: 0, avgCost: 0, buyList: [], sellList: [], buyAmt: 0, buyShares: 0, realized: 0, lastAvg: 0 };
-      }
-      if (tx.action === "sell") {
-        const curAvg = g.holding > 0 ? g.buyAmt / g.holding : 0;
-        if (curAvg) g.lastAvg = curAvg;
-        const costPerShare = g.holding > 0 ? g.buyAmt / g.holding : 0;
-        g.realized += tx.shares * (tx.price - costPerShare);
-        g.buyAmt = Math.max(0, g.buyAmt - costPerShare * tx.shares);
-        g.holding -= tx.shares;
-        g.sellList.push(tx);
-      } else {
-        g.holding += tx.shares;
-        g.buyShares += tx.shares;
-        g.buyAmt += tx.shares * tx.price;
-        g.buyList.push(tx);
-      }
-    });
-    return Object.keys(groups).map((code) => {
-      const g = groups[code];
-      g.avgCost = g.holding > 0 ? g.buyAmt / g.holding : (g.lastAvg || 0);
-      return g;
-    });
+    return window.WB.aggregateStocks(txs);
   }
 
   function nowStamp() {
@@ -352,8 +324,10 @@
       stkDocHandler = (e) => { if (!e.target.closest(".stk-search-wrap")) hideSug(); };
       document.addEventListener("click", stkDocHandler);
 
-      // ---- 添加交易（买入/卖出） ----
+      // ---- 添加交易（买入/卖出）；adding 锁防双击/双 Enter 重复记账（写入前有行情请求，双击窗口大） ----
+      let adding = false;
       const addStk = async () => {
+        if (adding) return;
         const action = ($("#stkAction") || {}).value || "buy";
         // 未点建议但输入了裸代码：股票补全市场前缀（6/5/9 沪，0/1/2/3 深，4/8 北）；基金直接 6 位
         if (!stkSel) {
@@ -379,53 +353,56 @@
           if (!(parseFloat(sharesEl.value) > 0)) return flashInvalid(sharesEl);
           if (!(price >= 0)) return flashInvalid(costEl);
         }
-        // 名称尽量取真实名（手输代码时输入框里只有数字；基金名用搜索接口补，货基同样适用）
-        let name = stkSel.name;
-        if (isFund && /^\d{6}$/.test(name) && window.WB.USE_API) {
-          try {
-            const res = await fetch("/api/fund/search?q=" + encodeURIComponent(stkSel.code));
-            const list = res.ok ? await res.json() : [];
-            if (list.length) name = list[0].name;
-          } catch (e) { /* 补名失败保持原样 */ }
-        }
-        const fresh = isFund ? await fetchFundNavs([stkSel.code]) : await fetchStockQuotes([stkSel.code]);
-        const q = fresh ? fresh[stkSel.code] : null;
-        if (q) name = q.name || name;
-        let shares;
-        if (action === "sell") {
-          // 卖出：用户填了价格就用填的，没填才取当前现价（有行情时）；卖出数量不得超过当前持仓
-          if (isFund) {
-            if (!(price > 0)) price = q ? q.price : 0;
-            if (!(price > 0)) return flashInvalid(costEl);
-            shares = amount / price;
+        adding = true;
+        try {
+          // 名称尽量取真实名（手输代码时输入框里只有数字；基金名用搜索接口补，货基同样适用）
+          let name = stkSel.name;
+          if (isFund && /^\d{6}$/.test(name) && window.WB.USE_API) {
+            try {
+              const res = await fetch("/api/fund/search?q=" + encodeURIComponent(stkSel.code));
+              const list = res.ok ? await res.json() : [];
+              if (list.length) name = list[0].name;
+            } catch (e) { /* 补名失败保持原样 */ }
+          }
+          const fresh = isFund ? await fetchFundNavs([stkSel.code]) : await fetchStockQuotes([stkSel.code]);
+          const q = fresh ? fresh[stkSel.code] : null;
+          if (q) name = q.name || name;
+          let shares;
+          if (action === "sell") {
+            // 卖出：用户填了价格就用填的，没填才取当前现价（有行情时）；卖出数量不得超过当前持仓
+            if (isFund) {
+              if (!(price > 0)) price = q ? q.price : 0;
+              if (!(price > 0)) return flashInvalid(costEl);
+              shares = amount / price;
+            } else {
+              if (!(price > 0)) price = q ? q.price : 0;
+              if (!(price > 0)) return flashInvalid(costEl);
+              shares = parseFloat(sharesEl.value);
+            }
+            const grp = groups.find((g) => g.code === stkSel.code && g.type === (isFund ? "fund" : "stock"));
+            const held = grp ? grp.holding : 0;
+            if (shares > held + 1e-9) {
+              flashInvalid(sharesEl);
+              window.WB.showToast("卖出数量超过当前持仓", "error");
+              return;
+            }
           } else {
-            if (!(price > 0)) price = q ? q.price : 0;
-            if (!(price > 0)) return flashInvalid(costEl);
-            shares = parseFloat(sharesEl.value);
+            // 买入：买入价留空时有行情就取现价（与基金行为一致）
+            if (isFund) {
+              if (!(price > 0)) price = q ? q.price : 0;
+              if (!(price > 0)) return flashInvalid(costEl); // 拿不到净值又没填净值
+              shares = amount / price;
+            } else {
+              if (!(price > 0)) price = q ? q.price : 0;
+              if (!(price > 0)) return flashInvalid(costEl); // 拿不到行情又没填价格
+              shares = parseFloat(sharesEl.value);
+            }
           }
-          const grp = groups.find((g) => g.code === stkSel.code && g.type === (isFund ? "fund" : "stock"));
-          const held = grp ? grp.holding : 0;
-          if (shares > held + 1e-9) {
-            flashInvalid(sharesEl);
-            window.WB.showToast("卖出数量超过当前持仓", "error");
-            return;
-          }
-        } else {
-          // 买入：买入价留空时有行情就取现价（与基金行为一致）
-          if (isFund) {
-            if (!(price > 0)) price = q ? q.price : 0;
-            if (!(price > 0)) return flashInvalid(costEl); // 拿不到净值又没填净值
-            shares = amount / price;
-          } else {
-            if (!(price > 0)) price = q ? q.price : 0;
-            if (!(price > 0)) return flashInvalid(costEl); // 拿不到行情又没填价格
-            shares = parseFloat(sharesEl.value);
-          }
-        }
-        if (!(shares > 0)) { flashInvalid(sharesEl); return; }
-        if (!(price >= 0)) { flashInvalid(costEl); return; }
-        const stamp = nowStamp();
-        await stocksRepo.put({ id: uid(), code: stkSel.code, name, type: isFund ? "fund" : "stock", action, shares, price, date, createdAt: stamp, updatedAt: stamp });
+          if (!(shares > 0)) { flashInvalid(sharesEl); return; }
+          if (!(price >= 0)) { flashInvalid(costEl); return; }
+          const stamp = nowStamp();
+          await stocksRepo.put({ id: uid(), code: stkSel.code, name, type: isFund ? "fund" : "stock", action, shares, price, date, createdAt: stamp, updatedAt: stamp });
+        } finally { adding = false; }
         stkSel = null;
         rerender();
       };

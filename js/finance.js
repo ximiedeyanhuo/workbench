@@ -443,9 +443,11 @@
     if (finPage > totalPages) finPage = totalPages;
 
     // 筛选生效时：汇总跟随筛选口径（需求 §9.1），展示当前范围收入/支出/结余
+    // （分类筛选同样计入汇总——与列表口径一致，此前只在列表生效导致汇总数字对不上）
     let sumBar = "";
     if (finFilterCat || finKeyword || finDateStart || finDateEnd) {
       let base = scopedTx(txs);
+      if (finFilterCat) base = base.filter((t) => t.category === finFilterCat);
       if (finKeyword) base = base.filter((t) => (t.note || "").toLowerCase().includes(finKeyword.toLowerCase()));
       const inc = sumBy(base, "income"), exp = sumBy(base, "expense");
       sumBar = `<div class="tx-filter-sum">筛选范围：
@@ -1103,10 +1105,11 @@
     if (!records.length) return { err: `没有可导入的有效行（跳过 ${skipped} 行）` };
 
     // 去重两道闸：
-    // 1) id 命中（自己导的重复文件）; 2) 内容指纹（date|type|amount|note 与已有重复，跨来源也拦）
+    // 1) id 命中（自己导的重复文件）; 2) 内容指纹（date|type|amount|note|category 与已有重复，跨来源也拦）。
+    //    指纹含 category：同日同额同注但分类不同的两行是不同交易，不再被误判为重复
     const existing = await financeRepo.list();
     const existingIds = new Set(existing.map((r) => r.id));
-    const contentHash = (r) => [r.date || "", r.type || "", String(r.amount || 0), (r.note || "").trim()].join("|");
+    const contentHash = (r) => [r.date || "", r.type || "", String(r.amount || 0), (r.note || "").trim(), r.category || ""].join("|");
     const existingHashes = new Set(existing.map(contentHash));
     const before = records.length;
     const idDup = records.filter((r) => existingIds.has(r.id)).length;
@@ -1165,65 +1168,95 @@
   }
 
   // ---------- 定期账单 ----------
-  /** 本月该规则是否已记（note 含规则名视为已记；income/expense 均可） */
-  function schedRecordedThisMonth(records, s, curMonth) {
-    return records.some((r) => (r.date || "").slice(0, 7) === curMonth && (r.note || "").indexOf(s.name) !== -1);
+  /** 某月该规则是否已记：新记录按 schedId 精确匹配；旧自动记录无 schedId，
+   *  退化为 note 全等（原为子串包含，短规则名如「水」会被「水果采购」误伤导致整月漏记） */
+  function schedRecordedIn(records, s, ym) {
+    return records.some((r) =>
+      (r.date || "").slice(0, 7) === ym &&
+      (r.schedId === s.id || (r.schedId === undefined && s.name && (r.note || "") === s.name))
+    );
   }
 
-  /** 检查定期账单：auto 模式自动记入，remind 模式到期弹框提醒。返回是否新增过记录（调用方可重渲染） */
-  async function checkSchedules(records) {
+  /** 自动/提醒记录的确定性主键：同规则同月恒定 → put 是幂等 upsert。
+   *  仪表盘与记账页双入口、双标签页并发触发同一规则时写的是同一条记录（同 id 覆盖同
+   *  内容），从根上杜绝「同一笔房贷记两次」；doneKey 丢更新也因此变得无害。 */
+  const schedRecId = (s, ym) => "sched|" + s.id + "|" + ym;
+
+  /** 检查定期账单：auto 自动记入（含最近 3 个月的跨月补记——某月整月没开应用也能补上），
+   *  remind 模式只对当月弹框提醒。返回是否新增过记录（调用方可重渲染）。
+   *  records 参数已废弃（落库前内部重拉全量，缩小快照窗口），保留形参兼容旧调用。 */
+  async function checkSchedules() {
     const schedules = await getSetting("finSchedules", []);
     if (!schedules.length) return false;
+    // 旧数据兜底：导入的规则可能没有 id（schedRecId/doneKey 都依赖它），懒补齐并回写
+    let dirty = false;
+    for (const s of schedules) {
+      if (!s.id) { s.id = "s" + uid(); dirty = true; }
+    }
+    if (dirty) await setSetting("finSchedules", schedules);
     const today = todayStr();
-    const curMonth = today.slice(0, 7);
-    // 已处理的月份 + 规则名：同月不重复触发；顺带清掉上月及更早的键防无限膨胀
+    const now = new Date();
+    const stamp = nowStamp();
     const doneKey = (await getSetting("finSchedDone", {})) || {};
-    const curYM = curMonth.replace("-", "");
+    // doneKey 清理：按「年×12+月」数值索引，保留最近 6 个月（回填窗口 3 个月之外才删，跨年正确）
+    const curIdx = now.getFullYear() * 12 + (now.getMonth() + 1);
     for (const k of Object.keys(doneKey)) {
       const m = k.slice(0, 6);
-      if (m && m < curYM) delete doneKey[k];
+      if (/^\d{6}$/.test(m)) {
+        const idx = Number(m.slice(0, 4)) * 12 + Number(m.slice(4, 6));
+        if (curIdx - idx > 6) delete doneKey[k];
+      }
     }
-    const stamp = nowStamp();
+    // 处理窗口：本月 + 往前 2 个月，早 → 晚顺序补记
+    const months = [];
+    for (let i = 2; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"));
+    }
+    const curMonth = months[months.length - 1];
+    let records = null; // 懒拉：确定有待处理规则时才取全量
     let changed = false;
     for (const s of schedules) {
       if (!s.enabled && s.enabled !== undefined) continue;
-      const due = Math.min(Number(s.dueDay || 1), new Date(today.slice(0, 4), Number(today.slice(5, 7)), 0).getDate());
-      // 本月扣款日还没到 → 不处理
-      const todayD = Number(today.slice(8, 10));
-      if (todayD < due) continue;
-      // 本月已记过这笔 → 跳过
-      if (schedRecordedThisMonth(records, s, curMonth)) continue;
-      const key = curMonth + "|" + s.name;
-      if (doneKey[key]) continue;
-      const type = s.type === "income" ? "income" : "expense";
-      const rec = {
-        id: uid(),
-        type,
-        category: s.category,
-        amount: Number(s.amount || 0),
-        note: s.name,
-        date: today,
-        createdAt: stamp,
-        updatedAt: stamp,
-      };
-      if (s.mode === "auto") {
-        // 自动记入：补记到扣款日当天（若该月扣款日已过则记今天）
-        const dueDate = curMonth + "-" + String(due).padStart(2, "0");
-        rec.date = dueDate <= today ? dueDate : today;
-        await financeRepo.put(rec);
-        doneKey[key] = 1;
-        changed = true;
-      } else {
-        // 到期提醒：dueDay 当天到 dueDay+5 天内弹框（超宽限期不再打扰）
-        const graceEnd = due + 5;
-        if (todayD <= graceEnd) {
-          const ok = confirm(`「${s.name}」本月 ${due} 号该扣 ${fmtYuan(rec.amount)} 元，今天 ${today.slice(5)} 还没记。\n\n现在记一笔吗？`);
-          if (ok) {
-            await financeRepo.put(rec);
-            changed = true;
+      for (const ym of months) {
+        const due = Math.min(Number(s.dueDay || 1), new Date(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 0).getDate());
+        const dueDate = ym + "-" + String(due).padStart(2, "0");
+        if (dueDate > today) continue; // 该月扣款日还没到（只可能发生在当月）
+        if (records === null) records = await financeRepo.list();
+        if (schedRecordedIn(records, s, ym)) continue;
+        const key = ym + "|" + s.id;
+        if (doneKey[key]) continue;
+        const type = s.type === "income" ? "income" : "expense";
+        const rec = {
+          id: schedRecId(s, ym),
+          schedId: s.id,
+          type,
+          category: s.category,
+          amount: Number(s.amount || 0),
+          note: s.name,
+          date: dueDate, // 记到扣款日当天（补记历史月也是当天）
+          createdAt: stamp,
+          updatedAt: stamp,
+        };
+        if (s.mode === "auto") {
+          await financeRepo.put(rec);
+          records.push(rec); // 同步本地快照，防止同轮后续规则误判
+          doneKey[key] = 1;
+          changed = true;
+        } else if (ym === curMonth) {
+          // 到期提醒：仅当月弹框（历史月不补记不打扰）；dueDay 当天到 +5 天宽限
+          const todayD = Number(today.slice(8, 10));
+          if (todayD <= due + 5) {
+            const ok = confirm(`「${s.name}」本月 ${due} 号该扣 ${fmtYuan(rec.amount)} 元，今天 ${today.slice(5)} 还没记。\n\n现在记一笔吗？`);
+            if (ok) {
+              await financeRepo.put(rec);
+              records.push(rec);
+              changed = true;
+            }
+            doneKey[key] = 1; // 无论记不记，本月只提醒一次
           }
-          doneKey[key] = 1; // 无论记不记，本月只提醒一次
         }
+        // 历史月的 remind：不弹不记不标记（保持可补记性，切到 auto 后可回填）
       }
     }
     await setSetting("finSchedDone", doneKey);
@@ -1331,22 +1364,27 @@
         rerender();
       });
 
-      // 新增（记提交时间，需求 §1.4 详细）
+      // 新增（记提交时间，需求 §1.4 详细）；adding 锁防双击/双 Enter 重复入账
+      let adding = false;
       const addFin = async () => {
+        if (adding) return;
         const amountInput = $("#finAmount");
         const amount = parseFloat(amountInput.value);
         if (!(amount > 0)) return flashInvalid(amountInput);
+        adding = true;
         const stamp = nowStamp();
-        await financeRepo.put({
-          id: uid(),
-          type: finTab,
-          category: $("#finCategory").value,
-          amount,
-          note: $("#finNote").value.trim(),
-          date: $("#finDate").value || todayStr(),
-          createdAt: stamp,
-          updatedAt: stamp,
-        });
+        try {
+          await financeRepo.put({
+            id: uid(),
+            type: finTab,
+            category: $("#finCategory").value,
+            amount,
+            note: $("#finNote").value.trim(),
+            date: $("#finDate").value || todayStr(),
+            createdAt: stamp,
+            updatedAt: stamp,
+          });
+        } finally { adding = false; }
         rerender();
       };
       on("#finAdd", "click", addFin);
@@ -1368,7 +1406,8 @@
         rerender();
       });
 
-      // 固定支出模板：新增 / 一键记入（今天）/ 删除
+      // 固定支出模板：新增 / 一键记入（今天）/ 删除；tplBusy 锁防双击重复记入
+      let tplBusy = false;
       on("#tplAdd", "click", async () => {
         const nameInput = $("#tplName"), amtInput = $("#tplAmount");
         const name = nameInput.value.trim();
@@ -1387,17 +1426,21 @@
         const tp = list.find((x) => x.id === li.dataset.tpl);
         if (!tp) return;
         if (e.target.closest('[data-act="use-tpl"]')) {
+          if (tplBusy) return;
+          tplBusy = true;
           const stamp = nowStamp();
-          await financeRepo.put({
-            id: uid(),
-            type: "expense",
-            category: tp.category,
-            amount: tp.amount,
-            note: tp.name,
-            date: todayStr(),
-            createdAt: stamp,
-            updatedAt: stamp,
-          });
+          try {
+            await financeRepo.put({
+              id: uid(),
+              type: "expense",
+              category: tp.category,
+              amount: tp.amount,
+              note: tp.name,
+              date: todayStr(),
+              createdAt: stamp,
+              updatedAt: stamp,
+            });
+          } finally { tplBusy = false; }
           rerender();
         } else if (e.target.closest('[data-act="del-tpl"]')) {
           if (!confirm(`删除模板「${tp.name}」？`)) return;
@@ -1406,8 +1449,10 @@
         }
       });
 
-      // 定期账单：新增 / 删除 / 切换模式
+      // 定期账单：新增 / 删除 / 切换模式；重名校验（同名规则的查重键会互相干扰导致漏记）
+      let schedBusy = false;
       on("#schedAdd", "click", async () => {
+        if (schedBusy) return;
         const nameInput = $("#schedName"), amtInput = $("#schedAmount"), dayInput = $("#schedDay");
         const name = nameInput.value.trim();
         if (!name) return flashInvalid(nameInput);
@@ -1417,8 +1462,12 @@
         if (!(dueDay >= 1 && dueDay <= 31)) return flashInvalid(dayInput);
         const type = $("#schedType").value;
         const list = await getSetting("finSchedules", []);
-        list.push({ id: "s" + uid(), name, type, category: $("#schedCat").value, amount, dueDay, mode: "remind", enabled: true });
-        await setSetting("finSchedules", list);
+        if (list.some((x) => x.name === name)) return window.WB.showToast(`已有名为「${name}」的定期账单，请换个名字`, "error");
+        schedBusy = true;
+        try {
+          list.push({ id: "s" + uid(), name, type, category: $("#schedCat").value, amount, dueDay, mode: "remind", enabled: true });
+          await setSetting("finSchedules", list);
+        } finally { schedBusy = false; }
         rerender();
       });
       on("#finSchedCard", "click", async (e) => {
@@ -1694,5 +1743,5 @@
   };
 
   // 暴露给仪表盘：打开首页时也跑一次到期检查（auto 自动记入 / remind 弹框提醒）
-  window.WB.financeSchedCheck = (records) => checkSchedules(records);
+  window.WB.financeSchedCheck = () => checkSchedules();
 })();

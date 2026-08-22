@@ -328,7 +328,7 @@
       nwMonths.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"));
     }
     const savedByM = nwMonths.map((m) =>
-      finance.filter((r) => r.type === "saving" && (r.date || "").slice(0, 7) <= m).reduce((s, r) => s + Number(r.amount || 0), 0)
+      finance.filter((r) => window.WB.isSaving(r) && (r.date || "").slice(0, 7) <= m).reduce((s, r) => s + Number(r.amount || 0), 0)
     );
     // 当前市值同步估算：本地无历史股价，按持仓成本为最新点叠加值（与净资产卡"持仓市值"块一致）
     const liveMarketVal = stockCostVal || 0;
@@ -483,7 +483,7 @@
 
       const habitDone = habits.filter((hb) => hb.checkins && hb.checkins[today]).length;
       // 储蓄进度：只算 saving 类型（旧数据无 type 视为 saving）
-      const saved = finance.filter((r) => !r.type || r.type === "saving").reduce((s, x) => s + Number(x.amount || 0), 0);
+      const saved = finance.filter((r) => window.WB.isSaving(r)).reduce((s, x) => s + Number(x.amount || 0), 0);
       const pct = target > 0 ? Math.min(100, Math.round((saved / target) * 100)) : 0;
 
       // 本月收支（income / expense 口径）：date 前 7 位 = YYYY-MM
@@ -593,30 +593,9 @@
         : "";
 
       // 净资产总览：累计储蓄 + 持仓市值（股票行情 / 基金净值异步补齐，先按成本价兜底显示）
-      // 按 code 聚合流水（含旧快照迁移：无 action 视为买入）；卖出按均成本扣底数，剩余成本=∑买额−∑卖出扣减
-      const aggregateStocks = (txs) => {
-        const groups = {};
-        txs.forEach((tx) => {
-          if (!tx.code) return;
-          const g = groups[tx.code] || (groups[tx.code] = { code: tx.code, name: tx.name, type: tx.type, holding: 0, buyShares: 0, buyAmt: 0, realized: 0, lastAvg: 0 });
-          const shares = Number(tx.shares || 0);
-          const price = Number(tx.action ? (tx.price || 0) : (tx.cost || 0));
-          if (tx.action === "sell") {
-            const cps = g.holding > 0 ? g.buyAmt / g.holding : 0;
-            const curAvg = g.holding > 0 ? g.buyAmt / g.holding : 0;
-            if (curAvg) g.lastAvg = curAvg;
-            g.realized += shares * (price - cps);
-            g.buyAmt = Math.max(0, g.buyAmt - cps * shares);
-            g.holding -= shares;
-          } else { g.holding += shares; g.buyShares += shares; g.buyAmt += shares * price; }
-        });
-        return Object.keys(groups).map((code) => {
-          const g = groups[code];
-          g.avgCost = g.holding > 0 ? g.buyAmt / g.holding : (g.lastAvg || 0);
-          return g;
-        });
-      };
-      const allGroups = aggregateStocks(stocks);
+      // 持仓聚合用 db.js 的唯一实现 WB.aggregateStocks（按交易日期排序 + 卖出钳制），
+      // 与股票页/统计页同一口径，补录历史交易三处数字一致
+      const allGroups = window.WB.aggregateStocks(stocks);
       const stockHoldings = allGroups.filter((g) => (g.type || "stock") !== "fund" && g.holding > 0);
       const fundHoldings = allGroups.filter((g) => (g.type || "stock") === "fund" && g.holding > 0);
       const holdings = allGroups.filter((g) => g.holding > 0);
@@ -1006,18 +985,23 @@
         });
       }
 
-      // 快速记支出：仪表盘小卡快速录一笔当日支出（跳去记账页看更多）
+      // 快速记支出：仪表盘小卡快速录一笔当日支出（跳去记账页看更多）；锁防双击/双 Enter 重复入账
+      let dFinBusy = false;
       const dFinAdd = async () => {
+        if (dFinBusy) return;
         const amountInput = el.querySelector("#dFinAmount");
         const amount = parseFloat(amountInput.value);
         if (!(amount > 0)) return flashInvalid(amountInput);
-        await repo("finance").put({
-          id: uid(), type: "expense",
-          category: el.querySelector("#dFinCategory").value,
-          amount,
-          note: el.querySelector("#dFinNote").value.trim(),
-          date: today,
-        });
+        dFinBusy = true;
+        try {
+          await repo("finance").put({
+            id: uid(), type: "expense",
+            category: el.querySelector("#dFinCategory").value,
+            amount,
+            note: el.querySelector("#dFinNote").value.trim(),
+            date: today,
+          });
+        } finally { dFinBusy = false; }
         navigate();
       };
       const dFinAddBtn = el.querySelector("#dFinAdd");

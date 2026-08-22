@@ -90,20 +90,25 @@
         <div class="footnote">勾选「每年循环」则按农历/每年同月同日自动滚动到下一年（如生日、纪念日）；取消勾选为单次事件（如一场考试）。</div>`;
 
       const addBtn = el.querySelector("#anAdd");
+      let anAdding = false; // 锁防双击/双 Enter 重复添加
       addBtn.addEventListener("click", async () => {
+        if (anAdding) return;
         const titleInput = el.querySelector("#anTitle");
         const title = titleInput.value.trim();
         const date = el.querySelector("#anDate").value;
         if (!title) return flashInvalid(titleInput);
         if (!date) return flashInvalid(el.querySelector("#anDate"));
-        await aRepo().put({
-          id: uid(),
-          title,
-          date,
-          category: el.querySelector("#anCat").value,
-          yearly: el.querySelector("#anYearly").checked,
-          createdAt: new Date().toISOString(),
-        });
+        anAdding = true;
+        try {
+          await aRepo().put({
+            id: uid(),
+            title,
+            date,
+            category: el.querySelector("#anCat").value,
+            yearly: el.querySelector("#anYearly").checked,
+            createdAt: new Date().toISOString(),
+          });
+        } finally { anAdding = false; }
         showToast("已添加", "ok");
         routes.anniv.render(el);
       });

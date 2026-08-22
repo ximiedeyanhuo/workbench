@@ -6,7 +6,7 @@
  */
 (function () {
   if (!window.WB) return;
-  const { routes, repo, uid, esc, todayStr, flashInvalid, showToast, parseTags } = window.WB;
+  const { routes, repo, uid, esc, safeUrl, todayStr, flashInvalid, showToast, parseTags } = window.WB;
 
   const tRepo = () => repo("timeline");
 
@@ -141,7 +141,7 @@
         <div class="tl-ev-body">
           <div class="tl-ev-title">${c.emoji} ${esc(e.title)} <span class="tl-ev-cat">${c.name}</span></div>
           ${e.desc ? `<div class="tl-ev-desc">${esc(e.desc)}</div>` : ""}
-          <div class="tl-ev-meta">${tags}${e.link ? `<a href="${esc(e.link)}" target="_blank" rel="noopener" class="c-accent">🔗 相关链接</a>` : ""}</div>
+          <div class="tl-ev-meta">${tags}${e.link ? `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener" class="c-accent">🔗 相关链接</a>` : ""}</div>
         </div>
         <div class="tl-ev-ops">
           <button class="icon-btn plain" data-tledit="${e.id}" title="编辑">✏️</button>

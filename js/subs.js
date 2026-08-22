@@ -122,28 +122,33 @@
         <div class="footnote">扣费日按周期从「订阅起始日」推算；金额折算：每周 ×4.35、每季 ÷3、每年 ÷12。7 天内将扣费的订阅会在首页出横幅提醒。</div>`;
 
       const $$ = (s2) => el.querySelector(s2);
+      let subSaving = false; // 锁防双击重复添加/保存订阅
       $$("#subSave").addEventListener("click", async () => {
+        if (subSaving) return;
         const nameInput = $$("#subName");
         const name = nameInput.value.trim();
         const amount = Number($$("#subAmount").value);
         if (!name) return flashInvalid(nameInput);
         if (!(amount > 0)) return flashInvalid($$("#subAmount"));
         const base = editingId ? list.find((x) => x.id === editingId) : null;
-        await sRepo().put({
-          id: base ? base.id : uid(),
-          name,
-          icon: $$("#subIcon").value.trim() || "🔁",
-          amount,
-          currency: $$("#subCur").value,
-          cycle: $$("#subCycle").value,
-          day: Number($$("#subDay").value) || 1,
-          autoRenew: $$("#subAuto").checked,
-          note: $$("#subNote").value.trim(),
-          startedAt: $$("#subStart").value || todayStr(),
-          active: base ? base.active !== false : true,
-          createdAt: (base && base.createdAt) || new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
+        subSaving = true;
+        try {
+          await sRepo().put({
+            id: base ? base.id : uid(),
+            name,
+            icon: $$("#subIcon").value.trim() || "🔁",
+            amount,
+            currency: $$("#subCur").value,
+            cycle: $$("#subCycle").value,
+            day: Number($$("#subDay").value) || 1,
+            autoRenew: $$("#subAuto").checked,
+            note: $$("#subNote").value.trim(),
+            startedAt: $$("#subStart").value || todayStr(),
+            active: base ? base.active !== false : true,
+            createdAt: (base && base.createdAt) || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+        } finally { subSaving = false; }
         showToast(editingId ? "已保存" : "已添加", "ok");
         editingId = null;
         routes.subs.render(el);

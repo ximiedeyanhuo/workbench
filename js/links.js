@@ -124,7 +124,9 @@
 
       const rerender = () => routes.links.render(el);
 
+      let adding = false; // 锁防双击/双 Enter 重复添加快捷入口
       const addLink = async () => {
+        if (adding) return;
         const nameInput = el.querySelector("#qlName");
         const urlInput = el.querySelector("#qlUrl");
         const name = nameInput.value.trim();
@@ -137,7 +139,10 @@
         const rec = { id: uid(), name, url, color: el.querySelector("#qlColor").value, sort: maxSort + 1 };
         if (account) rec.account = account;
         if (password) rec.password = password;
-        await qlRepo.put(rec);
+        adding = true;
+        try {
+          await qlRepo.put(rec);
+        } finally { adding = false; }
         rerender();
       };
       el.querySelector("#qlAdd").addEventListener("click", addLink);

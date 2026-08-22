@@ -434,6 +434,11 @@
 
   const fmtMoney = (n) => Number(n || 0).toLocaleString("zh-CN");
 
+  /** 储蓄口径统一判定：老版 finance 记录没有 type 字段（读取时兜底为 saving），
+   *  各页统计必须同时认「无 type」的旧记录，否则同一笔钱在记账页算储蓄、在报表里消失。
+   *  全项目储蓄过滤一律走本函数（finance.js 的 normalizeTx 兜底后可用 === 比较） */
+  const isSaving = (r) => !r.type || r.type === "saving";
+
   /** 仅允许 http/https 链接，其余降级为 # 防注入；返回前做 HTML 转义防 XSS */
   function safeUrl(u) {
     const s = String(u || "").trim();
@@ -584,6 +589,60 @@
     });
   }
 
+  /** 股票/基金流水 → 持仓组聚合（唯一实现，stocks / reports / 仪表盘三处共用）：
+   *  - 先按交易日期排序再聚合：补录历史交易时，均成本扣减顺序与真实发生顺序一致
+   *  - 卖出按当时均成本扣底数（avgCost = buyAmt / holding），realized 累计每笔卖出盈亏
+   *  - 卖出量钳制到当前持仓：流水数据异常（卖超）不再把卖出额全额虚计成利润
+   *  - 旧快照兼容：无 action 视为买入，成交价 = cost，日期取 createdAt 日期部分（无效则今天） */
+  function aggregateStocks(rows) {
+    const txs = (rows || []).map((r) => {
+      const legacy = !r.action;
+      const price = Number(legacy ? r.cost : r.price) || 0;
+      const date = legacy ? ((r.createdAt || "").slice(0, 10) || todayStr()) : (r.date || "");
+      return {
+        id: r.id,
+        code: r.code || "",
+        name: r.name || r.code || "",
+        shares: Number(r.shares || 0),
+        price,
+        type: r.type || "stock",
+        action: legacy ? "buy" : r.action,
+        date,
+        createdAt: r.createdAt || "",
+      };
+    }).sort((a, b) =>
+      String(a.date || "").localeCompare(String(b.date || "")) ||
+      String(a.createdAt || "").localeCompare(String(b.createdAt || ""))
+    );
+    const groups = {};
+    txs.forEach((tx) => {
+      if (!tx.code) return;
+      let g = groups[tx.code];
+      if (!g) {
+        g = groups[tx.code] = { code: tx.code, name: tx.name, type: tx.type, holding: 0, avgCost: 0, buyList: [], sellList: [], buyAmt: 0, buyShares: 0, realized: 0, lastAvg: 0 };
+      }
+      if (tx.action === "sell") {
+        const shares = Math.min(tx.shares, Math.max(0, g.holding)); // 钳制超额卖出
+        const costPerShare = g.holding > 0 ? g.buyAmt / g.holding : 0;
+        if (costPerShare) g.lastAvg = costPerShare;
+        g.realized += shares * (tx.price - costPerShare);
+        g.buyAmt = Math.max(0, g.buyAmt - costPerShare * shares);
+        g.holding -= shares;
+        g.sellList.push(tx);
+      } else {
+        g.holding += tx.shares;
+        g.buyShares += tx.shares;
+        g.buyAmt += tx.shares * tx.price;
+        g.buyList.push(tx);
+      }
+    });
+    Object.keys(groups).forEach((code) => {
+      const g = groups[code];
+      g.avgCost = g.holding > 0 ? g.buyAmt / g.holding : (g.lastAvg || 0);
+    });
+    return Object.keys(groups).map((code) => groups[code]);
+  }
+
   // ---------- 全局命名空间 ----------
   window.WB = {
     routes: {},
@@ -638,6 +697,7 @@
     todayStr,
     esc,
     fmtMoney,
+    isSaving,
     safeUrl,
     parseTags,
     showToast,
@@ -647,6 +707,7 @@
     streakOf,
     sortTasks,
     repeatNext,
+    aggregateStocks,
     debounce,
     flashInvalid,
     /** 内联 SVG 线性图标（Feather/Lucide 风格，stroke 取 currentColor，零依赖零构建）

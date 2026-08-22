@@ -188,18 +188,23 @@
       el.querySelector("#heatNext").addEventListener("click", () => {
         heatMonth++; if (heatMonth > 11) { heatMonth = 0; heatYear++; } rerender();
       });
+      let addingHabit = false; // 锁防双击/双 Enter 重复添加习惯
       const addHabit = async () => {
+        if (addingHabit) return;
         const nameInput = el.querySelector("#habitName");
         const name = nameInput.value.trim();
         if (!name) return flashInvalid(nameInput);
         const goalEl = el.querySelector("#habitGoal");
         const goal = goalEl ? Math.min(7, Math.max(1, Number(goalEl.value) || 7)) : 7;
-        await habitsRepo.put({
-          id: uid(), name,
-          color: HABIT_COLORS[habits.length % HABIT_COLORS.length],
-          checkins: {},
-          goal,
-        });
+        addingHabit = true;
+        try {
+          await habitsRepo.put({
+            id: uid(), name,
+            color: HABIT_COLORS[habits.length % HABIT_COLORS.length],
+            checkins: {},
+            goal,
+          });
+        } finally { addingHabit = false; }
         rerender();
       };
       el.querySelector("#habitAdd").addEventListener("click", addHabit);
@@ -247,7 +252,9 @@
       });
 
       // --- 健康 ---
+      let addingHealth = false; // 锁防双击/双 Enter 击穿"同日同指标覆盖"去重
       const addHealth = async () => {
+        if (addingHealth) return;
         const valueInput = el.querySelector("#hValue");
         const value = parseFloat(valueInput.value);
         if (!(value > 0)) return flashInvalid(valueInput); // 数值需为正数
@@ -255,7 +262,10 @@
         const date = el.querySelector("#hDate").value || todayStr();
         // 同日同指标覆盖：复用既有 id，避免一天多条脏数据
         const exist = health.find((r) => r.metric === metric && r.date === date);
-        await healthRepo.put({ id: exist ? exist.id : uid(), metric, value, date });
+        addingHealth = true;
+        try {
+          await healthRepo.put({ id: exist ? exist.id : uid(), metric, value, date });
+        } finally { addingHealth = false; }
         rerender();
       };
       el.querySelector("#hAdd").addEventListener("click", addHealth);

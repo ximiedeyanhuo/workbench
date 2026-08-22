@@ -30,6 +30,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
 
@@ -231,8 +232,12 @@ def get_conn() -> sqlite3.Connection:
     按当前登录用户路由到各自的库文件；新用户首次访问时懒建表"""
     user = CURRENT_USER.get() or ADMIN_USER
     path = db_file_for(user)
-    conn = sqlite3.connect(path)
+    conn = sqlite3.connect(path, timeout=5.0)
     conn.execute("PRAGMA journal_mode=WAL")
+    # WAL 推荐档：断电最多丢最后一个事务、不损库；默认 FULL 每次提交 fsync 造成写放大
+    conn.execute("PRAGMA synchronous=NORMAL")
+    # 显式声明锁等待 5s（与 connect(timeout=5) 等效，自文档化，并发写竞争先等待再报 locked）
+    conn.execute("PRAGMA busy_timeout=5000")
     if str(path) not in _initialized_dbs:
         for s in STORES:
             conn.execute(f'CREATE TABLE IF NOT EXISTS "{s}" (id TEXT PRIMARY KEY, data TEXT NOT NULL)')
@@ -241,8 +246,21 @@ def get_conn() -> sqlite3.Connection:
     return conn
 
 
+@contextmanager
+def db_conn():
+    """get_conn 的事务化封装：成功 commit / 异常 rollback，退出必关连接。
+    sqlite3 连接自带的 with 只管事务不管关闭，靠引用计数回收在异常路径（traceback
+    持有帧引用）会延迟释放文件句柄；全部业务代码统一改走本封装。"""
+    conn = get_conn()
+    try:
+        with conn:
+            yield conn
+    finally:
+        conn.close()
+
+
 def init_db() -> None:
-    with get_conn() as conn:
+    with db_conn() as conn:
         for s in STORES:
             conn.execute(f'CREATE TABLE IF NOT EXISTS "{s}" (id TEXT PRIMARY KEY, data TEXT NOT NULL)')
 
@@ -251,11 +269,14 @@ def auto_backup() -> None:
     """启动时自动备份所有用户库：每天每库最多一份（同日重启不重复），各保留最近 BACKUP_KEEP 份。
     用 SQLite 在线备份 API 而非直接复制文件：WAL 模式下未合并的日志也能进备份。
     每库独立容错：单个库备份失败只打日志，不阻断启动；先写 .tmp 成功后再落正式名，
-    避免半成品备份占住当日文件名导致之后永不重试"""
+    避免半成品备份占住当日文件名导致之后永不重试。
+    WebDAV 云端推送放后台线程：外网 IO 每个 30s 超时 × N 用户会拖慢启动甚至分钟级，
+    本地备份落盘不等它"""
     db_files = sorted(BASE_DIR.glob("workbench*.db"))
     if not db_files:
         return
     BACKUP_DIR.mkdir(exist_ok=True)
+    webdav_targets = []
     for db_path in db_files:
         try:
             target = BACKUP_DIR / f"{db_path.stem}-{date.today().isoformat()}.db"
@@ -271,8 +292,7 @@ def auto_backup() -> None:
                     dst.close()
                 tmp.replace(target)
                 print(f"auto backup: {target.name}")
-                # 配置了 WebDAV 的用户库，同一天顺带推一份云端备份（失败只打日志，不影响启动）
-                _webdav_push_auto(db_path)
+                webdav_targets.append(db_path)
             # 滚动清理：文件名含日期，按名排序即按时间排序（注意 workbench-* 不会误匹配 workbench_xxx-*）
             for old in sorted(BACKUP_DIR.glob(f"{db_path.stem}-*.db"))[:-BACKUP_KEEP]:
                 try:
@@ -281,6 +301,14 @@ def auto_backup() -> None:
                     print(f"[backup] 清理旧备份失败 {old.name}: {e}")
         except Exception as e:
             print(f"[backup] 备份失败 {db_path.name}: {e}")
+    if webdav_targets:
+        def _push_all():
+            for db_path in webdav_targets:
+                try:
+                    _webdav_push_auto(db_path)
+                except Exception as e:
+                    print(f"[webdav] 自动推送失败 {db_path.name}: {e}")
+        threading.Thread(target=_push_all, name="wdav-startup-push", daemon=True).start()
 
 
 def check_store(store: str) -> None:
@@ -319,7 +347,9 @@ async def auth_login(request: Request):
     if fail and fail.get("lock_until", 0) > time.time():
         raise HTTPException(status_code=429, detail="失败次数过多，请 1 分钟后重试")
     user = USERS.get(username)
-    if not user or not verify_password(password, user):
+    # PBKDF2 12 万轮约几十毫秒纯 CPU，放线程池算，避免阻塞事件循环拖慢并发请求
+    valid = bool(user) and await run_in_threadpool(verify_password, password, user)
+    if not user or not valid:
         rec = _login_fails.setdefault(username, {"count": 0, "lock_until": 0})
         rec["count"] += 1
         if rec["count"] >= LOGIN_FAIL_MAX:
@@ -362,12 +392,12 @@ async def auth_change_password(request: Request):
     payload = await request.json()
     username = CURRENT_USER.get()
     user = USERS[username]
-    if not verify_password(str(payload.get("oldPassword", "")), user):
+    if not await run_in_threadpool(verify_password, str(payload.get("oldPassword", "")), user):
         raise HTTPException(status_code=400, detail="原密码错误")
     new_pwd = str(payload.get("newPassword", ""))
     if len(new_pwd) < 6:
         raise HTTPException(status_code=400, detail="新密码至少 6 位")
-    user["salt"], user["hash"] = hash_password(new_pwd)
+    user["salt"], user["hash"] = await run_in_threadpool(hash_password, new_pwd)
     save_users()
     return {"ok": True}
 
@@ -395,7 +425,7 @@ async def create_user(request: Request):
         raise HTTPException(status_code=400, detail="用户已存在")
     if len(password) < 6:
         raise HTTPException(status_code=400, detail="密码至少 6 位")
-    salt, digest = hash_password(password)
+    salt, digest = await run_in_threadpool(hash_password, password)
     USERS[username] = {"salt": salt, "hash": digest, "createdAt": datetime.now().strftime("%Y-%m-%d %H:%M")}
     save_users()
     return {"ok": True}
@@ -412,7 +442,7 @@ async def reset_user_password(username: str, request: Request):
     if len(password) < 6:
         raise HTTPException(status_code=400, detail="密码至少 6 位")
     user = USERS[username]
-    user["salt"], user["hash"] = hash_password(password)
+    user["salt"], user["hash"] = await run_in_threadpool(hash_password, password)
     save_users()
     # 踢掉该用户已有会话，迫使用新密码重登
     for t in [t for t, s in SESSIONS.items() if s.get("user") == username]:
@@ -452,7 +482,7 @@ def backup_status():
 @app.get("/api/db/{store}")
 def list_rows(store: str):
     check_store(store)
-    with get_conn() as conn:
+    with db_conn() as conn:
         rows = conn.execute(f'SELECT data FROM "{store}"').fetchall()
     return Response(content="[" + ",".join(r[0] for r in rows) + "]", media_type="application/json")
 
@@ -460,7 +490,7 @@ def list_rows(store: str):
 @app.get("/api/db/{store}/{item_id}")
 def get_row(store: str, item_id: str):
     check_store(store)
-    with get_conn() as conn:
+    with db_conn() as conn:
         row = conn.execute(f'SELECT data FROM "{store}" WHERE id=?', (item_id,)).fetchone()
     return Response(content=row[0] if row else "null", media_type="application/json")
 
@@ -471,19 +501,26 @@ async def put_row(store: str, item_id: str, request: Request):
     obj = await request.json()
     if not isinstance(obj, dict):
         raise HTTPException(status_code=400, detail="body must be a JSON object")
-    with get_conn() as conn:
-        conn.execute(
-            f'INSERT INTO "{store}" (id, data) VALUES (?, ?) '
-            "ON CONFLICT(id) DO UPDATE SET data=excluded.data",
-            (item_id, json_text(obj)),
-        )
+    # URL 主键为准：body 里的主键字段与 URL 不一致时按 URL 规范化，
+    # 避免产生「行键与 data.id 错位」的幽灵行（前端总是对齐，防直连 API 误用）
+    pk = "key" if store == "settings" else "id"
+    obj[pk] = item_id
+
+    def _write():
+        with db_conn() as conn:
+            conn.execute(
+                f'INSERT INTO "{store}" (id, data) VALUES (?, ?) '
+                "ON CONFLICT(id) DO UPDATE SET data=excluded.data",
+                (item_id, json_text(obj)),
+            )
+    await run_in_threadpool(_write)
     return {"ok": True}
 
 
 @app.delete("/api/db/{store}/{item_id}")
 def delete_row(store: str, item_id: str):
     check_store(store)
-    with get_conn() as conn:
+    with db_conn() as conn:
         conn.execute(f'DELETE FROM "{store}" WHERE id=?', (item_id,))
     return {"ok": True}
 
@@ -491,7 +528,7 @@ def delete_row(store: str, item_id: str):
 @app.delete("/api/db/{store}")
 def clear_rows(store: str):
     check_store(store)
-    with get_conn() as conn:
+    with db_conn() as conn:
         conn.execute(f'DELETE FROM "{store}"')
     return {"ok": True}
 
@@ -503,12 +540,15 @@ async def bulk_put(store: str, request: Request):
     if not isinstance(arr, list):
         raise HTTPException(status_code=400, detail="body must be a JSON array")
     rows = [(row_key(store, o), json_text(o)) for o in arr if isinstance(o, dict)]
-    with get_conn() as conn:
-        conn.executemany(
-            f'INSERT INTO "{store}" (id, data) VALUES (?, ?) '
-            "ON CONFLICT(id) DO UPDATE SET data=excluded.data",
-            rows,
-        )
+
+    def _write():
+        with db_conn() as conn:
+            conn.executemany(
+                f'INSERT INTO "{store}" (id, data) VALUES (?, ?) '
+                "ON CONFLICT(id) DO UPDATE SET data=excluded.data",
+                rows,
+            )
+    await run_in_threadpool(_write)
     return {"ok": True, "count": len(rows)}
 
 
@@ -519,13 +559,16 @@ async def import_all(request: Request):
     if not isinstance(payload, dict) or payload.get("app") != "workbench" or "data" not in payload:
         raise HTTPException(status_code=400, detail="备份数据格式不正确")
     data = payload["data"]
-    with get_conn() as conn:  # 单事务：要么全部导入成功，要么保持原样
-        for s in STORES:
-            conn.execute(f'DELETE FROM "{s}"')
-            arr = data.get(s) or []
-            rows = [(row_key(s, o), json_text(o)) for o in arr if isinstance(o, dict)]
-            if rows:
-                conn.executemany(f'INSERT INTO "{s}" (id, data) VALUES (?, ?)', rows)
+
+    def _import():  # 全删全插可能上千行 + 大 JSON，放线程池避免占住事件循环
+        with db_conn() as conn:  # 单事务：要么全部导入成功，要么保持原样
+            for s in STORES:
+                conn.execute(f'DELETE FROM "{s}"')
+                arr = data.get(s) or []
+                rows = [(row_key(s, o), json_text(o)) for o in arr if isinstance(o, dict)]
+                if rows:
+                    conn.executemany(f'INSERT INTO "{s}" (id, data) VALUES (?, ?)', rows)
+    await run_in_threadpool(_import)
     return {"ok": True}
 
 
@@ -1100,7 +1143,7 @@ DRIVE_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 
 def get_drive_config(drive: str) -> dict:
     """从 settings 读取指定网盘的配置"""
-    with get_conn() as conn:
+    with db_conn() as conn:
         row = conn.execute('SELECT data FROM "settings" WHERE id=?', (f"drive_{drive}_config",)).fetchone()
     if not row:
         return {}
@@ -1110,7 +1153,7 @@ def get_drive_config(drive: str) -> dict:
 def save_drive_config(drive: str, config: dict) -> None:
     """保存网盘配置到 settings"""
     obj = {"key": f"drive_{drive}_config", **config}
-    with get_conn() as conn:
+    with db_conn() as conn:
         conn.execute(
             f'INSERT INTO "settings" (id, data) VALUES (?, ?) '
             'ON CONFLICT(id) DO UPDATE SET data=excluded.data',
@@ -1274,7 +1317,12 @@ async def quark_download(request: Request):
 
 @app.get("/api/drive/quark/proxy")
 async def quark_proxy(fid: str = ""):
-    """代理夸克文件流：绕过 CDN 防盗链"""
+    """代理夸克文件流：绕过 CDN 防盗链。
+    注意两个曾经踩过的坑：
+    1) urlopen 建连（含 DNS/TLS/等首字节）必须进线程池——直接在 async 里调会阻塞事件循环最长 30s；
+    2) 返回 StreamingResponse 时不能把 urlopen 写进 with 块——return 会触发 __exit__ 关闭上游连接，
+       而 http.client 对已关闭连接的 read() 直接返回空串，下载只会得到 0 字节。
+       改为生成器内读取、finally 里关闭。"""
     cfg = get_drive_config("quark")
     cookie = cfg.get("cookie", "")
     if not cookie:
@@ -1282,9 +1330,7 @@ async def quark_proxy(fid: str = ""):
     if not fid:
         raise HTTPException(status_code=400, detail="fid 不能为空")
     try:
-        # 同步 urllib 调用进线程池，避免阻塞事件循环
         download_url = (await run_in_threadpool(_quark_get_download, cookie, fid)).get("download_url")
-        # Follow redirect and stream bytes
         # 关键：夸克 CDN（阿里云 OSS）要求 Referer + Cookie + UA 三件套，缺任一带 412
         # （Alist quark driver 的 Link 正是附带这三个头）；不能带 Content-Type（OSS 签名校验会失败）
         req = urllib.request.Request(
@@ -1295,17 +1341,24 @@ async def quark_proxy(fid: str = ""):
                 "Referer": "https://pan.quark.cn/",
             },
         )
-        with urllib.request.urlopen(req, timeout=DRIVE_TIMEOUT) as upstream:
-            ct = upstream.headers.get("Content-Type", "application/octet-stream")
+        # 建连进线程池；连接对象交给生成器串行读取（Starlette 对同步生成器逐块调度进线程池）
+        upstream = await run_in_threadpool(urllib.request.urlopen, req, timeout=DRIVE_TIMEOUT)
+        ct = upstream.headers.get("Content-Type", "application/octet-stream")
 
-            def stream():
+        def stream():
+            try:
                 while True:
                     chunk = upstream.read(65536)
                     if not chunk:
                         break
                     yield chunk
+            finally:
+                try:
+                    upstream.close()
+                except Exception:
+                    pass
 
-            return StreamingResponse(stream(), media_type=ct)
+        return StreamingResponse(stream(), media_type=ct)
     except HTTPException:
         raise
     except Exception as e:
@@ -1317,7 +1370,7 @@ async def quark_config_save(request: Request):
     """保存夸克网盘配置"""
     payload = await request.json()
     cookie = payload.get("cookie", "").strip()
-    save_drive_config("quark", {"cookie": cookie})
+    await run_in_threadpool(save_drive_config, "quark", {"cookie": cookie})
     return {"ok": True}
 
 
@@ -1609,7 +1662,7 @@ async def baidu_config_save(request: Request):
     """保存百度网盘配置"""
     payload = await request.json()
     cookie = payload.get("cookie", "").strip()
-    save_drive_config("baidu", {"cookie": cookie})
+    await run_in_threadpool(save_drive_config, "baidu", {"cookie": cookie})
     return {"ok": True}
 
 
@@ -1625,14 +1678,14 @@ WDAV_TIMEOUT = 30
 
 def get_webdav_config() -> dict:
     """读取当前用户的 WebDAV 备份配置（settings store）"""
-    with get_conn() as conn:
+    with db_conn() as conn:
         row = conn.execute('SELECT data FROM "settings" WHERE id=?', ("webdav_backup_config",)).fetchone()
     return json.loads(row[0]) if row else {}
 
 
 def save_webdav_config(cfg: dict) -> None:
     obj = {"key": "webdav_backup_config", **cfg}
-    with get_conn() as conn:
+    with db_conn() as conn:
         conn.execute(
             'INSERT INTO "settings" (id, data) VALUES (?, ?) '
             "ON CONFLICT(id) DO UPDATE SET data=excluded.data",
@@ -1817,7 +1870,7 @@ async def webdav_config_save(request: Request):
     pass_val = payload.get("pass") or ""
     if not pass_val:
         pass_val = old.get("pass", "")
-    save_webdav_config({
+    await run_in_threadpool(save_webdav_config, {
         "url": url,
         "user": (payload.get("user") or "").strip(),
         "pass": pass_val,
@@ -1902,20 +1955,24 @@ async def webdav_restore(request: Request):
     try:
         with open(tmp_path, "wb") as f:
             f.write(data)
-        count = 0
-        with get_conn() as conn:
-            src = sqlite3.connect(tmp_path)
-            try:
-                tables = [r[0] for r in src.execute("SELECT name FROM sqlite_master WHERE type='table'")]
-                for t in tables:
-                    if t not in STORES:
-                        continue
-                    rows = src.execute(f'SELECT id, data FROM "{t}"').fetchall()
-                    conn.execute(f'DELETE FROM "{t}"')
-                    conn.executemany(f'INSERT INTO "{t}" (id, data) VALUES (?, ?)', rows)
-                    count += len(rows)
-            finally:
-                src.close()
+
+        def _restore():  # 整库覆盖可能上千行，放线程池避免占住事件循环
+            count = 0
+            with db_conn() as conn:
+                src = sqlite3.connect(tmp_path)
+                try:
+                    tables = [r[0] for r in src.execute("SELECT name FROM sqlite_master WHERE type='table'")]
+                    for t in tables:
+                        if t not in STORES:
+                            continue
+                        rows = src.execute(f'SELECT id, data FROM "{t}"').fetchall()
+                        conn.execute(f'DELETE FROM "{t}"')
+                        conn.executemany(f'INSERT INTO "{t}" (id, data) VALUES (?, ?)', rows)
+                        count += len(rows)
+                finally:
+                    src.close()
+            return count
+        count = await run_in_threadpool(_restore)
         return {"ok": True, "rows": count}
     finally:
         try:

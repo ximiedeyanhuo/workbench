@@ -31,7 +31,7 @@
   --line:          rgba(43, 47, 54, 0.10);   /* hairline */
   --rule:          rgba(43, 47, 54, 0.20);   /* 强调分隔线 */
   --accent:        #b8946a;   /* 低饱和杏橙（柔和不刺眼） */
-  --accent-strong: #9c7a52;
+  --accent-strong: #8a6a45;   /* 加深一档：白字对比 4.9:1（原 #9c7a52 仅 3.95，WCAG AA 不达标） */
   --accent-hover:  #c4a37c;
   --accent-soft:   rgba(184, 148, 106, 0.15);
   /* 莫兰迪渐变与面板专用色（收敛硬编码） */
@@ -235,7 +235,7 @@
   --card2:         #F0EAD8;   /* 内衬米色 */
   --ink:           #2D4A3E;   /* 深森绿主字（低饱和） */
   --ink-2:         #4F6B5E;
-  --muted:         #8B8772;   /* 暖灰副文 */
+  --muted:         #6F6B58;   /* 暖灰副文（提深：原 #8B8772 对米黄底仅 3.15:1，现 ≥4.5） */
   --muted-2:       #A8A48F;
   --line:          #E5DFCB;   /* 浅米描边 */
   --rule:          #C7C0A6;
@@ -279,7 +279,7 @@
   --card2:         #2E4239;
   --ink:           #DDE6D9;
   --ink-2:         #B8C8B3;
-  --muted:         #889A85;
+  --muted:         #93A691;   /* 提亮一档：原 #889A85 对卡底 4.21:1，现 ≥4.8 */
   --muted-2:       #6F8071;
   --line:          #384B41;
   --rule:          #506656;
@@ -840,6 +840,12 @@ input.invalid, select.invalid, textarea.invalid {
 .b-warn   { color: var(--warn);   background: color-mix(in srgb, var(--warn) 8%, transparent);   border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); }
 .b-ok     { color: var(--ok);     background: color-mix(in srgb, var(--ok) 8%, transparent);     border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent); }
 .b-primary{ color: var(--accent); background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+/* badge 小字对比度：light/mint 的莫兰迪浅语义色作 11px 小字时仅 1.7~4.4:1，
+   badge 场景换加深色阶（不动 --danger 等全局变量，避免牵动按钮/图表配色） */
+[data-theme="light"] .b-danger, [data-theme="mint"] .b-danger { color: #b4472f; }
+[data-theme="light"] .b-warn,   [data-theme="mint"] .b-warn   { color: #8a6414; }
+[data-theme="light"] .b-ok,     [data-theme="mint"] .b-ok     { color: #2e7d4f; }
+[data-theme="light"] .b-primary,[data-theme="mint"] .b-primary{ color: #7d5f3c; }
 /* 定期账单：模式徽标可点击切换 */
 .badge[data-act] { cursor: pointer; }
 .badge[data-act]:hover { filter: brightness(1.1); }
@@ -4008,14 +4014,14 @@ mark.news-kw {
 }
 [data-theme="glass"] .nav a.active .nic { color: #A9C0FF; }
 
-/* 按钮：渐变胶囊 + 玻璃 */
+/* 按钮：渐变胶囊 + 玻璃（深字：渐变蓝底配白字仅 3.79:1，深墨字 ≥6:1） */
 [data-theme="glass"] .btn {
   border-radius: 999px;
   background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  color: #fff; border: none;
+  color: #0d1830; border: none;
   box-shadow: 0 2px 12px rgba(94, 123, 238, 0.4), var(--card-lit);
 }
-[data-theme="glass"] .btn:hover { background: linear-gradient(135deg, var(--accent-hover), var(--accent)); color: #fff; }
+[data-theme="glass"] .btn:hover { background: linear-gradient(135deg, var(--accent-hover), var(--accent)); color: #0d1830; }
 [data-theme="glass"] .btn.ghost { background: rgba(255,255,255,0.06); color: var(--ink); border: 1px solid rgba(255,255,255,0.16); box-shadow: none; }
 [data-theme="glass"] .btn.ghost:hover { background: rgba(255,255,255,0.12); color: var(--ink); }
 [data-theme="glass"] .btn.danger { background: transparent; border: 1px solid var(--danger); }
@@ -4245,9 +4251,10 @@ p, .reader-body, .news-sum, .n-comment { text-wrap: pretty; }
 /* 光学补偿：icon-btn 内 SVG 视觉居中（1px 下移修正） */
 .icon-btn svg { transform: translateY(0.5px); }
 
-/* focus ring：软 tinted（finesse：0 0 0 3px accent-soft，非浏览器默认） */
+/* focus ring：实线 outline（键盘可达性主指示，必须可感知）+ 柔和 tinted 环做装饰 */
 :focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
   box-shadow: 0 0 0 3px var(--accent-soft);
   border-radius: var(--radius-sm);
 }
@@ -4612,7 +4619,14 @@ input::placeholder, textarea::placeholder { color: var(--muted-2); }
   color: var(--ink);
   box-shadow: var(--shadow-sm);
 }
-[data-theme="dark"] .dash-hero {
+/* 暗色主题统一深色例外：晚期「浅色玻璃」打磨层的白色半透明值只对浅色主题成立，
+   5 个暗色主题（dark/midnight/terminal/mint-dark/glass）必须走深色版，
+   否则内容区/hero/toast/输入框会被白罩洗白（terminal 的 toast 文字对比度曾低至 1.01） */
+[data-theme="dark"] .dash-hero,
+[data-theme="midnight"] .dash-hero,
+[data-theme="terminal"] .dash-hero,
+[data-theme="mint-dark"] .dash-hero,
+[data-theme="glass"] .dash-hero {
   background:
     radial-gradient(480px 200px at 92% -20%, rgba(214, 155, 114, 0.16), transparent 60%),
     rgba(255, 255, 255, 0.06);
@@ -4805,15 +4819,25 @@ body { color: var(--ink); }
     backdrop-filter: blur(20px) saturate(1.4);
   }
   .sidebar { background: rgba(255, 255, 255, 0.5); color: var(--ink); }
-  [data-theme="dark"] .layout { background: rgba(255, 255, 255, 0.04); }
-  [data-theme="dark"] .sidebar { background: rgba(255, 255, 255, 0.05); }
+  [data-theme="dark"] .layout, [data-theme="midnight"] .layout,
+  [data-theme="terminal"] .layout, [data-theme="mint-dark"] .layout, [data-theme="glass"] .layout {
+    background: rgba(255, 255, 255, 0.04);
+  }
+  [data-theme="dark"] .sidebar, [data-theme="midnight"] .sidebar,
+  [data-theme="terminal"] .sidebar, [data-theme="mint-dark"] .sidebar, [data-theme="glass"] .sidebar {
+    background: rgba(255, 255, 255, 0.05);
+  }
 }
-/* 侧栏文字适配（浅色 on 深底） */
-.nav a, .nav-parent { color: var(--muted); }
-.nav a:hover { color: var(--ink); }
+/* 侧栏文字适配（浅色 on 玻璃浅底）——仅 ≥1025 桌面档存在浅玻璃侧栏；
+   窄屏时非 light/dark 主题的侧栏回归 var(--ink) 深底，必须用回基础的浅色文字，
+   否则 muted 正文对比不足、hover(ink on ink) 直接隐身 */
+@media (min-width: 1025px) {
+  .nav a, .nav-parent { color: var(--muted); }
+  .nav a:hover { color: var(--ink); }
+  .brand-txt { color: var(--ink); }
+  .brand-txt small { color: var(--muted); }
+}
 .nav a.active { color: var(--accent); }
-.brand-txt { color: var(--ink); }
-.brand-txt small { color: var(--muted); }
 [data-theme="light"] .nav a, [data-theme="light"] .nav-parent { color: var(--muted); }
 [data-theme="light"] .nav a:hover { color: var(--ink); background: rgba(255,255,255,0.06); }
 [data-theme="light"] .nav a.active { color: var(--accent); background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
@@ -4832,7 +4856,8 @@ body {
     radial-gradient(1200px 520px at 85% -10%, rgba(214, 155, 114, 0.10), transparent 60%);
   background-size: 18px 18px, auto;
 }
-[data-theme="dark"] body {
+[data-theme="dark"] body, [data-theme="midnight"] body,
+[data-theme="terminal"] body, [data-theme="mint-dark"] body, [data-theme="glass"] body {
   background-image:
     radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
     radial-gradient(1200px 520px at 85% -10%, rgba(214, 155, 114, 0.08), transparent 60%);
@@ -4866,7 +4891,11 @@ body {
   box-shadow: var(--shadow-md);
   font-weight: 600;
 }
-[data-theme="dark"] .wb-toast { background: rgba(28, 33, 40, 0.8); }
+[data-theme="dark"] .wb-toast, [data-theme="midnight"] .wb-toast,
+[data-theme="terminal"] .wb-toast, [data-theme="mint-dark"] .wb-toast, [data-theme="glass"] .wb-toast {
+  background: rgba(28, 33, 40, 0.8);
+  color: #eef0f3;
+}
 .wb-toast.success { border-left: 3px solid var(--ok); }
 .wb-toast.error   { border-left: 3px solid var(--danger); }
 .wb-toast.warning { border-left: 3px solid var(--warn); }
@@ -4882,6 +4911,11 @@ body {
 .focus-fab:hover { box-shadow: 0 4px 14px -4px rgba(192, 127, 79, 0.6); }
 .focus-fab.running { background: var(--danger); }
 .quick-fab { background: rgba(255, 255, 255, 0.65); color: var(--accent-strong); border: 1.5px solid var(--accent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+[data-theme="dark"] .quick-fab, [data-theme="midnight"] .quick-fab,
+[data-theme="terminal"] .quick-fab, [data-theme="mint-dark"] .quick-fab, [data-theme="glass"] .quick-fab {
+  background: rgba(28, 33, 40, 0.82);
+  color: var(--accent);
+}
 
 /* 关键数字对比：金额/统计数字加粗 */
 .stat .s-val, .dh-cell .dh-val { font-weight: 800; }
@@ -4894,7 +4928,15 @@ input:not([type]), select, textarea {
   border: 1px solid var(--line);
 }
 [data-theme="dark"] input[type="text"], [data-theme="dark"] input[type="number"], [data-theme="dark"] input[type="date"],
-[data-theme="dark"] input:not([type]), [data-theme="dark"] select, [data-theme="dark"] textarea {
+[data-theme="dark"] input:not([type]), [data-theme="dark"] select, [data-theme="dark"] textarea,
+[data-theme="midnight"] input[type="text"], [data-theme="midnight"] input[type="number"], [data-theme="midnight"] input[type="date"],
+[data-theme="midnight"] input:not([type]), [data-theme="midnight"] select, [data-theme="midnight"] textarea,
+[data-theme="terminal"] input[type="text"], [data-theme="terminal"] input[type="number"], [data-theme="terminal"] input[type="date"],
+[data-theme="terminal"] input:not([type]), [data-theme="terminal"] select, [data-theme="terminal"] textarea,
+[data-theme="mint-dark"] input[type="text"], [data-theme="mint-dark"] input[type="number"], [data-theme="mint-dark"] input[type="date"],
+[data-theme="mint-dark"] input:not([type]), [data-theme="mint-dark"] select, [data-theme="mint-dark"] textarea,
+[data-theme="glass"] input[type="text"], [data-theme="glass"] input[type="number"], [data-theme="glass"] input[type="date"],
+[data-theme="glass"] input:not([type]), [data-theme="glass"] select, [data-theme="glass"] textarea {
   background: rgba(255, 255, 255, 0.06);
 }
 input:focus, select:focus, textarea:focus {
@@ -4910,6 +4952,17 @@ input:focus, select:focus, textarea:focus {
 .btn.danger:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); }
 .btn.ghost { background: transparent; color: var(--accent-strong); border: 1.5px solid var(--line); }
 .btn.ghost:hover { background: var(--accent-soft); border-color: var(--accent); }
+
+/* 暗色主题下的荧光/浅色按钮底配深字（白字对比不足：terminal 1.98 / mint-dark 3.01） */
+[data-theme="terminal"] .btn:not(.ghost):not(.danger) { color: #04140a; }
+[data-theme="mint-dark"] .btn:not(.ghost):not(.danger) { color: #0e1f16; }
+
+/* 表单禁用态：原生 input/select/textarea 此前无任何禁用视觉 */
+input:disabled, select:disabled, textarea:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: grayscale(0.15);
+}
 
 /* 表单元素内边距统一（舒适点击） */
 input[type="text"], input[type="number"], input[type="date"], input[type="password"],

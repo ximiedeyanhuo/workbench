@@ -297,23 +297,28 @@
       // rerender 统一守卫：AI 排序/拆解等秒级回调期间用户切走路由后，不再把任务视图写回 #view
       const rerender = () => { if (location.hash !== "#/tasks") return; routes.tasks.render(el); };
 
-      // 新建任务
+      // 新建任务；adding 锁防双击/双 Enter 重复添加
+      let adding = false;
       const addTask = async () => {
+        if (adding) return;
         const titleInput = el.querySelector("#tTitle");
         const title = titleInput.value.trim();
         if (!title) return flashInvalid(titleInput);
-        await tasksRepo.put({
-          id: uid(),
-          title,
-          note: "",
-          dueDate: el.querySelector("#tDue").value || "",
-          priority: el.querySelector("#tPri").value,
-          tags: parseTags(el.querySelector("#tTags").value),
-          repeat: el.querySelector("#tRepeat").value,
-          estMins: Number(el.querySelector("#tEst").value) || undefined,
-          done: false,
-          createdAt: new Date().toISOString(),
-        });
+        adding = true;
+        try {
+          await tasksRepo.put({
+            id: uid(),
+            title,
+            note: "",
+            dueDate: el.querySelector("#tDue").value || "",
+            priority: el.querySelector("#tPri").value,
+            tags: parseTags(el.querySelector("#tTags").value),
+            repeat: el.querySelector("#tRepeat").value,
+            estMins: Number(el.querySelector("#tEst").value) || undefined,
+            done: false,
+            createdAt: new Date().toISOString(),
+          });
+        } finally { adding = false; }
         rerender();
       };
       el.querySelector("#tAdd").addEventListener("click", addTask);

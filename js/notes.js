@@ -241,6 +241,7 @@
     const notes = await notesRepo.list();
     const list = filterNotes(notes);
     const box = el.querySelector("#noteList");
+    if (!box) return; // debounce 回调期间可能已切走路由（#noteList 随 #view 重渲染消失）
     box.innerHTML = list.length
       ? list
           .map(
@@ -306,18 +307,23 @@
   }
 
   function bindMarks(el, rerender) {
+    let adding = false; // 锁防双击/双 Enter 重复收藏链接
     const addMark = async () => {
+      if (adding) return;
       const urlInput = el.querySelector("#mUrl");
       const url = urlInput.value.trim();
       if (!url || !/^https?:\/\//i.test(url)) return flashInvalid(urlInput); // 需 http(s):// 开头
-      await marksRepo.put({
-        id: uid(),
-        url,
-        title: el.querySelector("#mTitle").value.trim(),
-        note: el.querySelector("#mNote").value.trim(),
-        tags: parseTags(el.querySelector("#mTags").value),
-        createdAt: new Date().toISOString(),
-      });
+      adding = true;
+      try {
+        await marksRepo.put({
+          id: uid(),
+          url,
+          title: el.querySelector("#mTitle").value.trim(),
+          note: el.querySelector("#mNote").value.trim(),
+          tags: parseTags(el.querySelector("#mTags").value),
+          createdAt: new Date().toISOString(),
+        });
+      } finally { adding = false; }
       rerender();
     };
     el.querySelector("#mAdd").addEventListener("click", addMark);

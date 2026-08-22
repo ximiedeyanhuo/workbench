@@ -503,12 +503,14 @@
     modal.id = "newsReader";
     modal.className = "reader-mask";
 
-    // 阅读偏好：localStorage 即时 + settings 持久
+    // 阅读偏好：localStorage 即时 + settings 持久（值白名单化：进 data-* 属性前收敛到合法枚举）
     let pref = { font: 2, theme: "paper" };
     try {
       const t = localStorage.getItem("wb2_reader_pref");
       if (t) pref = { ...pref, ...JSON.parse(t) };
     } catch (e) { /* ignore */ }
+    if ([1, 2, 3].indexOf(Number(pref.font)) === -1) pref.font = 2;
+    if (["paper", "night", "sepia"].indexOf(pref.theme) === -1) pref.theme = "paper";
 
     modal.innerHTML = `<div class="reader-box" data-font="${pref.font}" data-theme="${pref.theme}">
       <div class="reader-progress"><i></i></div>
@@ -535,15 +537,15 @@
     const box = modal.querySelector(".reader-body");
     const scroll = modal.querySelector(".reader-scroll");
     const progress = modal.querySelector(".reader-progress i");
-    const close = () => modal.remove();
+    // ESC 具名监听：close 统一解绑——此前只在按 ESC 时解绑，点遮罩/×/返回键关闭会累积监听器
+    const onEsc = (e) => { if (e.key === "Escape") userClose(); };
+    const close = () => { document.removeEventListener("keydown", onEsc); modal.remove(); };
     // 关闭：用户点关闭/遮罩/ESC → closeOverlay（history.back 同步栈）；手机返回键 → popstate 自动调 close
     const userClose = () => WB.closeOverlay("newsReader");
     modal.addEventListener("click", (e) => {
       if (e.target === modal || e.target.closest(".reader-close")) userClose();
     });
-    document.addEventListener("keydown", function onEsc(e) {
-      if (e.key === "Escape") { userClose(); document.removeEventListener("keydown", onEsc); }
-    });
+    document.addEventListener("keydown", onEsc);
     // 登记到历史栈：手机返回键能先关浮层
     WB.openOverlay("newsReader", close);
 
@@ -1122,24 +1124,29 @@
         }
       });
 
+    let fAdding = false; // 锁防双击重复收藏资讯源（sort 读-改-写也会丢更新）
     const add = el.querySelector("#fAdd");
     if (add)
       add.addEventListener("click", async () => {
+        if (fAdding) return;
         const name = el.querySelector("#fName").value.trim();
         const url = el.querySelector("#fUrl").value.trim();
         if (!name || !url) { WB.showToast("名称和地址都要填写", "error"); return; }
         if (!/^https?:\/\//i.test(url)) { WB.showToast("地址需以 http:// 或 https:// 开头", "error"); return; }
-        const all = await feedRepo.list();
-        const maxSort = all.reduce((m, f) => Math.max(m, f.sort || 0), 0);
-        await feedRepo.put({
-          id: uid(),
-          name,
-          url,
-          category: cat,
-          type: el.querySelector("#fType").value,
-          sort: maxSort + 1,
-          cache: null,
-        });
+        fAdding = true;
+        try {
+          const all = await feedRepo.list();
+          const maxSort = all.reduce((m, f) => Math.max(m, f.sort || 0), 0);
+          await feedRepo.put({
+            id: uid(),
+            name,
+            url,
+            category: cat,
+            type: el.querySelector("#fType").value,
+            sort: maxSort + 1,
+            cache: null,
+          });
+        } finally { fAdding = false; }
         routes.news.render(el);
       });
 

@@ -145,23 +145,28 @@
 
       // 添加
       const addBtn = el.querySelector("#mAdd");
+      let mAdding = false; // 锁防双击/双 Enter 重复添加
       addBtn.addEventListener("click", async () => {
+        if (mAdding) return;
         const titleInput = el.querySelector("#mTitle");
         const title = titleInput.value.trim();
         if (!title) return flashInvalid(titleInput);
         const status = el.querySelector("#mStatus").value;
         const rating = Number(el.querySelector("#mRating").value) || 0;
-        await mRepo().put({
-          id: uid(),
-          type: curType,
-          title,
-          year: el.querySelector("#mYear").value.trim(),
-          status,
-          rating,
-          comment: "",
-          finishedAt: status === "done" ? todayStr() : "",
-          createdAt: new Date().toISOString(),
-        });
+        mAdding = true;
+        try {
+          await mRepo().put({
+            id: uid(),
+            type: curType,
+            title,
+            year: el.querySelector("#mYear").value.trim(),
+            status,
+            rating,
+            comment: "",
+            finishedAt: status === "done" ? todayStr() : "",
+            createdAt: new Date().toISOString(),
+          });
+        } finally { mAdding = false; }
         toast("已添加");
         routes.media.render(el);
       });

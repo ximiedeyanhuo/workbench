@@ -136,24 +136,29 @@
         <div class="footnote">点「互动」展开记录：微信聊天、打电话、一起吃饭……数据随导出/云备份走；点 🎂 可把生日同步到倒数日每年提醒。</div>`;
 
       const $$ = (s) => el.querySelector(s);
+      let ctSaving = false; // 锁防双击重复添加/保存联系人
       $$("#ctSave").addEventListener("click", async () => {
+        if (ctSaving) return;
         const nameInput = $$("#ctName");
         const name = nameInput.value.trim();
         if (!name) return flashInvalid(nameInput);
         const base = editingId ? list.find((x) => x.id === editingId) : null;
-        await cRepo().put({
-          id: base ? base.id : uid(),
-          name,
-          nick: $$("#ctNick").value.trim(),
-          relation: $$("#ctRel").value,
-          phone: $$("#ctPhone").value.trim(),
-          birthday: $$("#ctBirth").value || "",
-          address: $$("#ctAddr").value.trim(),
-          note: $$("#ctNote").value.trim(),
-          tags: parseTags($$("#ctTags").value),
-          createdAt: (base && base.createdAt) || new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
+        ctSaving = true;
+        try {
+          await cRepo().put({
+            id: base ? base.id : uid(),
+            name,
+            nick: $$("#ctNick").value.trim(),
+            relation: $$("#ctRel").value,
+            phone: $$("#ctPhone").value.trim(),
+            birthday: $$("#ctBirth").value || "",
+            address: $$("#ctAddr").value.trim(),
+            note: $$("#ctNote").value.trim(),
+            tags: parseTags($$("#ctTags").value),
+            createdAt: (base && base.createdAt) || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+        } finally { ctSaving = false; }
         showToast(editingId ? "已保存" : "已添加", "ok");
         editingId = null;
         routes.contacts.render(el);

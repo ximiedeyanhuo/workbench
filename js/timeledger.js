@@ -53,7 +53,7 @@
     return `<div class="set-row">
       <span class="s-name" style="min-width:86px">${esc(e.start || "")}${e.end ? "–" + esc(e.end) : "起"}</span>
       <span class="tk-cat-dot" style="background:${c.color}"></span>
-      <span class="s-desc grow">${c.name}${task}${e.note ? " · " + esc(e.note) : ""}${(e.tags || []).map((t) => ` <span class="tag">${esc(t)}</span>`).join("")}</span>
+      <span class="s-desc grow">${esc(c.name)}${task}${e.note ? " · " + esc(e.note) : ""}${(e.tags || []).map((t) => ` <span class="tag">${esc(t)}</span>`).join("")}</span>
       <b style="font-size:13px">${fmtHm(e.minutes)}</b>
       <button class="btn ghost sm" data-teedit="${e.id}">改</button>
       <button class="btn danger sm" data-tedel="${e.id}">删</button>
@@ -68,7 +68,7 @@
         <input id="teStart" placeholder="起 09:00" maxlength="5" style="max-width:90px" value="${esc(it.start || "")}" />
         <input id="teEnd" placeholder="止 10:20" maxlength="5" style="max-width:90px" value="${esc(it.end || "")}" />
         <select id="teCat">
-          ${CATS.concat(customs || []).map((c) => `<option value="${c.k}" ${it.category === c.k ? "selected" : ""}>${c.name}</option>`).join("")}
+          ${CATS.concat(customs || []).map((c) => `<option value="${esc(c.k)}" ${it.category === c.k ? "selected" : ""}>${esc(c.name)}</option>`).join("")}
         </select>
         <input type="number" min="1" step="1" placeholder="或直接填分钟" style="max-width:120px" id="teMins" value="${it.minutes ? esc(it.minutes) : ""}" title="起止都填了则自动计算，此项可留空" />
         <input class="grow" id="teNote" placeholder="做了什么（可选）" maxlength="50" value="${esc(it.note || "")}" />
@@ -136,7 +136,7 @@
                    <button class="btn ghost sm" id="teDiscard">放弃</button>
                  </div>`
               : `<div class="row">
-                   <select id="teTmCat">${CATS.concat(customs || []).map((c) => `<option value="${c.k}">${c.name}</option>`).join("")}</select>
+                   <select id="teTmCat">${CATS.concat(customs || []).map((c) => `<option value="${esc(c.k)}">${esc(c.name)}</option>`).join("")}</select>
                    <input class="grow" id="teTmNote" placeholder="正在做什么（可选）" maxlength="50" />
                    <button class="btn in-card-btn" id="teStartBtn">▶ 开始计时</button>
                  </div>`}
@@ -157,7 +157,7 @@
           ${stat.rows.length ? stat.rows.map((r) => `
             <div class="set-row">
               <span class="tk-cat-dot" style="background:${r.color}"></span>
-              <span class="s-name">${r.name}</span>
+              <span class="s-name">${esc(r.name)}</span>
               <div class="grow" style="min-width:80px"><div class="ach-bar"><i style="width:${stat.total ? Math.round((r.mins / stat.total) * 100) : 0}%"></i></div></div>
               <b style="font-size:13px;min-width:56px;text-align:right">${fmtHm(r.mins)}</b>
               <span class="s-desc" style="min-width:40px;text-align:right">${stat.total ? Math.round((r.mins / stat.total) * 100) : 0}%</span>
@@ -221,7 +221,9 @@
       }
 
       // ---- 表单 ----
+      let teSaveBusy = false; // 锁防双击/双 Enter 重复记录
       $$("#teSave").addEventListener("click", async () => {
+        if (teSaveBusy) return;
         const date = $$("#teDate").value;
         const start = $$("#teStart").value.trim();
         const end = $$("#teEnd").value.trim();
@@ -234,16 +236,19 @@
           mins = b - a;
         }
         const base = editingId ? list.find((x) => x.id === editingId) : null;
-        await teRepo().put({
-          id: base ? base.id : uid(),
-          date, start, end,
-          minutes: Math.round(mins),
-          category: $$("#teCat").value,
-          tags: parseTags($$("#teTags").value),
-          note: $$("#teNote").value.trim(),
-          taskId: $$("#teTask").value || "",
-          createdAt: (base && base.createdAt) || new Date().toISOString(),
-        });
+        teSaveBusy = true;
+        try {
+          await teRepo().put({
+            id: base ? base.id : uid(),
+            date, start, end,
+            minutes: Math.round(mins),
+            category: $$("#teCat").value,
+            tags: parseTags($$("#teTags").value),
+            note: $$("#teNote").value.trim(),
+            taskId: $$("#teTask").value || "",
+            createdAt: (base && base.createdAt) || new Date().toISOString(),
+          });
+        } finally { teSaveBusy = false; }
         showToast("已记录 " + fmtHm(mins), "ok");
         editingId = null;
         routes.time.render(el);
