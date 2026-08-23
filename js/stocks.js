@@ -122,9 +122,31 @@
     return s.length === 14 ? `${s.slice(4, 6)}-${s.slice(6, 8)} ${s.slice(8, 10)}:${s.slice(10, 12)}:${s.slice(12)}` : "";
   }
 
-  /** 顶部汇总：总市值/总成本/持仓盈亏/已实现盈亏/今日盈亏
+  /** XIRR 年化收益率：flows = [{t: Date, v}]（投入为负、回收为正），二分解 NPV=0。
+   *  无解 / 期限过短返回 null（页面显示 —） */
+  function xirr(flows) {
+    const valid = flows.filter((f) => f.t && !isNaN(f.t.getTime()) && isFinite(f.v));
+    if (valid.length < 2) return null;
+    const t0 = Math.min(...valid.map((f) => f.t.getTime()));
+    const spanDays = (Math.max(...valid.map((f) => f.t.getTime())) - t0) / 86400000;
+    if (spanDays < 30) return null; // 持有太短年化没有参考意义
+    const npv = (r) => valid.reduce((s, f) => s + f.v / Math.pow(1 + r, (f.t.getTime() - t0) / (365 * 86400000)), 0);
+    let lo = -0.9999, hi = 10;
+    const fLo = npv(lo), fHi = npv(hi);
+    if (!isFinite(fLo) || !isFinite(fHi) || fLo * fHi > 0) return null;
+    for (let i = 0; i < 80; i++) {
+      const mid = (lo + hi) / 2;
+      const v = npv(mid);
+      if (Math.abs(v) < 1e-7) return mid;
+      if (fLo > 0 ? v > 0 : v < 0) lo = mid; else hi = mid;
+    }
+    return (lo + hi) / 2;
+  }
+
+  /** 顶部汇总：总市值/总成本/持仓盈亏/已实现盈亏/今日盈亏/年化收益(XIRR)
    *  - 已实现盈亏改成"卖出时按均成本扣"的累计值，不再因为部分卖出就“消失”
-   *  - 持仓成本用扣减后的剩余成本，避免卖半仓后成本虚高 */
+   *  - 持仓成本用扣减后的剩余成本，避免卖半仓后成本虚高
+   *  - 年化按现金流口径：买入=投入(负)、卖出=回收(正)、期末市值按最新价折算(正) */
   function summaryHtml(groups, isFund) {
     let mv = 0, cost = 0, day = 0, realizedSum = 0, quoted = false;
     groups.forEach((g) => {
@@ -139,6 +161,17 @@
       }
     });
     groups.forEach((g) => { realizedSum += g.realized || 0; });
+    // XIRR 现金流：买卖流水 + 期末市值（无行情按成本）
+    const flows = [];
+    groups.forEach((g) => {
+      (g.buyList || []).forEach((t) => flows.push({ t: new Date((t.date || "") + "T00:00:00"), v: -(t.shares * t.price) }));
+      (g.sellList || []).forEach((t) => flows.push({ t: new Date((t.date || "") + "T00:00:00"), v: t.shares * t.price }));
+      if (g.holding > 0) {
+        const px = g.q ? g.q.price : g.avgCost;
+        flows.push({ t: new Date(todayStr() + "T00:00:00"), v: px * g.holding });
+      }
+    });
+    const irr = xirr(flows);
     const pl = quoted ? mv - cost : 0;
     const plPct = quoted && cost > 0 ? (pl / cost) * 100 : 0;
     const dash = (v, suffix) => (quoted ? v : "—" + (suffix || ""));
@@ -149,6 +182,7 @@
       <div class="stat"><div class="s-lab">持仓盈亏</div><div class="s-val" style="color:${quoted ? udColor(pl) : "var(--muted)"}">${dash(signed2(pl))}</div><div class="s-sub">${quoted ? signed2(plPct) + "%" : "行情不可用"}</div></div>
       <div class="stat"><div class="s-lab">已实现</div><div class="s-val" style="color:${udColor(realizedSum)}">${signed2(realizedSum)}</div><div class="s-sub">累计卖出盈亏</div></div>
       <div class="stat"><div class="s-lab">${isFund ? "当日收益" : "今日盈亏"}</div><div class="s-val" style="color:${quoted ? udColor(day) : "var(--muted)"}">${dash(signed2(day))}</div><div class="s-sub">${isFund ? "按净值差×份额" : "按当日涨跌估算"}</div></div>
+      <div class="stat"><div class="s-lab">年化收益</div><div class="s-val" style="color:${irr === null ? "var(--muted)" : udColor(irr)}">${irr === null ? "—" : (irr > 0.005 ? "+" : "") + (irr * 100).toFixed(1) + "%"}</div><div class="s-sub">XIRR · 含期末市值</div></div>
     </div>`;
   }
 

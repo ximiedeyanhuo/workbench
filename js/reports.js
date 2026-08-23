@@ -610,9 +610,9 @@
     }
   }
 
-  // ========== AI 月报 ==========
-  /** 把四类数据聚合成"当月 + 上月"的可读摘要，作为 prompt 输入 */
-  function buildMonthDigest(finance, habits, health, tasks, ymKey) {
+  // ========== 财务月报（AI） ==========
+  /** 把五类数据聚合成"当月 + 上月"的可读摘要，作为 prompt 输入（理财段：当月买卖 + 持仓概况） */
+  function buildMonthDigest(finance, habits, health, tasks, ymKey, stocks) {
     const monthTx = finance.filter((t) => (t.date || "").slice(0, 7) === ymKey);
     const lastY = Number(ymKey.slice(0, 4));
     const lastM = Number(ymKey.slice(5, 7));
@@ -641,11 +641,24 @@
     const weights = hs.map((h) => Number(h.weight || 0)).filter((n) => n > 0);
     const steps = hs.map((h) => Number(h.steps || 0)).filter((n) => n > 0);
     const avg = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
+    // 理财：当月买卖流水 + 持仓概况（聚合走 db.js 唯一实现）
+    const txs = (stocks || []).map((r) => {
+      const legacy = !r.action;
+      return { action: legacy ? "buy" : r.action, shares: Number(r.shares || 0), price: Number(legacy ? r.cost : r.price) || 0, date: legacy ? (r.createdAt || "").slice(0, 10) : (r.date || "") };
+    }).filter((t) => t.date);
+    const monthBuy = txs.filter((t) => t.action !== "sell" && t.date.slice(0, 7) === ymKey);
+    const monthSell = txs.filter((t) => t.action === "sell" && t.date.slice(0, 7) === ymKey);
+    const groups = window.WB.aggregateStocks(stocks || []);
+    const heldCount = groups.filter((g) => g.holding > 0).length;
+    const realized = groups.reduce((s, g) => s + (g.realized || 0), 0);
     return {
       ymKey, prevKey,
       inc, exp, sav, pInc, pExp, pSav,
       topCats, habitCount, checkinTotal, done, created,
       avgWeight: avg(weights).toFixed(1), avgSteps: Math.round(avg(steps)),
+      buyCnt: monthBuy.length, buyAmt: monthBuy.reduce((s, t) => s + t.shares * t.price, 0),
+      sellCnt: monthSell.length, sellAmt: monthSell.reduce((s, t) => s + t.shares * t.price, 0),
+      heldCount, realized,
     };
   }
 
@@ -658,7 +671,7 @@
     }
     const now = new Date();
     const ymKey = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
-    const digest = buildMonthDigest(sets.finance, sets.habits, sets.health, sets.tasks, ymKey);
+    const digest = buildMonthDigest(sets.finance, sets.habits, sets.health, sets.tasks, ymKey, sets.stocks || []);
     if (digest.inc === 0 && digest.exp === 0 && digest.habitCount === 0 && digest.done === 0 && sets.health.length === 0) {
       panel.innerHTML = '<div class="card"><div class="empty">' + ymKey + ' 暂无可汇总数据</div></div>';
       return;
@@ -666,11 +679,12 @@
     const cache = (await getSetting("aiMonthlyReport", null)) || {};
     const cached = cache[ymKey] || null;
     panel.innerHTML = '<div class="card">' +
-      '<h2>✨ AI 月报<span class="count">' + ymKey + ' · 由智谱生成</span></h2>' +
+      '<h2>✨ 财务月报<span class="count">' + ymKey + ' · 由智谱生成</span></h2>' +
       '<div class="rpt-ai-grid">' +
         '<div class="rpt-ai-kpi"><div class="lab">本月收入</div><div class="val" style="color:var(--ok)">+' + fmtYuan(digest.inc) + '</div><div class="sub">较上月 ' + (digest.pInc ? (digest.inc >= digest.pInc ? '+' : '') + ((digest.inc - digest.pInc) / digest.pInc * 100).toFixed(1) + '%' : '—') + '</div></div>' +
         '<div class="rpt-ai-kpi"><div class="lab">本月支出</div><div class="val" style="color:var(--danger)">-' + fmtYuan(digest.exp) + '</div><div class="sub">较上月 ' + (digest.pExp ? (digest.exp >= digest.pExp ? '+' : '') + ((digest.exp - digest.pExp) / digest.pExp * 100).toFixed(1) + '%' : '—') + '</div></div>' +
         '<div class="rpt-ai-kpi"><div class="lab">本月储蓄</div><div class="val">+' + fmtYuan(digest.sav) + '</div><div class="sub">结余 ' + fmtYuan(digest.inc - digest.exp) + '</div></div>' +
+        '<div class="rpt-ai-kpi"><div class="lab">本月理财</div><div class="val">买 ' + fmtYuan(digest.buyAmt) + '</div><div class="sub">卖 ' + fmtYuan(digest.sellAmt) + ' · 持仓 ' + digest.heldCount + ' 个</div></div>' +
         '<div class="rpt-ai-kpi"><div class="lab">任务完成</div><div class="val">' + digest.done + ' / ' + digest.created + '</div><div class="sub">习惯打卡 ' + digest.checkinTotal + ' 次</div></div>' +
       '</div>' +
       '<div class="rpt-ai-top">支出 Top 分类：' + (digest.topCats || '—') + '</div>' +
@@ -686,8 +700,8 @@
         body.innerHTML = '<div class="ai-loading">AI 正在生成月报，请稍候…</div>';
         genBtn.disabled = true;
         try {
-          const sys = "你是个人效率助理，帮用户写一份简洁的中文月度复盘。基于用户提供的当月和上月数据，给出 4-6 条要点（财务/任务/习惯/健康各 1-2 条），不夸大、不奉承，能指出明显问题（如某分类暴涨、打卡骤降）。输出使用 markdown 列表，每条不超过 60 字。不要寒暄。";
-          const prompt = "当月：" + ymKey + "\n上月：" + digest.prevKey + "\n\n当月数据：\n- 收入 " + digest.inc + " 元 / 支出 " + digest.exp + " 元 / 储蓄 " + digest.sav + " 元\n- 结余 " + (digest.inc - digest.exp) + " 元\n- 支出分类 Top: " + (digest.topCats || "无") + "\n- 任务完成 " + digest.done + " / 新建 " + digest.created + "\n- 习惯 " + digest.habitCount + " 个 / 打卡 " + digest.checkinTotal + " 次\n- 平均体重 " + digest.avgWeight + " kg / 日均步数 " + digest.avgSteps + "\n\n上月数据：\n- 收入 " + digest.pInc + " 元 / 支出 " + digest.pExp + " 元 / 储蓄 " + digest.pSav + " 元";
+          const sys = "你是个人财务助理，帮用户写一份简洁的中文月度财务复盘。基于用户提供的当月和上月数据，给出 4-6 条要点（收支/储蓄/理财持仓各 1-2 条，可带 1 条生活数据），不夸大、不奉承，能指出明显问题（如某分类暴涨、储蓄率过低、追高买入）。输出使用 markdown 列表，每条不超过 60 字。不要寒暄。";
+          const prompt = "当月：" + ymKey + "\n上月：" + digest.prevKey + "\n\n当月数据：\n- 收入 " + digest.inc + " 元 / 支出 " + digest.exp + " 元 / 储蓄 " + digest.sav + " 元\n- 结余 " + (digest.inc - digest.exp) + " 元\n- 支出分类 Top: " + (digest.topCats || "无") + "\n- 理财：当月买入 " + digest.buyCnt + " 笔 " + digest.buyAmt.toFixed(0) + " 元 / 卖出 " + digest.sellCnt + " 笔 " + digest.sellAmt.toFixed(0) + " 元 · 当前持仓 " + digest.heldCount + " 个标的 · 累计已实现盈亏 " + digest.realized.toFixed(0) + " 元\n- 任务完成 " + digest.done + " / 新建 " + digest.created + "\n- 习惯 " + digest.habitCount + " 个 / 打卡 " + digest.checkinTotal + " 次\n- 平均体重 " + digest.avgWeight + " kg / 日均步数 " + digest.avgSteps + "\n\n上月数据：\n- 收入 " + digest.pInc + " 元 / 支出 " + digest.pExp + " 元 / 储蓄 " + digest.pSav + " 元";
           const text = await ai.chat(sys, prompt, 0.5);
           const cache2 = (await getSetting("aiMonthlyReport", null)) || {};
           cache2[ymKey] = { text, at: new Date().toLocaleString("zh-CN") };
@@ -877,7 +891,7 @@
         { k: "health", label: "健康" },
         { k: "tasks", label: "任务" },
         { k: "annual", label: "📖 年度" },
-        { k: "ai", label: "✨ AI 月报" },
+        { k: "ai", label: "✨ 财务月报" },
       ];
       var tabHtml = tabs.map(function (t) {
         return '<button class="tab' + (t.k === reportTab ? " on" : "") + '" data-rpt-tab="' + t.k + '">' + t.label + "</button>";
@@ -896,7 +910,7 @@
       else if (reportTab === "health") renderHealthPanel(panel, health);
       else if (reportTab === "tasks") renderTasksPanel(panel, tasks);
       else if (reportTab === "annual") renderAnnualPanel(panel, { finance: finance, habits: habits, health: health, tasks: tasks, notes: data[5], media: data[6], timeline: data[7], bookmarks: data[8], stocks: data[9] });
-      else if (reportTab === "ai") renderAiReportPanel(panel, { finance: finance, habits: habits, health: health, tasks: tasks });
+      else if (reportTab === "ai") renderAiReportPanel(panel, { finance: finance, habits: habits, health: health, tasks: tasks, stocks: data[9] });
 
       // Tab 切换事件
       var tabContainer = el.querySelector("#rptTabs");

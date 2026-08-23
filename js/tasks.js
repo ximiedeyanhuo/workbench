@@ -290,7 +290,7 @@
             </div>
           </div>
           <div id="taskBody">
-            ${view === "list" ? `${aiSortOrder ? `<div class="ai-panel" style="margin-bottom:10px;font-size:12.5px"><b>✨ AI 排序建议：</b>${esc(aiSortOrder.reason || "已按 AI 评分重排")} · <button class="btn ghost sm" id="aiSortClear">恢复默认</button></div>` : ""}<ul class="list">${renderList(tasks, today)}</ul>` : view === "calendar" ? renderCalendar(tasks, today) : renderKanban(tasks, today)}
+            ${view === "list" ? `${aiSortOrder ? `<div class="ai-panel" style="margin-bottom:10px;font-size: 12px"><b>✨ AI 排序建议：</b>${esc(aiSortOrder.reason || "已按 AI 评分重排")} · <button class="btn ghost sm" id="aiSortClear">恢复默认</button></div>` : ""}<ul class="list">${renderList(tasks, today)}</ul>` : view === "calendar" ? renderCalendar(tasks, today) : renderKanban(tasks, today)}
           </div>
         </div>`;
 

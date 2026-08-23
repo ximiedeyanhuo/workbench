@@ -52,7 +52,10 @@
   let finAllYears = false;        // 流水明细：true = 全部年份（不影响统计卡/趋势等 finYear 共享方）
   let finMonth = now.getMonth();
   let finTab = "expense";
-  let finStatView = "cal";      // 统计卡视图：cal | week | month | year（明细列表固定在明细卡）
+  let finStatView = "cal";      // 统计卡视图：cal | week | month | year | budget（明细列表固定在明细卡）
+  let finCatBudgetCur = {};     // 分类预算 {分类id: 月预算}（render 时从 settings 同步）
+  let finGoalsCur = [];         // 储蓄目标桶 [{id,name,target}]
+  let finSchedulesCur = [];     // 定期账单（日历标记用，render 时同步）
   let finSelDay = null;          // 日历视图选中的日期 "YYYY-MM-DD"
   let finFilterCat = "";         // 列表分类筛选（"" = 全部）
   let finKeyword = "";           // 备注关键词
@@ -98,7 +101,7 @@
   // 结余符号：正 + / 负 - / 零 0.00（需求 §9.2）
   const signedYuan = (n) => (n > 0.005 ? "+" + fmtYuan(n) : n < -0.005 ? "-" + fmtYuan(-n) : "0.00");
 
-  /** 老记录兜底 */
+  /** 老记录兜底（goalId：储蓄记录关联的「目标桶」，多目标储蓄用） */
   function normalizeTx(r) {
     return {
       id: r.id,
@@ -107,6 +110,7 @@
       category: r.category || (r.type === "saving" || !r.type ? "saving" : ""),
       note: r.note || "",
       date: r.date || "",
+      goalId: r.goalId || "",
       createdAt: r.createdAt || "",
       updatedAt: r.updatedAt || "",
     };
@@ -178,14 +182,53 @@
     </div>`;
   }
 
-  function goalHtml(saved, target, pct) {
+  /** 储蓄目标：单目标（旧，saveTarget）或多目标桶（finGoals = [{id,name,target}]）。
+   *  每桶进度 = 关联该桶的「储蓄」记录之和；未关联 goalId 的旧记录归入「未分配」。
+   *  finGoals 为空时展示旧单目标卡 + 升级入口，数据不迁移。 */
+  function goalHtml(txs, goals, legacyTarget) {
+    const savedAll = txs.filter((t) => t.type === "saving").reduce((s, t) => s + t.amount, 0);
+    if (!goals || !goals.length) {
+      const pct = legacyTarget > 0 ? Math.min(100, Math.round((savedAll / legacyTarget) * 100)) : 0;
+      return `<div class="card">
+        <h2>年度储蓄目标</h2>
+        <div class="progress-top"><span>已存 ${fmtMoney(savedAll)} / ${fmtMoney(legacyTarget)}</span><b>${pct}</b></div>
+        <div class="bar"><i style="width:${pct}%"></i></div>
+        <div class="tx-goal-edit">
+          目标金额 <input type="number" id="finTarget" value="${Number(legacyTarget)}" min="0" /> 元
+          <button class="btn ghost sm mla" id="finGoalUpgrade" title="把单目标升级为多个储蓄桶（应急金/旅行/大件…），原目标变为第一个桶">升级多目标</button>
+        </div>
+      </div>`;
+    }
+    const bucketSaved = (gid) => txs.filter((t) => t.type === "saving" && t.goalId === gid).reduce((s, t) => s + t.amount, 0);
+    const unassigned = txs.filter((t) => t.type === "saving" && !t.goalId).reduce((s, t) => s + t.amount, 0);
+    const totalTarget = goals.reduce((s, g) => s + Number(g.target || 0), 0);
+    const rows = goals.map((g) => {
+      const saved = bucketSaved(g.id);
+      const target = Number(g.target || 0);
+      const pct = target > 0 ? Math.min(100, Math.round((saved / target) * 100)) : 0;
+      const done = target > 0 && saved >= target;
+      return `<div class="goal-bucket">
+        <div class="progress-top">
+          <span>${esc(g.name)}<i class="goal-bucket-amt">${fmtMoney(saved)} / ${fmtMoney(target)}${done ? " ✅" : ""}</span></span>
+          <b>${pct}%</b>
+        </div>
+        <div class="bar"><i style="width:${pct}%;${done ? "background:var(--ok)" : ""}"></i></div>
+        <div class="goal-bucket-ops">
+          <button class="btn ghost sm" data-goal-edit="${g.id}">改名/改目标</button>
+          <button class="btn danger sm" data-goal-del="${g.id}">删除</button>
+        </div>
+      </div>`;
+    }).join("");
     return `<div class="card">
-      <h2>年度储蓄目标</h2>
-      <div class="progress-top"><span>已存 ${fmtMoney(saved)} / ${fmtMoney(target)}</span><b>${pct}</b></div>
-      <div class="bar"><i style="width:${pct}%"></i></div>
-      <div class="tx-goal-edit">
-        目标金额 <input type="number" id="finTarget" value="${Number(target)}" min="0" /> 元 <span class="mla">仅统计「储蓄」类型</span>
+      <h2>储蓄目标<span class="count">${goals.length} 个桶 · 合计 ${fmtMoney(savedAll)} / ${fmtMoney(totalTarget)}</span></h2>
+      ${rows}
+      ${unassigned > 0 ? `<div class="tx-budget-tip">另有 ${fmtMoney(unassigned)} 元储蓄未指定目标（记储蓄时选择目标桶即可归类）</div>` : ""}
+      <div class="row tx-goal-edit sp-t-sm">
+        <input class="grow" id="finGoalName" placeholder="新目标名称（如：应急金）" maxlength="12" />
+        <input type="number" id="finGoalAmt" placeholder="目标金额" class="w-120" min="0" />
+        <button class="btn sm" id="finGoalAdd">添加目标</button>
       </div>
+      <div class="tx-budget-tip">记一笔「储蓄」时可在表单里选择存入哪个目标桶</div>
     </div>`;
   }
 
@@ -466,8 +509,31 @@
     return sumBar + groupedListHtml(cats, pageTx, empty) + pageBarHtml(total, totalPages);
   }
 
-  /** 日历视图：月历格子 + 选中日明细 */
-  function buildCalHtml(cats, mtx) {
+  /** 分类预算视图：每类 已用/预算/进度条，行内改预算（settings.finCatBudget，仅支出类） */
+  function buildBudgetViewHtml(cats, mtx) {
+    const budgets = finCatBudgetCur || {};
+    const spentBy = {};
+    mtx.forEach((t) => { if (t.type === "expense") spentBy[t.category] = (spentBy[t.category] || 0) + t.amount; });
+    const rows = (cats.expense || [])
+      .filter((c) => Number(budgets[c.id]) > 0 || spentBy[c.id] > 0)
+      .map((c) => {
+        const b = Number(budgets[c.id] || 0);
+        const spent = spentBy[c.id] || 0;
+        const pct = b > 0 ? Math.min(100, Math.round((spent / b) * 100)) : 0;
+        const over = b > 0 && spent > b;
+        return `<div class="set-row cat-budget-row">
+          <span class="s-name" style="min-width:78px"><span class="dot" style="background:${c.color}"></span> ${esc(c.name)}</span>
+          <div class="grow"><div class="bar"><i style="width:${pct}%;${over ? "background:var(--danger)" : pct >= 80 ? "background:var(--warn)" : ""}"></i></div></div>
+          <span class="s-desc" style="${over ? "color:var(--danger);font-weight:600" : ""}">${b > 0 ? `${fmtYuan(spent)} / ${fmtYuan(b)}${over ? ` 超 ${fmtYuan(spent - b)}` : ""}` : `已支出 ${fmtYuan(spent)}（未设预算）`}</span>
+          <button class="btn ghost sm" data-catbudget="${c.id}" data-name="${esc(c.name)}">${b > 0 ? "改预算" : "设预算"}</button>
+        </div>`;
+      }).join("");
+    return `<div class="tx-budget-list">${rows || '<div class="empty">本月还没有支出记录</div>'}</div>
+      <div class="tx-year-tip">分类预算独立于月度总预算，只看支出类型；仪表盘会在分类超支时提醒</div>`;
+  }
+
+  /** 日历视图：月历格子 + 选中日明细 + 定期账单标记（该月扣款日显示预计金额） */
+  function buildCalHtml(cats, mtx, schedules) {
     const first = new Date(finYear, finMonth, 1);
     const days = new Date(finYear, finMonth + 1, 0).getDate();
     const lead = first.getDay();
@@ -478,6 +544,13 @@
       if (t.type === "expense") d.expense += t.amount;
       else if (t.type === "income") d.income += t.amount;
     });
+    // 定期账单：该月每个启用规则的扣款日（31 号自动钳到月末）→ 预计金额标记
+    const billsByDay = {};
+    (schedules || []).forEach((s) => {
+      if (s.enabled === false) return;
+      const day = Math.min(Number(s.dueDay || 1), days);
+      (billsByDay[day] = billsByDay[day] || []).push({ name: s.name, amount: Number(s.amount || 0), type: s.type });
+    });
     const today = todayStr();
 
     let cells = WEEKDAYS.map((w) => `<div class="cal-wd">${w}</div>`).join("");
@@ -485,12 +558,18 @@
     for (let d = 1; d <= days; d++) {
       const key = monthKey(finYear, finMonth) + "-" + String(d).padStart(2, "0");
       const agg = daily[key];
+      const bills = billsByDay[d] || [];
       const cls = ["cal-cell", "tx-cal-cell"];
       if (key === today) cls.push("today");
       if (key === finSelDay) cls.push("sel");
+      // 格子小，金额用紧凑格式（不带两位小数）；同日多张账单只展示首张，title 全量
+      const billHtml = bills.length
+        ? `<span class="tx-cal-bill${bills[0].type === "income" ? " in" : ""}" title="${esc(bills.map((b) => b.name + " " + fmtYuan(b.amount)).join("、"))}">♻${bills[0].type === "income" ? "+" : ""}${fmtMoney(bills[0].amount)}</span>`
+        : "";
       // 格子小，金额用紧凑格式（不带两位小数）
       cells += `<div class="${cls.join(" ")}" data-day="${key}">
         <span class="d-num">${d}</span>
+        ${billHtml}
         ${agg && agg.income ? `<span class="tx-cal-in">+${fmtMoney(agg.income)}</span>` : ""}
         ${agg && agg.expense ? `<span class="tx-cal-out">-${fmtMoney(agg.expense)}</span>` : ""}
       </div>`;
@@ -684,11 +763,14 @@
       .map((c) => `<option value="${c.id}" ${c.id === finFilterCat ? "selected" : ""}>${esc(c.name)}</option>`)
       .join("");
 
-    // "全部"模式不提供记一笔（需要具体类型），给出提示
+    // "全部"模式不提供记一笔（需要具体类型），给出提示；储蓄类型附目标桶选择
+    const goalOpts = `<option value="">不指定目标</option>` + finGoalsCur
+      .map((g) => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join("");
     const addFormHtml = finTab === "all"
-      ? `<div class="row tx-form sp-b-sm" style="color:var(--muted);font-size:12.5px">当前为全部类型视图 · 切到上方具体类型标签即可记一笔</div>`
+      ? `<div class="row tx-form sp-b-sm" style="color:var(--muted);font-size: 12px">当前为全部类型视图 · 切到上方具体类型标签即可记一笔</div>`
       : `<div class="row tx-form sp-b-sm">
         <select id="finCategory">${catOpts}</select>
+        ${finTab === "saving" && finGoalsCur.length ? `<select id="finGoal" title="存入哪个目标桶">${goalOpts}</select>` : ""}
         <input type="number" id="finAmount" placeholder="金额" class="w-100" min="0" step="0.01" />
         <input class="grow" id="finNote" placeholder="备注（可空）" maxlength="40" />
         <input type="date" id="finDate" value="${finSelDay || todayStr()}" />
@@ -741,6 +823,7 @@
   function statCardHtml(cats, mtx, txs) {
     const viewOpts = [
       { k: "cal", label: "日历" },
+      { k: "budget", label: "预算" },
       { k: "week", label: "周账" },
       { k: "month", label: "月账" },
       { k: "year", label: "年账" },
@@ -757,12 +840,13 @@
       return [...set].sort((a, b) => b.localeCompare(a));
     })();
     const statYearOpts = statYears.map((y) => `<option value="${y}" ${y === String(finYear) ? "selected" : ""}>${y}年</option>`).join("");
-    const showMonthNav = finStatView === "cal";
+    const showMonthNav = finStatView === "cal" || finStatView === "budget";
     const showYearNav = isYearNav;
     const showNav = finStatView !== "year";
 
     let body = "";
-    if (finStatView === "cal") body = buildCalHtml(cats, mtx);
+    if (finStatView === "cal") body = buildCalHtml(cats, mtx, finSchedulesCur);
+    else if (finStatView === "budget") body = buildBudgetViewHtml(cats, mtx);
     else if (finStatView === "week") body = buildWeekHtml(txs);
     else if (finStatView === "month") body = buildMonthHtml(txs);
     else body = buildYearHtml(txs);
@@ -1152,7 +1236,10 @@
   /** 解析 xlsx/xlsm（SheetJS mini，cellDates 让日期单元格变为 Date）并导入。
    *  单元格统一转字符串：Date 用本地时间取年月日，避免 toISOString 的 UTC 偏移差一天。 */
   async function importXlsxFile(file, cats) {
-    if (typeof XLSX === "undefined") return { err: "xlsx 解析库未加载，请刷新页面重试" };
+    if (typeof XLSX === "undefined") {
+      // xlsx 只在导入时才需要：按需拉取（SW 有预缓存，离线也能取到）
+      try { await window.WB.loadScript("/lib/xlsx.mini.min.js"); } catch (e) { return { err: "xlsx 解析库加载失败，请检查网络后重试" }; }
+    }
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, { type: "array", cellDates: true });
     const name = wb.SheetNames[0];
@@ -1269,9 +1356,12 @@
     async render(el) {
       const [records, finSt] = await Promise.all([
         financeRepo.list(),
-        getSettings({ saveTarget: 60000, finCategories: { income: [], expense: [] }, monthBudget: 0, finTemplates: [], finSchedules: [] }),
+        getSettings({ saveTarget: 60000, finCategories: { income: [], expense: [] }, monthBudget: 0, finTemplates: [], finSchedules: [], finCatBudget: {}, finGoals: [] }),
       ]);
       const target = finSt.saveTarget, finCatsCustom = finSt.finCategories, monthBudget = finSt.monthBudget, finTemplates = finSt.finTemplates, finSchedules = finSt.finSchedules;
+      finCatBudgetCur = finSt.finCatBudget || {};
+      finGoalsCur = finSt.finGoals || [];
+      finSchedulesCur = finSchedules || [];
       const cats = mergeCats(finCatsCustom);
       const txs = records.map(normalizeTx);
 
@@ -1305,7 +1395,7 @@
           </div>
           <div class="fin-col-right">
             ${budgetHtml(mtx, monthBudget)}
-            ${goalHtml(saved, target, pct)}
+            ${goalHtml(txs, finSt.finGoals, target)}
             ${templateHtml(cats, finTemplates)}
             ${schedHtml(cats, finSchedules)}
             ${chartCardHtml(mtx)}
@@ -1378,6 +1468,7 @@
             id: uid(),
             type: finTab,
             category: $("#finCategory").value,
+            goalId: finTab === "saving" ? (($("#finGoal") || {}).value || "") : "",
             amount,
             note: $("#finNote").value.trim(),
             date: $("#finDate").value || todayStr(),
@@ -1392,12 +1483,66 @@
       on("#finAmount", "keydown", (e) => { if (e.key === "Enter") addFin(); });
       if (focusFin) setTimeout(() => { const fi = $("#finAmount"); if (fi) fi.focus(); }, 0);
 
-      // 目标
+      // 目标（单目标模式）与储蓄目标桶管理
       on("#finTarget", "change", async (e) => {
         const v = Math.max(0, parseFloat(e.target.value) || 0);
         await setSetting("saveTarget", v);
         rerender();
       });
+      on("#finGoalUpgrade", "click", async () => {
+        const saved = txs.filter((t) => t.type === "saving").reduce((s, t) => s + t.amount, 0);
+        await setSetting("finGoals", [{ id: "g" + uid(), name: "储蓄目标", target: Math.max(Number(target) || saved, 1) }]);
+        window.WB.showToast("已升级为多目标，原目标成为第一个桶", "ok");
+        rerender();
+      });
+      on("#finGoalAdd", "click", async () => {
+        const nameInput = $("#finGoalName"), amtInput = $("#finGoalAmt");
+        const name = nameInput.value.trim();
+        const amt = parseFloat(amtInput.value);
+        if (!name) return flashInvalid(nameInput);
+        if (!(amt > 0)) return flashInvalid(amtInput);
+        const list = (await getSetting("finGoals", [])).concat([{ id: "g" + uid(), name, target: amt }]);
+        await setSetting("finGoals", list);
+        rerender();
+      });
+      el.querySelectorAll("[data-goal-edit]").forEach((b) =>
+        b.addEventListener("click", async () => {
+          const list = await getSetting("finGoals", []);
+          const g = list.find((x) => x.id === b.dataset.goalEdit);
+          if (!g) return;
+          const name = prompt("目标名称：", g.name);
+          if (name === null) return;
+          const amt = prompt("目标金额：", String(g.target));
+          if (amt === null) return;
+          const v = parseFloat(amt);
+          if (!name.trim() || !(v > 0)) return window.WB.showToast("名称不能为空、金额需为正数", "error");
+          g.name = name.trim(); g.target = v;
+          await setSetting("finGoals", list);
+          rerender();
+        })
+      );
+      el.querySelectorAll("[data-goal-del]").forEach((b) =>
+        b.addEventListener("click", async () => {
+          const list = await getSetting("finGoals", []);
+          const g = list.find((x) => x.id === b.dataset.goalDel);
+          if (!g) return;
+          if (!confirm(`删除目标「${g.name}」？已存入该桶的储蓄记录保留（归入未分配）。`)) return;
+          await setSetting("finGoals", list.filter((x) => x.id !== g.id));
+          rerender();
+        })
+      );
+      // 分类预算：行内修改（留空/0 = 清除该类预算）
+      el.querySelectorAll("[data-catbudget]").forEach((b) =>
+        b.addEventListener("click", async () => {
+          const cid = b.dataset.catbudget;
+          const cur = (await getSetting("finCatBudget", {})) || {};
+          const v = parseFloat(prompt(`「${b.dataset.name}」的月预算（填 0 清除）：`, String(cur[cid] || "")));
+          if (isNaN(v)) return;
+          if (v > 0) cur[cid] = v; else delete cur[cid];
+          await setSetting("finCatBudget", cur);
+          rerender();
+        })
+      );
 
       // 月度预算
       on("#finBudget", "change", async (e) => {

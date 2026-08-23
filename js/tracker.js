@@ -191,7 +191,7 @@
         <div class="tk-heat-title">近 90 天热力图</div>
         ${heat}
         <div class="sp-t-md">
-          <h3 style="font-size:13.5px;margin-bottom:6px">历史记录（最近 20 条）</h3>
+          <h3 style="font-size: 13px;margin-bottom:6px">历史记录（最近 20 条）</h3>
           ${logs.length ? logs.slice(0, 20).map((l) => `
             <div class="set-row">
               <span class="s-name">${esc(l.date)}</span>

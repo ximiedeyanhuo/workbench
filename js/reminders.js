@@ -166,7 +166,7 @@
         ${renderForm()}
         <div class="card">
           <h2>提醒列表<span class="count">${(items || []).length} 条</span></h2>
-          <div class="row sp-bot-sm" style="color:var(--muted);font-size:12.5px">
+          <div class="row sp-bot-sm" style="color:var(--muted);font-size: 12px">
             <span>周期类提醒到点才需要完成一次；完成状态按天记录，次日自动重置。</span>
           </div>
           <div id="rmList">${renderList(items, doneSet)}</div>

@@ -464,6 +464,20 @@
     };
   }
 
+  /** 按需加载脚本（去重缓存；失败清除缓存允许重试）。chart/xlsx 等大库与低频模块用 */
+  const _scriptCache = {};
+  function loadScript(src) {
+    if (_scriptCache[src]) return _scriptCache[src];
+    _scriptCache[src] = new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = src;
+      s.onload = () => resolve();
+      s.onerror = () => { delete _scriptCache[src]; s.remove(); reject(new Error("加载失败 " + src)); };
+      document.head.appendChild(s);
+    });
+    return _scriptCache[src];
+  }
+
   /** 表单校验反馈：给输入框加红框抖动并聚焦，短暂后自动恢复 */
   function flashInvalid(input) {
     if (!input) return;
@@ -709,6 +723,7 @@
     repeatNext,
     aggregateStocks,
     debounce,
+    loadScript,
     flashInvalid,
     /** 内联 SVG 线性图标（Feather/Lucide 风格，stroke 取 currentColor，零依赖零构建）
      *  用法：`${WB.icon("edit")}` / `${WB.icon("del")}`；尺寸由 CSS .icon-btn svg 控制

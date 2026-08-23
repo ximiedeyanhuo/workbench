@@ -280,6 +280,8 @@
 
   // ================= 仪表盘 =================
   let dashCharts = []; // 重渲染前销毁旧实例，避免 Chart.js 残留引用
+  let assetPieChart = null; // 资产配置饼图（独立管理：行情回来后原地 update，不随 dashCharts 销毁）
+  let lastPieData = null;   // 行情回来后的最新饼图数据：归档区未展开时 canvas 不在，先存后用
   let dashArchiveOpen = false; // 归档区（数据概览）展开状态：重渲染后保留用户选择
   let dashCfgOpen = false; // 首页自定义面板展开状态（Workspace 轻量版）
   // 首页可开关的区块（key 对应 settings.dashLayout 的字段）
@@ -293,8 +295,50 @@
     { k: "archive", name: "数据概览与每周回顾（归档区）" },
   ];
 
-  function renderCharts(el, tasks, habits, finance, stockCostVal) {
-    if (typeof Chart === "undefined") return; // chart.umd.min.js 未加载时静默降级
+  /** 资产配置饼图（现金储蓄 / 股票 / 基金理财）：首次创建、再次原地 update；
+   *  行情回来后用实时市值刷新（未报价标的按成本兜底），canvas 不在（归档区未展开）时静默跳过 */
+  function renderAssetPie(el, d) {
+    const cv = el.querySelector("#assetPie");
+    if (!cv) return;
+    const legend = el.querySelector("#assetPieLegend");
+    const items = [
+      ["现金储蓄", d.saved, cssVar("--ok")],
+      ["股票市值", d.stock, cssVar("--accent")],
+      ["基金理财", d.fund, cssVar("--purple")],
+    ];
+    const total = d.saved + d.stock + d.fund;
+    if (legend) {
+      legend.innerHTML = total > 0
+        ? items.map(([n, v, c]) => `<div class="ap-item"><i style="background:${c}"></i><span>${n}</span><b>${fmtMoney(v)}</b><em>${Math.round((v / total) * 100)}%</em></div>`).join("")
+        : "";
+    }
+    if (total <= 0) return;
+    if (typeof Chart === "undefined") {
+      // chart 大库启动时异步预取中：加载完成再补画（loadScript 带缓存，失败静默降级）
+      window.WB.loadScript("/lib/chart.umd.min.js").then(() => renderAssetPie(el, d)).catch(() => {});
+      return;
+    }
+    if (assetPieChart) {
+      assetPieChart.data.datasets[0].data = [d.saved, d.stock, d.fund];
+      assetPieChart.update();
+      return;
+    }
+    assetPieChart = new Chart(cv, {
+      type: "doughnut",
+      data: {
+        labels: items.map((i) => i[0]),
+        datasets: [{ data: [d.saved, d.stock, d.fund], backgroundColor: items.map((i) => i[2]), borderWidth: 2, borderColor: cssVar("--bg") || "#fff" }],
+      },
+      options: { responsive: true, maintainAspectRatio: false, cutout: "64%", plugins: { legend: { display: false } } },
+    });
+  }
+
+  function renderCharts(el, tasks, habits, finance, stockCostVal, pieSplit) {
+    if (typeof Chart === "undefined") {
+      // chart 大库异步预取竞态：加载完成后重试本函数（dashCharts 销毁逻辑保证幂等）
+      window.WB.loadScript("/lib/chart.umd.min.js").then(() => renderCharts(el, tasks, habits, finance, stockCostVal, pieSplit)).catch(() => {});
+      return;
+    }
     dashCharts.forEach((c) => c.destroy());
     dashCharts = [];
 
@@ -405,6 +449,7 @@
     });
     const hintEl = el.querySelector("#nwTrendHint");
     if (hintEl) hintEl.textContent = nwHint;
+    renderAssetPie(el, lastPieData || pieSplit || { saved: 0, stock: 0, fund: 0 }); // 优先行情后最新值，否则成本兜底
   }
 
   routes.dashboard = {
@@ -418,7 +463,7 @@
         repo("stocks").list(),
         repo("mockexams").list(),
         // 一次批量读全部 settings，避免 5 次独立 API 往返
-        getSettings({ nickname: "朋友", saveTarget: 60000, gongkao_targets: [], monthBudget: 0, weeklyReview: null, reminderDone: {}, achUnlocked: {}, dashLayout: {} }),
+        getSettings({ nickname: "朋友", saveTarget: 60000, gongkao_targets: [], monthBudget: 0, weeklyReview: null, reminderDone: {}, achUnlocked: {}, dashLayout: {}, finCatBudget: {}, finGoals: [] }),
         repo("reminders").list().catch(() => []),
         repo("anniv").list().catch(() => []),
         repo("timeline").list().catch(() => []),
@@ -427,7 +472,10 @@
         repo("trackerlogs").list().catch(() => []),
         repo("subscriptions").list().catch(() => []),
       ]);
-      const nickname = st.nickname, target = st.saveTarget, gkTargets = st.gongkao_targets, monthBudget = st.monthBudget, weeklyCache = st.weeklyReview;
+      const nickname = st.nickname, gkTargets = st.gongkao_targets, monthBudget = st.monthBudget, weeklyCache = st.weeklyReview;
+      // 储蓄目标：多目标桶（finGoals）优先取合计；未配置沿用单目标 saveTarget
+      const finGoals = Array.isArray(st.finGoals) ? st.finGoals : [];
+      const target = finGoals.length ? finGoals.reduce((s, g) => s + Number(g.target || 0), 0) : st.saveTarget;
       // 首页布局（Workspace 轻量版）：各区块显示开关，settings.dashLayout 覆盖默认全显
       const layout = Object.assign({ banners: 1, otd: 1, focus: 1, reminders: 1, trackers: 1, actions: 1, archive: 1 }, st.dashLayout || {});
 
@@ -600,6 +648,12 @@
       const fundHoldings = allGroups.filter((g) => (g.type || "stock") === "fund" && g.holding > 0);
       const holdings = allGroups.filter((g) => g.holding > 0);
       const stockCostVal = holdings.reduce((s, g) => s + g.avgCost * g.holding, 0);
+      // 资产配置饼图数据（成本兜底，异步行情回来后按市值刷新）
+      const pieSplit = {
+        saved,
+        stock: stockHoldings.reduce((s, g) => s + g.avgCost * g.holding, 0),
+        fund: fundHoldings.reduce((s, g) => s + g.avgCost * g.holding, 0),
+      };
       const showNetWorth = saved > 0 || holdings.length > 0;
       const nwHtml = showNetWorth
         ? `<div class="card">
@@ -609,6 +663,10 @@
               <div class="stat" data-go="#/stocks"><div class="s-lab">持仓市值</div><div class="s-val" id="nwStock">${fmtMoney(stockCostVal)}</div><div class="s-sub" id="nwStockSub">${holdings.length ? "行情加载中…" : "暂无持仓"}</div></div>
               <div class="stat" data-go="#/stocks"><div class="s-lab">今日盈亏</div><div class="s-val c-muted" id="nwDay">—</div><div class="s-sub">股票涨跌 + 基金净值差</div></div>
               <div class="stat"><div class="s-lab">净资产合计</div><div class="s-val" id="nwTotal">${fmtMoney(saved + stockCostVal)}</div><div class="s-sub">储蓄 + 市值</div></div>
+            </div>
+            <div class="asset-pie-row">
+              <div class="asset-pie-box"><canvas id="assetPie"></canvas></div>
+              <div class="asset-pie-legend" id="assetPieLegend"></div>
             </div>
             <div class="nw-trend"><canvas id="chartNetWorth" height="90"></canvas><div class="nw-trend-hint" id="nwTrendHint"></div></div>
           </div>`
@@ -633,6 +691,19 @@
       wkExpTx.forEach((r) => { expByCat[r.category] = (expByCat[r.category] || 0) + Number(r.amount || 0); });
       const topCat = Object.keys(expByCat).sort((a, b) => expByCat[b] - expByCat[a])[0];
       const CAT_NAMES = { food: "餐饮", traffic: "交通", shopping: "购物", housing: "居家", fun: "娱乐", health: "医疗健康", study: "学习", "other-e": "其它" };
+      // 分类预算超支提醒：总预算未超（或未设）时，找超出最多的那个分类提醒
+      const catBudgets = st.finCatBudget || {};
+      const catOver = Object.keys(catBudgets)
+        .map((cid) => ({
+          cid,
+          budget: Number(catBudgets[cid]) || 0,
+          spent: monthTx.filter((r) => r.type === "expense" && r.category === cid).reduce((s, r) => s + Number(r.amount || 0), 0),
+        }))
+        .filter((x) => x.budget > 0 && x.spent > x.budget)
+        .sort((a, b) => b.spent - b.budget - (a.spent - a.budget))[0];
+      const catBanner = catOver
+        ? `<div class="dash-banner warn" data-go="#/finance">⚠ 「${esc(CAT_NAMES[catOver.cid] || catOver.cid)}」已超分类预算：${fmtMoney(catOver.spent)} / ${fmtMoney(catOver.budget)}，超 ${fmtMoney(catOver.spent - catOver.budget)} 元 · <span class="c-accent">去记账页看预算</span></div>`
+        : "";
       const wkExams = exams.filter((x) => x.date >= monStr && x.date <= today);
       const wkNotes = notes.filter((n) => (n.updatedAt || "").slice(0, 10) >= monStr).length;
       const wrStats = [
@@ -653,7 +724,7 @@
           otdHtml = `<div class="card dash-otd">
             <h2>往年今日<span class="count">${g.year} 年的今天</span></h2>
             ${g.items.slice(0, 4).map((i) => `<div class="otd-item" data-go="${i.go || ""}" style="cursor:${i.go ? "pointer" : "default"}">${i.icon} ${esc(i.text)}</div>`).join("")}
-            ${otdYears.length > 1 || g.items.length > 4 ? `<a href="#/timeline" class="c-accent" style="font-size:12.5px">更多年份与回忆 →</a>` : ""}
+            ${otdYears.length > 1 || g.items.length > 4 ? `<a href="#/timeline" class="c-accent" style="font-size: 12px">更多年份与回忆 →</a>` : ""}
           </div>`;
         }
       }
@@ -783,7 +854,7 @@
           </div>
         </div>
         ${dashCfgHtml}
-        ${layout.banners ? gkBanner + annivBanner + saveBanner + budgetBanner + subBanner + achStrip : ""}
+        ${layout.banners ? gkBanner + annivBanner + saveBanner + (budgetBanner || catBanner) + subBanner + achStrip : ""}
         ${layout.otd ? otdHtml : ""}
         ${layout.focus ? `
         <div class="card">
@@ -871,11 +942,11 @@
       if (archiveEl) {
         archiveEl.addEventListener("toggle", () => {
           dashArchiveOpen = archiveEl.open;
-          if (archiveEl.open) renderCharts(el, tasks, habits, finance, stockCostVal);
+          if (archiveEl.open) renderCharts(el, tasks, habits, finance, stockCostVal, pieSplit);
         });
-        if (archiveEl.open) renderCharts(el, tasks, habits, finance, stockCostVal);
+        if (archiveEl.open) renderCharts(el, tasks, habits, finance, stockCostVal, pieSplit);
       } else {
-        renderCharts(el, tasks, habits, finance, stockCostVal);
+        renderCharts(el, tasks, habits, finance, stockCostVal, pieSplit);
       }
 
       // 首页自定义（Workspace 轻量版）：⚙ 开关面板、勾选即时保存、预设
@@ -1046,11 +1117,13 @@
             // await 期间可能已切走或重渲染，元素不在了或代数变了就放弃
             const stockEl = el.querySelector("#nwStock");
             if (token !== navSeq || !stockEl) return;
-            let mv = 0, day = 0, quoted = false;
+            let mv = 0, day = 0, quoted = false, stockMv = 0, fundMv = 0;
             holdings.forEach((r) => {
               const q = qmap[r.code];
+              const val = q ? q.price * r.holding : r.avgCost * r.holding;
+              if (r.type === "fund") fundMv += val; else stockMv += val;
               if (q) { quoted = true; mv += q.price * r.holding; day += q.change * r.holding; }
-              else mv += r.avgCost * r.holding;
+              else mv += val;
             });
             if (!quoted) return;
             const sgn = (n) => (n > 0.005 ? "+" : n < -0.005 ? "-" : "") + fmtMoney(Math.abs(n));
@@ -1063,6 +1136,9 @@
             if (dayEl) { dayEl.textContent = sgn(day); dayEl.style.color = col; }
             const totalEl = el.querySelector("#nwTotal");
             if (totalEl) totalEl.textContent = fmtMoney(saved + mv);
+            // 资产配置饼图按实时市值刷新（canvas 不在时记录数据，归档区展开后 renderCharts 取用）
+            lastPieData = { saved, stock: stockMv, fund: fundMv };
+            renderAssetPie(el, lastPieData);
           } catch (e) { /* 行情拉取失败保持成本价兜底 */ }
         })();
       }
@@ -1150,6 +1226,8 @@
     title: "设置",
     async render(el) {
       const nickname = await getSetting("nickname", "朋友");
+      let navPinned = await getSetting("navPinned", null);
+      if (!Array.isArray(navPinned) || !navPinned.length) navPinned = DEFAULT_PINNED.slice();
       const authUser = (window.WB.auth && window.WB.auth.user) || "";
       const isAdmin = !!(window.WB.auth && window.WB.auth.isAdmin);
       el.innerHTML = `
@@ -1176,8 +1254,9 @@
           </div>`}
         </div>
         ${window.WB.USE_API && isAdmin ? `
-        <div class="card">
-          <h2>用户管理<span class="count">仅管理员</span></h2>
+        <details class="card set-fold">
+          <summary><h2>用户管理<span class="count">仅管理员</span></h2></summary>
+          <div class="set-fold-body">
           <div class="set-row">
             <span class="s-name">新建用户</span>
             <input id="nuName" placeholder="用户名（2-20 位字母/数字）" maxlength="20" class="w-170" />
@@ -1188,7 +1267,8 @@
             <span class="s-desc">每个用户一个独立数据库文件（workbench_用户名.db），首次登录自动创建；不开放自行注册。</span>
           </div>
           <div id="userList"><div class="empty">加载中…</div></div>
-        </div>` : ""}
+          </div>
+        </details>` : ""}
         <div class="card">
           <h2>个人资料</h2>
           <div class="set-row">
@@ -1215,7 +1295,22 @@
           </div>
         </div>
         <div class="card">
-          <h2>运行模式</h2>
+          <h2>导航定制<span class="count">点选侧栏置顶的模块</span></h2>
+          <div class="set-row" style="align-items:flex-start">
+            <span class="s-name">置顶模块</span>
+            <div class="nav-pin-picker" id="navPinPicker">
+              ${Object.keys(ROUTE_META).filter((r) => r !== "dashboard").map((r) => `
+                <button type="button" class="np-item ${navPinned.indexOf(r) !== -1 ? "on" : ""}" data-navpin="${r}">${ROUTE_META[r].name}</button>`).join("")}
+            </div>
+          </div>
+          <div class="set-row">
+            <span class="s-name">说明</span>
+            <span class="s-desc">置顶模块直接显示在侧栏与手机底栏，其余收进「全部功能」抽屉（功能与数据不受影响）。至少保留一个，清空时恢复默认。</span>
+          </div>
+        </div>
+        <details class="card set-fold">
+          <summary><h2>运行模式</h2></summary>
+          <div class="set-fold-body">
           <div class="set-row">
             <span class="s-name">当前</span>
             <span class="s-desc" id="modeDesc">${window.WB.USE_API
@@ -1226,9 +1321,11 @@
             <span class="s-name">切换模式</span>
             <span class="s-desc">在 URL 末尾加 <code>?mode=local</code> 强制本地、<code>?mode=api</code> 强制在线；默认启动时自动探测。手机端 PWA 装到桌面后建议锁本地：<a href="?mode=local" class="c-accent">用本地模式打开一次</a>（浏览器会记住该 URL）。</span>
           </div>
-        </div>
-        <div class="card">
-          <h2>数据同步<span class="count">本地 ⇄ 服务器</span></h2>
+          </div>
+        </details>
+        <details class="card set-fold">
+          <summary><h2>数据同步<span class="count">本地 ⇄ 服务器</span></h2></summary>
+          <div class="set-fold-body">
           <div class="set-row">
             <span class="s-name">拉取服务器</span>
             <button class="btn ghost sm" id="pullBtn" ${window.WB.USE_API ? "" : "disabled"}>服务器 → 本地</button>
@@ -1244,7 +1341,8 @@
             <button class="btn ghost sm" id="migrateBtn" ${window.WB.USE_API ? "" : "disabled"}>上传本机浏览器数据到服务器</button>
             <span class="s-desc">与「推送到服务器」等价，保留作旧入口。</span>
           </div>
-        </div>
+          </div>
+        </details>
         <div class="card">
           <h2>数据备份</h2>
           <div class="set-row">
@@ -1268,8 +1366,9 @@
           </div>
         </div>
         ${window.WB.USE_API ? `
-        <div class="card">
-          <h2>云备份<span class="count">WebDAV · 坚果云</span></h2>
+        <details class="card set-fold">
+          <summary><h2>云备份<span class="count">WebDAV · 坚果云</span></h2></summary>
+          <div class="set-fold-body">
           <div class="set-row">
             <span class="s-name">服务器地址</span>
             <input id="wdavUrl" class="input fx1" placeholder="https://dav.jianguoyun.com/dav/" />
@@ -1308,21 +1407,27 @@
             <span class="s-name">说明</span>
             <span class="s-desc">坚果云授权码获取：网页版右上角头像 → 设置 → 安全选项 → 添加应用 → 生成授权码。备份的是<b>当前账号</b>完整数据库（含任务/笔记/记账等全部数据）。服务每次启动时自动推送一份，另外<b>每周日</b>固定自动备份一次（后台定时任务，无需重启服务器）。凭据仅存服务器端，与网盘 Cookie 同级，请勿分享。</span>
           </div>
-        </div>` : ""}
-        <div class="card">
-          <h2>网盘配置</h2>
+          </div>
+        </details>` : ""}
+        <details class="card set-fold">
+          <summary><h2>网盘配置</h2></summary>
+          <div class="set-fold-body">
           <div id="driveSettingsArea"></div>
-        </div>
-        <div class="card">
-          <h2>危险操作</h2>
+          </div>
+        </details>
+        <details class="card set-fold">
+          <summary><h2>危险操作</h2></summary>
+          <div class="set-fold-body">
           <div class="set-row">
             <span class="s-name">清除所有数据</span>
             <button class="btn danger sm" id="clearAllBtn">清空全部数据</button>
             <span class="s-desc">⚠️ 不可恢复！将删除任务、笔记、收藏、习惯、财务等全部数据，操作前务必先导出备份。</span>
           </div>
-        </div>
-        <div class="card">
-          <h2>关于</h2>
+          </div>
+        </details>
+        <details class="card set-fold">
+          <summary><h2>关于</h2></summary>
+          <div class="set-fold-body">
           <div style="font-size:13px;color:var(--muted);line-height:1.9">
             不会用？看 <a href="#/help">使用帮助</a>（小白向操作手册，也可直接打开项目根目录的 HELP.md）<br />
             我的仪表盘 v2 · 原生前端 + Python(FastAPI) + SQLite · 多账号登录，数据按账号隔离<br />
@@ -1330,7 +1435,8 @@
             存储层已做 Repository 抽象，db.js 中 USE_API=false 可整体回退纯浏览器模式。<br />
             调试：<a href="/api/docs" target="_blank" rel="noopener">API 文档（Swagger）</a>
           </div>
-        </div>`;
+          </div>
+        </details>`;
 
       // 自动备份状态：服务端每次启动时备份 workbench.db 到 backups/，保留最近 7 份
       const bkEl = el.querySelector("#backupStatus");
@@ -1628,6 +1734,24 @@
         });
       }
 
+      // 导航定制：点选置顶模块，保存后即时重排侧栏与底栏（无需刷新）
+      const pinPicker = el.querySelector("#navPinPicker");
+      if (pinPicker) {
+        pinPicker.addEventListener("click", async (e) => {
+          const b = e.target.closest("[data-navpin]");
+          if (!b) return;
+          const r = b.dataset.navpin;
+          const saved = await getSetting("navPinned", null);
+          const cur = new Set(Array.isArray(saved) && saved.length ? saved : DEFAULT_PINNED.slice());
+          if (cur.has(r)) cur.delete(r); else cur.add(r);
+          if (!cur.size) DEFAULT_PINNED.forEach((x) => cur.add(x)); // 至少保留一个，清空恢复默认
+          b.classList.toggle("on", cur.has(r));
+          await setSetting("navPinned", Array.from(cur));
+          await applyNavPinned();
+          showToast("导航已更新", "ok");
+        });
+      }
+
       el.querySelector("#exportBtn").addEventListener("click", async () => {
         const payload = await exportAll();
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -1741,6 +1865,14 @@
     initGlobalShortcuts();
     // 先探测后端，确定 USE_API 后再渲染业务模块，避免 settings/repo 抓错源
     await window.WB.ready;
+    await applyNavPinned(); // 导航收敛：依赖 settings，须在 ready 后重排（分组事件已委托不受影响）
+    // chart 大库异步预取（不阻塞首屏渲染；SW 缓存命中时毫秒级）。xlsx 仅记账导入时按需加载。
+    window.WB.loadScript("/lib/chart.umd.min.js").catch(() => {});
+    // 专注/速记两个 FAB 属低频入口：空闲 2 秒后再加载，减少首屏要执行的脚本
+    setTimeout(() => {
+      window.WB.loadScript("/js/focus.js").catch(() => {});
+      window.WB.loadScript("/js/quick.js").catch(() => {});
+    }, 2000);
     window.WB._booted = true;
     renderModeBadge();
     // 与 settings 中的主题对齐（首次无 localStorage 缓存时）
@@ -1765,17 +1897,107 @@
     window.addEventListener("offline", renderModeBadge);
   });
 
-  /** 定义侧边栏分组的展开/收起：点击父级标题切换 open 状态 */
+  // ================= 导航收敛 =================
+  // 高频模块置顶（settings.navPinned，默认 记账/股票/资讯/网盘），其余收进「全部功能」抽屉；
+  // 移动端底栏 = 首页 + 置顶前 3 + 更多。纯导航层重排：不删功能、不丢数据、随时可在设置页改回。
+  const DEFAULT_PINNED = ["finance", "stocks", "news", "drive"];
+  const ROUTE_META = {
+    dashboard: { icon: "i-home", name: "仪表盘" },
+    tasks: { icon: "i-tasks", name: "事务" },
+    calendar: { icon: "i-cal", name: "日历" },
+    anniv: { icon: "i-anniv", name: "倒数日" },
+    reminders: { icon: "i-remind", name: "提醒" },
+    gongkao: { icon: "i-gk", name: "考公" },
+    notes: { icon: "i-notes", name: "沉淀" },
+    timeline: { icon: "i-timeline", name: "时间轴" },
+    achievements: { icon: "i-ach", name: "成就" },
+    tracker: { icon: "i-track", name: "追踪" },
+    time: { icon: "i-time", name: "时间账本" },
+    contacts: { icon: "i-contacts", name: "联系人" },
+    life: { icon: "i-life", name: "生活" },
+    finance: { icon: "i-finance", name: "记账" },
+    subs: { icon: "i-sub", name: "订阅" },
+    reports: { icon: "i-reports", name: "统计" },
+    stocks: { icon: "i-stock", name: "股票" },
+    news: { icon: "i-news", name: "资讯" },
+    media: { icon: "i-media", name: "书影音" },
+    drive: { icon: "i-drive", name: "网盘" },
+    links: { icon: "i-links", name: "入口" },
+    settings: { icon: "i-settings", name: "设置" },
+    help: { icon: "i-help", name: "帮助" },
+  };
+  const navLinkHtml = (r) => {
+    const m = ROUTE_META[r];
+    return `<a href="#/${r}" data-route="${r}"><span class="nic"><svg class="ic"><use href="#${m.icon}"/></svg></span><span>${m.name}</span>${r === "news" ? '<span class="nav-badge" data-newsbadge hidden></span>' : ""}</a>`;
+  };
+
+  async function applyNavPinned() {
+    let pinned = await getSetting("navPinned", null);
+    if (!Array.isArray(pinned) || !pinned.length) pinned = DEFAULT_PINNED.slice();
+    pinned = pinned.filter((r) => ROUTE_META[r] && r !== "dashboard");
+    if (!pinned.length) pinned = DEFAULT_PINNED.slice();
+    const tail = ["settings", "help"]; // 系统入口固定在抽屉尾部
+    const rest = Object.keys(ROUTE_META).filter((r) => r !== "dashboard" && pinned.indexOf(r) === -1);
+    const nav = document.getElementById("sideNav");
+    if (nav) {
+      nav.innerHTML =
+        navLinkHtml("dashboard") +
+        '<div class="nav-pin-sep" aria-hidden="true"></div>' +
+        pinned.map(navLinkHtml).join("") +
+        `<div class="nav-group" data-group="more">
+          <button class="nav-parent" type="button" aria-expanded="false"><span class="nic"><svg class="ic"><use href="#i-more"/></svg></span><span class="np-label">全部功能</span><svg class="np-chev"><use href="#i-chev"/></svg></button>
+          <div class="nav-sub"><div class="nav-sub-inner">${
+            rest.filter((r) => tail.indexOf(r) === -1).map(navLinkHtml).join("") +
+            tail.map(navLinkHtml).join("")
+          }</div></div>
+        </div>`;
+    }
+    // 移动端底栏：首页 + 置顶前 3 + 更多（更多面板静态含全部路由，无需重建）
+    const tabNav = document.getElementById("tabNav");
+    const moreBtn = document.getElementById("tabMoreBtn");
+    if (tabNav && moreBtn) {
+      tabNav.querySelectorAll("a[data-route]").forEach((a) => a.remove());
+      ["dashboard"].concat(pinned.slice(0, 3)).forEach((r) => {
+        const m = ROUTE_META[r];
+        const a = document.createElement("a");
+        a.href = "#/" + r;
+        a.dataset.route = r;
+        a.innerHTML = `<span class="nic"><svg class="ic"><use href="#${m.icon}"/></svg></span><span>${m.name}</span>${r === "news" ? '<span class="nav-badge" data-newsbadge hidden></span>' : ""}`;
+        tabNav.insertBefore(a, moreBtn);
+      });
+    }
+    // 「更多」按钮的高亮集合 = 不在底栏上的全部路由（MORE_ROUTES 原地更新保持引用）
+    const inTabs = ["dashboard"].concat(pinned.slice(0, 3));
+    MORE_ROUTES.length = 0;
+    MORE_ROUTES.push(...Object.keys(ROUTE_META).filter((r) => inTabs.indexOf(r) === -1));
+    // 重排后当前路由的高亮与分组展开态恢复
+    const name = currentRoute();
+    document.querySelectorAll("[data-route]").forEach((a) => a.classList.toggle("active", a.dataset.route === name));
+    const activeSub = document.querySelector('.nav-sub a[data-route="' + name + '"]');
+    if (activeSub) {
+      const g = activeSub.closest(".nav-group");
+      if (g && !g.classList.contains("open")) {
+        g.classList.add("open");
+        const p = g.querySelector(".nav-parent");
+        if (p) p.setAttribute("aria-expanded", "true");
+      }
+    }
+  }
+
+  /** 定义侧边栏分组的展开/收起：点击父级标题切换 open 状态。
+   *  委托绑定在 #sideNav 容器上——导航收敛会整体重排内部 DOM，委托不会失效。 */
   function initNavGroups() {
     restoreNavOpen();
-    document.querySelectorAll(".nav-parent").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const g = btn.closest(".nav-group");
-        if (!g) return;
-        const open = g.classList.toggle("open");
-        btn.setAttribute("aria-expanded", open ? "true" : "false");
-        saveNavOpen();
-      });
+    const nav = document.getElementById("sideNav");
+    if (!nav) return;
+    nav.addEventListener("click", (e) => {
+      const btn = e.target.closest(".nav-parent");
+      if (!btn) return;
+      const g = btn.closest(".nav-group");
+      if (!g) return;
+      const open = g.classList.toggle("open");
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+      saveNavOpen();
     });
   }
 

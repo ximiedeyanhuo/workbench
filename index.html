@@ -209,8 +209,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 </div>
 
 <script src="lib/md.js"></script>
-<script src="lib/chart.umd.min.js"></script>
-<script src="lib/xlsx.mini.min.js"></script>
+<!-- chart.umd/xlsx.mini 由 db.js 的 loadScript 按需加载（启动即预取 chart，xlsx 仅导入时拉）；
+     quick/focus 两个 FAB 模块由 app.js 空闲时加载，压缩首屏阻塞脚本。SW 预缓存清单不变（离线可用）。 -->
 <script src="js/db.js"></script>
 <script src="js/tasks.js"></script>
 <script src="js/notes.js"></script>
@@ -223,8 +223,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 <script src="js/drive.js"></script>
 <script src="js/calendar.js"></script>
 <script src="js/reports.js"></script>
-<script src="js/focus.js"></script>
-<script src="js/quick.js"></script>
 <script src="js/reminders.js"></script>
 <script src="js/anniv.js"></script>
 <script src="js/media.js"></script>
