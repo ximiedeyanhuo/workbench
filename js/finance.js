@@ -1817,6 +1817,14 @@
           const rec = txs.find((t) => t.id === id);
           const lab = rec ? `${rec.type === "income" ? "收入" : "支出"} ${esc(rec.amount ?? "")} ${esc(rec.category || "")} ${rec.date || ""}`.trim() : "";
           if (!confirm(`删除这条流水${lab ? `（${lab}）` : ""}？`)) return;
+          // 定期账单的自动记录：删除时补写 doneKey（该月|规则），否则 checkSchedules
+          // 会因「该月无记录且未处理过」在下次打开时把这条删掉的账单自动补回来
+          if (rec && rec.schedId && (rec.date || "").length >= 7) {
+            const ym = rec.date.slice(0, 7);
+            const doneKey = (await getSetting("finSchedDone", {})) || {};
+            doneKey[ym + "|" + rec.schedId] = 1;
+            await setSetting("finSchedDone", doneKey);
+          }
           await financeRepo.delete(id);
           rerender();
           return;
