@@ -77,7 +77,7 @@
   async function fetchStockQuotes(codes) {
     if (!window.WB.USE_API || !codes.length) return null;
     try {
-      const res = await fetch("/api/stock/quote?codes=" + encodeURIComponent(codes.join(",")));
+      const res = await WB.rawApi("/api/stock/quote?codes=" + encodeURIComponent(codes.join(",")));
       if (!res.ok) return null;
       const list = await res.json();
       const map = {};
@@ -94,7 +94,7 @@
   async function fetchFundNavs(codes) {
     if (!window.WB.USE_API || !codes.length) return null;
     try {
-      const res = await fetch("/api/fund/nav?codes=" + encodeURIComponent(codes.join(",")));
+      const res = await WB.rawApi("/api/fund/nav?codes=" + encodeURIComponent(codes.join(",")));
       if (!res.ok) return null;
       const list = await res.json();
       const map = {};
@@ -336,7 +336,7 @@
         const isCode = isFund ? /^\d{6}$/.test(q) : /^(sh|sz|bj)?\d{6}$/i.test(q);
         if (isCode) stkSel = { code: isFund ? q : q.toLowerCase(), name: q };
         try {
-          const res = await fetch("/api/" + (isFund ? "fund" : "stock") + "/search?q=" + encodeURIComponent(q));
+          const res = await WB.rawApi("/api/" + (isFund ? "fund" : "stock") + "/search?q=" + encodeURIComponent(q));
           const list = res.ok ? await res.json() : [];
           if (!list.length) return hideSug();
           sugEl.innerHTML = list
@@ -393,7 +393,7 @@
           let name = stkSel.name;
           if (isFund && /^\d{6}$/.test(name) && window.WB.USE_API) {
             try {
-              const res = await fetch("/api/fund/search?q=" + encodeURIComponent(stkSel.code));
+              const res = await WB.rawApi("/api/fund/search?q=" + encodeURIComponent(stkSel.code));
               const list = res.ok ? await res.json() : [];
               if (list.length) name = list[0].name;
             } catch (e) { /* 补名失败保持原样 */ }

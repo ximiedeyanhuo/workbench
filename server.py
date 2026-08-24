@@ -89,6 +89,21 @@ async def no_cache_static(request: Request, call_next):
     return response
 
 
+@app.middleware("http")
+async def body_size_guard(request: Request, call_next):
+    """请求体上限 20MB（全量导入备份的宽松上限），防异常大 body 打爆内存"""
+    cl = request.headers.get("content-length", "")
+    if cl.isdigit() and int(cl) > 20 * 1024 * 1024:
+        return JSONResponse({"detail": "请求体过大（上限 20MB）"}, status_code=413)
+    return await call_next(request)
+
+
+@app.exception_handler(json.JSONDecodeError)
+async def bad_json_handler(request: Request, exc: json.JSONDecodeError):
+    """畸形 JSON body 统一回 400（Starlette 默认会 500）"""
+    return JSONResponse({"detail": "请求体不是合法 JSON"}, status_code=400)
+
+
 # ---------- 用户体系与会话 ----------
 # 预设账号制（不开放注册）：users.json 存 PBKDF2 哈希；会话 token 存 sessions.json
 # （重启不掉线），前端通过 HttpOnly Cookie 携带，JS 接触不到 token 本体。
@@ -342,22 +357,40 @@ async def auth_login(request: Request):
     payload = await request.json()
     username = str(payload.get("username", "")).strip()
     password = str(payload.get("password", ""))
-    # 防暴力破解：连错 LOGIN_FAIL_MAX 次锁 LOGIN_LOCK_SECONDS 秒
-    fail = _login_fails.get(username)
+    # 防暴力破解：连错 LOGIN_FAIL_MAX 次锁 LOGIN_LOCK_SECONDS 秒。
+    # 锁键 = 用户名 + 来源 IP：防止攻击者用错误密码把受害者的用户名锁死（老实现按用户名
+    # 单键，攻击者试错 5 次就能让受害者 60 秒登不上）。来源 IP 优先取自家 nginx 的
+    # X-Forwarded-For 首跳（反代场景 request.client 恒为 nginx 内网 IP，双键会退化）。
+    # 爆破锁的来源 IP：仅当 TCP 对端是回环地址（= 自家 nginx 反代，部署拓扑即如此）
+    # 才采信 X-Forwarded-For 的最后一跳（nginx 追加的真实客户端 IP 在末位，首跳是客户端
+    # 可伪造的值，旧实现取首跳导致轮换 XFF 即可绕锁）。直连场景 XFF 完全由客户端可控，
+    # 一律忽略、用 TCP 对端地址，杜绝伪造。
+    peer = request.client.host if request.client else ""
+    client_ip = peer
+    try:
+        if peer and ipaddress.ip_address(peer).is_loopback:
+            fwd = request.headers.get("x-forwarded-for", "")
+            last = fwd.split(",")[-1].strip() if fwd else ""
+            if last:
+                client_ip = last
+    except ValueError:
+        pass
+    lock_key = username + "|" + client_ip
+    fail = _login_fails.get(lock_key)
     if fail and fail.get("lock_until", 0) > time.time():
         raise HTTPException(status_code=429, detail="失败次数过多，请 1 分钟后重试")
     user = USERS.get(username)
     # PBKDF2 12 万轮约几十毫秒纯 CPU，放线程池算，避免阻塞事件循环拖慢并发请求
     valid = bool(user) and await run_in_threadpool(verify_password, password, user)
     if not user or not valid:
-        rec = _login_fails.setdefault(username, {"count": 0, "lock_until": 0})
+        rec = _login_fails.setdefault(lock_key, {"count": 0, "lock_until": 0})
         rec["count"] += 1
         if rec["count"] >= LOGIN_FAIL_MAX:
             rec["count"] = 0
             rec["lock_until"] = time.time() + LOGIN_LOCK_SECONDS
         _save_login_fails()  # 持久化失败计数
         raise HTTPException(status_code=401, detail="用户名或密码错误")
-    _login_fails.pop(username, None)
+    _login_fails.pop(lock_key, None)
     _save_login_fails()  # 持久化清除计数
     token = secrets.token_urlsafe(32)
     SESSIONS[token] = {"user": username, "created": time.time()}

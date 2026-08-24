@@ -284,18 +284,43 @@
     return store === "settings" ? obj.key : obj.id;
   }
 
+  /** 带超时的 fetch：默认 30s；调用方已给 signal 时不覆盖（探测等自行管理） */
+  function fetchT(url, options, ms) {
+    const opts = options || {};
+    if (opts.signal) return fetch(url, opts);
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), ms || 30000);
+    return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+  }
+
   async function api(method, path, body) {
-    const res = await fetch(API_BASE + path, {
+    const res = await fetchT(API_BASE + path, {
       method,
       headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
       body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
+    }, 30000);
     if (res.status === 401) {
       on401();
       throw new Error("未登录或登录已过期");
     }
     if (!res.ok) throw new Error("服务器请求失败 HTTP " + res.status);
     return res.json();
+  }
+
+  /** 通用 /api/* fetch（非 store CRUD 的调用统一走这里）：补齐裸 fetch 缺失的两件事——
+   *  1) 会话过期（auth_guard 回 401「未登录」）→ 弹登录遮罩，与 api() 行为一致；
+   *  2) 超时 60s（网盘/WebDAV 等慢接口放宽），不再永久挂起。
+   *  业务自身的 401（如网盘 Cookie 过期，detail 非「未登录」）不弹遮罩，
+   *  把 detail 抛给调用方在各自 UI 里展示。返回原始 Response，调用方自行解析。 */
+  async function rawApi(url, options) {
+    const res = await fetchT(url, options, 60000);
+    if (res.status === 401) {
+      let detail = "";
+      try { detail = ((await res.clone().json()) || {}).detail || ""; } catch (e) { /* ignore */ }
+      if (!detail || detail.indexOf("未登录") >= 0 || detail.indexOf("登录已过期") >= 0) on401();
+      throw new Error(detail || "未登录或登录已过期");
+    }
+    return res;
   }
 
   /** API 实现：与 idbRepo 接口完全一致，get 未命中同样返回 undefined */
@@ -676,6 +701,8 @@
     }),
     auth,
     repo,
+    rawApi,
+    fetchT,
     getSetting,
     getSettings,
     setSetting,

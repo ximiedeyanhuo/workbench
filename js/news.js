@@ -590,7 +590,7 @@
     }
     // 显示来源域名
     try { modal.querySelector("#readerMeta").textContent = new URL(link).hostname; } catch (e) { /* ignore */ }
-    fetch("/api/article?url=" + encodeURIComponent(link))
+    WB.rawApi("/api/article?url=" + encodeURIComponent(link))
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status))))
       .then((data) => {
         if (!data.ok || !data.text) throw new Error("未解析到正文");

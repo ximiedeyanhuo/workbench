@@ -236,6 +236,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 <script>
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(function() {});
+  // 新版本 SW 接管（skipWaiting + clients.claim）时自动刷新一次，
+  // 消除「部署后首刷拿到旧 JS、下次刷新才更新」的版本错位窗口。
+  // 首次安装时 controller 由 null 变为 SW，wbHadSW 为 false，不触发刷新。
+  var wbHadSW = !!navigator.serviceWorker.controller;
+  var wbReloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', function () {
+    if (wbHadSW && !wbReloading) { wbReloading = true; location.reload(); }
+  });
 }
 </script>
 </body>

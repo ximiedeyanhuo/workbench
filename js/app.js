@@ -1108,8 +1108,8 @@
         (async () => {
           try {
             const [stockRes, fundRes] = await Promise.all([
-              stockHoldings.length ? fetch("/api/stock/quote?codes=" + encodeURIComponent(stockHoldings.map((r) => r.code).join(","))) : Promise.resolve(null),
-              fundHoldings.length ? fetch("/api/fund/nav?codes=" + encodeURIComponent(fundHoldings.map((r) => r.code).join(","))) : Promise.resolve(null),
+              stockHoldings.length ? WB.rawApi("/api/stock/quote?codes=" + encodeURIComponent(stockHoldings.map((r) => r.code).join(","))) : Promise.resolve(null),
+              fundHoldings.length ? WB.rawApi("/api/fund/nav?codes=" + encodeURIComponent(fundHoldings.map((r) => r.code).join(","))) : Promise.resolve(null),
             ]);
             const qmap = {};
             if (stockRes && stockRes.ok) (await stockRes.json()).forEach((q) => { qmap[q.code] = q; });
@@ -1441,7 +1441,7 @@
       // 自动备份状态：服务端每次启动时备份 workbench.db 到 backups/，保留最近 7 份
       const bkEl = el.querySelector("#backupStatus");
       if (window.WB.USE_API) {
-        fetch("/api/backup/status")
+        WB.rawApi("/api/backup/status")
           .then((r) => (r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status))))
           .then((s) => {
             bkEl.textContent = s.latest
@@ -1479,7 +1479,7 @@
         const wdavListEl = el.querySelector("#wdavList");
         async function wdavRefreshList() {
           try {
-            const res = await fetch("/api/webdav/list");
+            const res = await WB.rawApi("/api/webdav/list");
             if (!res.ok) throw new Error("HTTP " + res.status);
             const files = (await res.json()).files || [];
             if (!wdavListEl) return;
@@ -1500,7 +1500,7 @@
                 if (!confirm(`确定用远端备份「${name}」覆盖当前账号全部数据？不可撤销，建议先备份一次。`)) return;
                 const hideLoading = showLoading("正在恢复...");
                 try {
-                  const r = await fetch("/api/webdav/restore", {
+                  const r = await WB.rawApi("/api/webdav/restore", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ file: name }),
@@ -1527,7 +1527,7 @@
         const wdavDir = el.querySelector("#wdavDir");
         const wdavKeep = el.querySelector("#wdavKeep");
         // 回显已保存配置（授权码不回显）
-        fetch("/api/webdav/config")
+        WB.rawApi("/api/webdav/config")
           .then((r) => r.json())
           .then((c) => {
             if (wdavUrl && c.url) wdavUrl.value = c.url;
@@ -1545,7 +1545,7 @@
           wdavSaveBtn.addEventListener("click", async () => {
             const hideLoading = showLoading("正在保存...");
             try {
-              const r = await fetch("/api/webdav/config", {
+              const r = await WB.rawApi("/api/webdav/config", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -1572,7 +1572,7 @@
             if (statusEl) { statusEl.textContent = "测试中…"; statusEl.style.color = ""; }
             const hideLoading = showLoading("正在测试连接...");
             try {
-              const r = await fetch("/api/webdav/test", { method: "POST" });
+              const r = await WB.rawApi("/api/webdav/test", { method: "POST" });
               const d = await r.json().catch(() => ({}));
               if (!r.ok) throw new Error(d.detail || "HTTP " + r.status);
               hideLoading();
@@ -1590,7 +1590,7 @@
           wdavBackupBtn.addEventListener("click", async () => {
             const hideLoading = showLoading("正在备份到云端...");
             try {
-              const r = await fetch("/api/webdav/backup", { method: "POST" });
+              const r = await WB.rawApi("/api/webdav/backup", { method: "POST" });
               const d = await r.json().catch(() => ({}));
               if (!r.ok) throw new Error(d.detail || "HTTP " + r.status);
               hideLoading();
@@ -1613,7 +1613,7 @@
         const newPwd = el.querySelector("#pwdNew").value;
         if (!oldPwd || newPwd.length < 6) return showToast("请填写原密码，新密码至少 6 位", "error");
         try {
-          const res = await fetch("/api/auth/password", {
+          const res = await WB.rawApi("/api/auth/password", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ oldPassword: oldPwd, newPassword: newPwd }),
@@ -1638,7 +1638,7 @@
         const box = el.querySelector("#userList");
         if (!box) return;
         try {
-          const res = await fetch("/api/auth/users");
+          const res = await WB.rawApi("/api/auth/users");
           if (!res.ok) throw new Error("HTTP " + res.status);
           const users = await res.json();
           box.innerHTML = users
@@ -1657,7 +1657,7 @@
               const pwd = prompt(`为用户 ${name} 设置新密码（至少 6 位，重置后其已登录设备会被踢下线）：`);
               if (pwd === null) return;
               try {
-                const r = await fetch(`/api/auth/users/${encodeURIComponent(name)}/password`, {
+                const r = await WB.rawApi(`/api/auth/users/${encodeURIComponent(name)}/password`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ password: pwd }),
@@ -1675,7 +1675,7 @@
               const name = b.getAttribute("data-del");
               if (!confirm(`删除用户 ${name}？\n其数据库文件 workbench_${name}.db 会保留在服务器上，如需彻底清除请手动删除该文件。`)) return;
               try {
-                const r = await fetch(`/api/auth/users/${encodeURIComponent(name)}`, { method: "DELETE" });
+                const r = await WB.rawApi(`/api/auth/users/${encodeURIComponent(name)}`, { method: "DELETE" });
                 const d = await r.json().catch(() => ({}));
                 if (!r.ok) throw new Error(d.detail || "HTTP " + r.status);
                 loadUsers();
@@ -1696,7 +1696,7 @@
           const pwd = el.querySelector("#nuPwd").value;
           if (!name || pwd.length < 6) return showToast("请填写用户名，密码至少 6 位", "error");
           try {
-            const res = await fetch("/api/auth/users", {
+            const res = await WB.rawApi("/api/auth/users", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ username: name, password: pwd }),

@@ -338,7 +338,7 @@
       const old = titleInput.placeholder;
       titleInput.placeholder = "抓取标题中…";
       try {
-        const res = await fetch("/api/fetch-title?url=" + encodeURIComponent(url));
+        const res = await WB.rawApi("/api/fetch-title?url=" + encodeURIComponent(url));
         if (res.ok) {
           const data = await res.json();
           // 只在用户还没手动填过标题时回填，避免覆盖输入

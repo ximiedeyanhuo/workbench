@@ -98,7 +98,7 @@
   async function fetchStockQuotes(codes) {
     if (!window.WB.USE_API || !codes.length) return null;
     try {
-      var res = await fetch("/api/stock/quote?codes=" + encodeURIComponent(codes.join(",")));
+      var res = await WB.rawApi("/api/stock/quote?codes=" + encodeURIComponent(codes.join(",")));
       if (!res.ok) return null;
       var list = await res.json();
       var map = {};
@@ -111,7 +111,7 @@
   async function fetchFundNavs(codes) {
     if (!window.WB.USE_API || !codes.length) return null;
     try {
-      var res = await fetch("/api/fund/nav?codes=" + encodeURIComponent(codes.join(",")));
+      var res = await WB.rawApi("/api/fund/nav?codes=" + encodeURIComponent(codes.join(",")));
       if (!res.ok) return null;
       var list = await res.json();
       var map = {};

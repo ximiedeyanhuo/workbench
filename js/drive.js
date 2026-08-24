@@ -16,11 +16,11 @@
   let currentDrive = "quark";
   Drive.quark = {
     async status() {
-      const res = await fetch("/api/drive/quark/status");
+      const res = await WB.rawApi("/api/drive/quark/status");
       return res.json();
     },
     async list(pdirFid = "0") {
-      const res = await fetch("/api/drive/quark/list", {
+      const res = await WB.rawApi("/api/drive/quark/list", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pdir_fid: pdirFid, page: 1, size: 200 }),
@@ -29,7 +29,7 @@
       return res.json();
     },
     async getDownloadUrl(fid) {
-      const res = await fetch("/api/drive/quark/download", {
+      const res = await WB.rawApi("/api/drive/quark/download", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fid: fid }),
@@ -38,7 +38,7 @@
       return res.json();
     },
     async saveConfig(cookie) {
-      const res = await fetch("/api/drive/quark/config", {
+      const res = await WB.rawApi("/api/drive/quark/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cookie: cookie }),
@@ -50,11 +50,11 @@
   // ========== 百度网盘 API 封装
   Drive.baidu = {
     async status() {
-      const res = await fetch("/api/drive/baidu/status");
+      const res = await WB.rawApi("/api/drive/baidu/status");
       return res.json();
     },
     async list(dir = "/") {
-      const res = await fetch("/api/drive/baidu/list", {
+      const res = await WB.rawApi("/api/drive/baidu/list", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ dir: dir }),
@@ -63,7 +63,7 @@
       return res.json();
     },
     async getDownloadUrl(fsId) {
-      const res = await fetch("/api/drive/baidu/download", {
+      const res = await WB.rawApi("/api/drive/baidu/download", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fs_id: fsId }),
@@ -72,7 +72,7 @@
       return res.json();
     },
     async saveConfig(cookie) {
-      const res = await fetch("/api/drive/baidu/config", {
+      const res = await WB.rawApi("/api/drive/baidu/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cookie: cookie }),
@@ -643,7 +643,8 @@
     if (saveBtn) {
       saveBtn.addEventListener("click", async function () {
         const cookie = input.value.trim();
-        if (!cookie) return window.WB.showToast("Cookie 不能为空", "warning");
+        // 留空 = 不修改已保存的 Cookie（已保存值不再明文回显，见下方回显逻辑）
+        if (!cookie) return window.WB.showToast("留空表示不修改已保存的 Cookie", "info");
         const hideLoading = window.WB.showLoading("正在保存...");
         try {
           await Drive.quark.saveConfig(cookie);
@@ -687,8 +688,9 @@
       try {
         const cfg = await repo("settings").get("drive_quark_config");
         if (cfg && cfg.cookie) {
-          input.value = cfg.cookie;
-          window.WB.showToast("Cookie 为明文凭据，请勿分享给他人", "warn");
+          // 安全：Cookie 等同账号凭据，不再明文回显，只提示尾号；粘贴新值才覆盖
+          input.value = "";
+          input.placeholder = "已保存（尾号 …" + cfg.cookie.slice(-6) + "），留空不修改，粘贴新 Cookie 可覆盖";
           const status = await Drive.quark.status();
           if (statusText) {
             if (status.valid) {
@@ -714,7 +716,8 @@
     if (baiduSaveBtn) {
       baiduSaveBtn.addEventListener("click", async function () {
         const cookie = baiduInput.value.trim();
-        if (!cookie) return window.WB.showToast("Cookie 不能为空", "warning");
+        // 留空 = 不修改已保存的 Cookie（已保存值不再明文回显，见下方回显逻辑）
+        if (!cookie) return window.WB.showToast("留空表示不修改已保存的 Cookie", "info");
         const hideLoading = window.WB.showLoading("正在保存...");
         try {
           await Drive.baidu.saveConfig(cookie);
@@ -758,8 +761,9 @@
       try {
         const cfg = await repo("settings").get("drive_baidu_config");
         if (cfg && cfg.cookie) {
-          baiduInput.value = cfg.cookie;
-          window.WB.showToast("Cookie 为明文凭据，请勿分享给他人", "warn");
+          // 安全：Cookie 等同账号凭据，不再明文回显，只提示尾号；粘贴新值才覆盖
+          baiduInput.value = "";
+          baiduInput.placeholder = "已保存（尾号 …" + cfg.cookie.slice(-6) + "），留空不修改，粘贴新 Cookie 可覆盖";
           const status = await Drive.baidu.status();
           if (baiduStatusText) {
             if (status.valid) {
