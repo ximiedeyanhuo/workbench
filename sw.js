@@ -7,7 +7,7 @@
  * - 离线时：展示缓存的页面，API 部分降级提示
  */
 
-const CACHE = "workbench-v153";
+const CACHE = "workbench-v155";
 const STATIC = [
   "/",
   "/index.html",

@@ -16,6 +16,10 @@
   let flowsTag = "";     // "" = 全部标签
   let flowsQ = "";       // 关键词（交易对方/商品/备注）
   let flowsSource = "";  // wechat | alipay | "" = 全部来源
+  let flowsPage = 1;     // 列表分页（每页 50 条）
+  let _totalPages = 1;
+  let _trendRows = [];   // 趋势图数据源（随标签/来源/关键词筛选，忽略月份——趋势天然跨月）
+  let _charts = [];      // 图表实例注册表（重渲染前销毁）
 
   const TAGS = ["消费", "收入", "转账", "还款", "其他"];
   const TAG_COLOR = { "消费": "var(--danger)", "收入": "var(--ok)", "转账": "var(--accent)", "还款": "var(--purple)", "其他": "var(--muted)" };
@@ -109,8 +113,18 @@
         try { await window.WB.loadScript("/lib/xlsx.mini.min.js"); } catch (e) { return { err: "xlsx 解析库加载失败，请检查网络后重试" }; }
       }
       const buf = await file.arrayBuffer();
-      const wb = XLSX.read(buf, { type: "array", cellDates: true });
+      let wb;
+      try { wb = XLSX.read(buf, { type: "array", cellDates: true }); } catch (e) { return { err: "文件解析失败：不是有效的 xlsx 文件" }; }
       rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" });
+      // 微信账单的「交易时间」是日期单元格：cellDates 会解析成 Date 对象，
+      // 必须统一转回本地 "YYYY-MM-DD HH:MM:SS" 字符串，否则日期匹配全部失败
+      rows = rows.map((r) => r.map((v) => {
+        if (v instanceof Date) {
+          return v.getFullYear() + "-" + String(v.getMonth() + 1).padStart(2, "0") + "-" + String(v.getDate()).padStart(2, "0")
+            + " " + String(v.getHours()).padStart(2, "0") + ":" + String(v.getMinutes()).padStart(2, "0") + ":" + String(v.getSeconds()).padStart(2, "0");
+        }
+        return v == null ? "" : String(v);
+      }));
       const w = mapWechatRows(rows);
       if (!w.err) return w;
       const a = mapAlipayRows(rows);
@@ -175,9 +189,46 @@
     }
     list = list.slice().sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.id || "").localeCompare(a.id || ""));
 
+    // 分页：大数据量（千条级）避免一次渲染全部 DOM
+    const PAGE_SIZE = 50;
+    _totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+    if (flowsPage > _totalPages) flowsPage = _totalPages;
+    const pageRows = list.slice((flowsPage - 1) * PAGE_SIZE, flowsPage * PAGE_SIZE);
+    const pageBar = _totalPages > 1 ? `<div class="flow-pagebar">
+      <button class="icon-btn plain" data-fpage="prev" title="上一页" ${flowsPage <= 1 ? "disabled" : ""}>${window.WB.icon("prev")}</button>
+      <span class="tx-day-sub">第 ${flowsPage} / ${_totalPages} 页</span>
+      <button class="icon-btn plain" data-fpage="next" title="下一页" ${flowsPage >= _totalPages ? "disabled" : ""}>${window.WB.icon("next")}</button>
+    </div>` : "";
+
+    // 趋势图数据源：同筛选但忽略月份（跨月才有趋势意义）
+    _trendRows = all.filter((r) => {
+      if (flowsTag && r.tag !== flowsTag) return false;
+      if (flowsSource && r.source !== flowsSource) return false;
+      if (flowsQ) {
+        const q = flowsQ.toLowerCase();
+        const hit = String(r.counterparty || "").toLowerCase().includes(q) || String(r.note || "").toLowerCase().includes(q) || String(r.rawType || "").toLowerCase().includes(q);
+        if (!hit) return false;
+      }
+      return true;
+    });
+
     // 小计（当前筛选范围）
     const sumOf = (tag) => list.filter((r) => !tag || r.tag === tag).reduce((s, r) => s + Number(r.amount || 0), 0);
     const consume = sumOf("消费"), income = sumOf("收入");
+
+    // 交易对方 TOP5：聚焦当前标签（未选标签时默认看消费）
+    const topTag = flowsTag || "消费";
+    const byParty = {};
+    list.filter((r) => r.tag === topTag).forEach((r) => {
+      const k = r.counterparty || "(无对方)";
+      if (!byParty[k]) byParty[k] = { n: 0, sum: 0 };
+      byParty[k].n += 1;
+      byParty[k].sum += Number(r.amount || 0);
+    });
+    const top5 = Object.entries(byParty).sort((a, b) => b[1].sum - a[1].sum).slice(0, 5);
+    const topHtml = top5.length
+      ? top5.map(([name, v]) => `<div class="flow-top-item"><span class="flow-top-name">${esc(name)}</span><span class="flow-top-meta">${v.n} 次 · <b>${fmtYuan(v.sum)}</b></span></div>`).join("")
+      : `<div class="empty">当前范围没有${topTag}记录</div>`;
 
     const monthOpts = ['<option value=""' + (flowsMonth ? "" : " selected") + '>全部月份</option>']
       .concat(months.map((m) => `<option value="${m}" ${flowsMonth === m ? "selected" : ""}>${m}</option>`)).join("");
@@ -186,9 +237,9 @@
     const srcChips = ['<button class="tab ' + (flowsSource === "" ? "on" : "") + '" data-fsrc="">全部来源</button>']
       .concat(Object.keys(SOURCE_NAME).map((s) => `<button class="tab ${flowsSource === s ? "on" : ""}" data-fsrc="${s}">${SOURCE_NAME[s]}</button>`)).join("");
 
-    // 按日期分组
+    // 按日期分组（仅当前页）
     const byDate = {};
-    list.forEach((r) => { (byDate[r.date] = byDate[r.date] || []).push(r); });
+    pageRows.forEach((r) => { (byDate[r.date] = byDate[r.date] || []).push(r); });
     const listHtml = list.length
       ? Object.keys(byDate).sort((a, b) => b.localeCompare(a)).map((d) => {
           const rows = byDate[d].map((r) => {
@@ -203,8 +254,9 @@
               <button class="icon-btn" data-act="del-flow" data-id="${esc(r.id)}" title="删除">${window.WB.icon("del")}</button>
             </li>`;
           }).join("");
-          return `<div class="tx-day"><div class="tx-day-head">${d}</div><ul class="tx-list">${rows}</ul></div>`;
-        }).join("")
+          const dayConsume = byDate[d].filter((r) => r.tag === "消费").reduce((s, r) => s + Number(r.amount || 0), 0);
+          return `<div class="tx-day"><div class="tx-day-head">${d}<span class="tx-day-sub">消费 ${fmtYuan(dayConsume)}</span></div><ul class="tx-list">${rows}</ul></div>`;
+        }).join("") + pageBar
       : `<div class="empty">${all.length ? "当前筛选没有匹配的流水" : "还没有导入过账单。把微信/支付宝的账单文件存进来，消费明细随时可查，且不影响正式账本。"}</div>`;
 
     return `<div class="card">
@@ -222,11 +274,20 @@
         <div class="tx-stat-seg">${srcChips}</div>
         <input id="flowsQ" placeholder="搜交易对方 / 商品…" value="${esc(flowsQ)}" class="w-150" />
       </div>
-      <div class="row sp-b-sm" style="gap:16px">
-        <span>消费 <b class="c-danger">${fmtYuan(consume)}</b></span>
-        <span>收入 <b class="c-ok">${fmtYuan(income)}</b></span>
+      <div class="row sp-b-sm" style="gap:16px;flex-wrap:wrap">
+        ${TAGS.map((t) => `<span>${t} <b style="color:${TAG_COLOR[t]}">${fmtYuan(sumOf(t))}</b></span>`).join("")}
         <span class="tx-day-sub">共 ${list.length} 条</span>
       </div>
+      ${list.length ? `<div class="flow-stat-grid sp-b-sm">
+        <div>
+          <div class="tx-day-head">交易对方 TOP5 · ${esc(topTag)}</div>
+          ${topHtml}
+        </div>
+        <div>
+          <div class="tx-day-head">近 6 月消费 / 收入</div>
+          <div class="tx-chart-wrap"><canvas id="flowTrend" height="170"></canvas></div>
+        </div>
+      </div>` : ""}
       <div id="flowList">${listHtml}</div>
     </div>`;
   }
@@ -235,20 +296,79 @@
     return Number(n || 0).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  // ---------- 统计图表 ----------
+  function destroyCharts() {
+    _charts.forEach((c) => c.destroy());
+    _charts = [];
+  }
+
+  /** 近 6 月消费/收入柱图（数据源随标签/来源/关键词筛选，忽略月份） */
+  function renderTrend(el) {
+    destroyCharts();
+    const cv = el.querySelector("#flowTrend");
+    if (!cv) return;
+    if (typeof Chart === "undefined") {
+      // Chart.js 懒加载：加载完成重试；期间已切走路由则放弃（防污染新页面）
+      window.WB.loadScript("/lib/chart.umd.min.js").then(() => {
+        if (/^#\/flows/.test(location.hash || "")) renderTrend(el);
+      }).catch(() => {});
+      return;
+    }
+    const now = new Date();
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"));
+    }
+    const consumeArr = months.map((m) => _trendRows.filter((r) => r.tag === "消费" && (r.date || "").slice(0, 7) === m).reduce((s, r) => s + Number(r.amount || 0), 0));
+    const incomeArr = months.map((m) => _trendRows.filter((r) => r.tag === "收入" && (r.date || "").slice(0, 7) === m).reduce((s, r) => s + Number(r.amount || 0), 0));
+    if (!consumeArr.some((v) => v > 0) && !incomeArr.some((v) => v > 0)) return;
+    const muted = window.WB.cssVar("--muted"), line = window.WB.cssVar("--line"), ok = window.WB.cssVar("--ok"), danger = window.WB.cssVar("--danger");
+    _charts.push(new Chart(cv, {
+      type: "bar",
+      data: {
+        labels: months.map((m) => m.slice(2)),
+        datasets: [
+          { label: "消费", data: consumeArr, backgroundColor: danger, borderRadius: 6 },
+          { label: "收入", data: incomeArr, backgroundColor: ok, borderRadius: 6 },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "top", labels: { color: muted, font: { size: 11 }, boxWidth: 10, boxHeight: 10, padding: 8 } },
+          tooltip: { callbacks: { label: (c) => ` ${c.dataset.label} ${fmtYuan(c.parsed.y)} 元` } },
+        },
+        scales: {
+          x: { ticks: { color: muted, font: { size: 10 } }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { color: muted, font: { size: 10 } }, grid: { color: line } },
+        },
+      },
+    }));
+  }
+
   routes.flows = {
     title: "消费流水",
     async render(el) {
       const all = await flowsRepo.list();
+      destroyCharts();
       el.innerHTML = flowsHtml(all);
+      renderTrend(el);
 
       const rerender = () => routes.flows.render(el);
       const $ = (sel) => el.querySelector(sel);
       const on = (sel, ev, fn) => { const n = $(sel); if (n) n.addEventListener(ev, fn); };
 
-      on("#flowsMonth", "change", (e) => { flowsMonth = e.target.value; rerender(); });
-      on("#flowsQ", "input", debounce((e) => { flowsQ = e.target.value.trim(); rerender(); }, 250));
-      el.querySelectorAll("[data-ftag]").forEach((b) => b.addEventListener("click", () => { flowsTag = b.dataset.ftag; rerender(); }));
-      el.querySelectorAll("[data-fsrc]").forEach((b) => b.addEventListener("click", () => { flowsSource = b.dataset.fsrc; rerender(); }));
+      on("#flowsMonth", "change", (e) => { flowsMonth = e.target.value; flowsPage = 1; rerender(); });
+      on("#flowsQ", "input", debounce((e) => { flowsQ = e.target.value.trim(); flowsPage = 1; rerender(); }, 250));
+      el.querySelectorAll("[data-ftag]").forEach((b) => b.addEventListener("click", () => { flowsTag = b.dataset.ftag; flowsPage = 1; rerender(); }));
+      el.querySelectorAll("[data-fsrc]").forEach((b) => b.addEventListener("click", () => { flowsSource = b.dataset.fsrc; flowsPage = 1; rerender(); }));
+      el.querySelectorAll("[data-fpage]").forEach((b) => b.addEventListener("click", () => {
+        if (b.dataset.fpage === "prev" && flowsPage > 1) flowsPage--;
+        else if (b.dataset.fpage === "next" && flowsPage < _totalPages) flowsPage++;
+        rerender();
+      }));
 
       on("#flowsImport", "click", () => $("#flowsFile").click());
       on("#flowsFile", "change", async (e) => {
