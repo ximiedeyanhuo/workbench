@@ -1645,14 +1645,16 @@
       on("#finTplCard", "click", (e) => {
         const head = e.target.closest('[data-act="panel-tpl"]');
         if (!head) return;
-        if (e.target.closest("[data-tpl], [data-act]")) return;
+        // 点头部本身（含头部内非交互子元素）才切换；点卡片内模板行/按钮不切换。
+        // 注意不能用 closest(...)!==null 做守卫——头部自己就带 data-act，会永远 return（自锁）。
+        if (e.target.closest("[data-tpl], [data-act]") !== head) return;
         finPanelTpl = !finPanelTpl;
         rerender();
       });
       on("#finSchedCard", "click", (e) => {
         const head = e.target.closest('[data-act="panel-sched"]');
         if (!head) return;
-        if (e.target.closest("[data-sched], [data-act]")) return;
+        if (e.target.closest("[data-sched], [data-act]") !== head) return;
         finPanelSched = !finPanelSched;
         rerender();
       });
