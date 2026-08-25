@@ -65,8 +65,33 @@
   let finDetailId = null;        // 详细展开中的记录 id
   let finShowCatMgr = false;     // 分类管理面板开关
 
-  let finCharts = []; // 重渲染前销毁旧 Chart 实例
   let finPage = 1;
+
+  // ---------- 会话级数据缓存 ----------
+  // list() 全量拉取是本页最大开销（千条级 = 数百 KB/次），而 tab 切换/翻页/统计视图
+  // 切换等高频操作都会触发 rerender。会话内只拉一次存内存，本页写操作增量维护；
+  // 跨标签页/其他模块的写入通过 WB.finCache.invalidate() 与 window focus 失效兜底。
+  let _finCache = null;
+  const loadFinance = async () => {
+    if (_finCache) return _finCache;
+    _finCache = await financeRepo.list();
+    return _finCache;
+  };
+  const finCacheAdd = (rec) => { if (_finCache) _finCache.push(rec); };
+  const finCacheReplace = (rec) => {
+    if (!_finCache) return;
+    const i = _finCache.findIndex((r) => r.id === rec.id);
+    if (i >= 0) _finCache[i] = rec; else _finCache.push(rec);
+  };
+  const finCacheRemove = (id) => {
+    if (!_finCache) return;
+    const i = _finCache.findIndex((r) => r.id === id);
+    if (i >= 0) _finCache.splice(i, 1);
+  };
+  window.WB.finCache = {
+    invalidate() { _finCache = null; },
+  };
+  window.addEventListener("focus", () => { _finCache = null; });
   const FIN_PAGE_SIZE = 20;
 
   function monthKey(y, m) {
@@ -140,6 +165,9 @@
     const rows = list.filter((t) => t.type === type);
     return { amt: rows.reduce((s, t) => s + t.amount, 0), cnt: rows.length };
   }
+
+  // 共享工具出口：finance-charts / finance-io 子模块复用（本文件必须先于它们加载）
+  window.WB.finU = { monthKey, ymd, weekStartOf, addDays, nowStamp, fmtYuan, signedYuan, normalizeTx, mergeCats, catOf, typeLabel, sumBy };
 
   // ---------- HTML 片段 ----------
   function summaryHtml(mtx, ytx, txs) {
@@ -865,186 +893,6 @@
     </div>`;
   }
 
-  // ---------- 图表 ----------
-  const barLabelPlugin = {
-    id: "finBarLabels",
-    afterDatasetsDraw(chart) {
-      const { ctx } = chart;
-      const fontFamily = getComputedStyle(document.body).fontFamily || "sans-serif";
-      ctx.save();
-      ctx.font = "11px " + fontFamily;
-      ctx.fillStyle = cssVar("--ink");
-      ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
-      chart.data.datasets.forEach((ds, i) => {
-        const meta = chart.getDatasetMeta(i);
-        meta.data.forEach((el, idx) => {
-          const v = ds.data[idx];
-          if (!v) return;
-          ctx.fillText(fmtYuan(v), el.x, el.y - 4);
-        });
-      });
-      ctx.restore();
-    }
-  };
-
-  /** 支出分类环形图 */
-  function renderFinChart(el, mtx, cats) {
-    if (typeof Chart === "undefined") return;
-    const cv = el.querySelector("#chartExp");
-    if (!cv) return;
-    const map = {};
-    mtx.filter((t) => t.type === "expense").forEach((t) => {
-      map[t.category] = (map[t.category] || 0) + t.amount;
-    });
-    const entries = Object.entries(map).sort((a, b) => b[1] - a[1]);
-    if (!entries.length) return;
-    const labels = entries.map((e) => esc(catOf(cats, "expense", e[0]).name));
-    const colors = entries.map((e) => catOf(cats, "expense", e[0]).color);
-    const data = entries.map((e) => e[1]);
-    const total = data.reduce((a, b) => a + b, 0);
-    const muted = cssVar("--muted"), card = cssVar("--card");
-    finCharts.push(new Chart(cv, {
-      type: "doughnut",
-      data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: card, borderWidth: 2 }] },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        cutout: "58%",
-        plugins: {
-          legend: { position: "bottom", labels: { color: muted, font: { size: 11 }, boxWidth: 10, boxHeight: 10, padding: 12, usePointStyle: true, pointStyle: "circle" } },
-          tooltip: {
-                backgroundColor: (document.documentElement.getAttribute("data-theme") === "dark" || document.documentElement.getAttribute("data-theme") === "midnight") ? "rgba(28, 33, 40, 0.92)" : "rgba(255, 255, 255, 0.92)",
-      titleColor: (document.documentElement.getAttribute("data-theme") === "dark") ? "#eef1f5" : "#2b2f36",
-      bodyColor: (document.documentElement.getAttribute("data-theme") === "dark") ? "#c3cbd4" : "#4a5058",
-      borderColor: "rgba(214, 155, 114, 0.35)",
-      borderWidth: 1,
-      cornerRadius: 10,
-      padding: 10,
-            callbacks: {
-              label: (ctx) => ` ${ctx.label}  ${fmtYuan(ctx.parsed)} 元  (${((ctx.parsed / total) * 100).toFixed(1)}%)`,
-            },
-          },
-        },
-      },
-    }));
-  }
-
-  /** 收支趋势：近 6 个月柱状图（收入 / 支出 分组） */
-  function renderTrendChart(el, txs) {
-    if (typeof Chart === "undefined") return;
-    const cv = el.querySelector("#chartTrend");
-    if (!cv) return;
-    const months = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(finYear, finMonth - i, 1);
-      months.push(monthKey(d.getFullYear(), d.getMonth()));
-    }
-    const incomeArr = months.map((m) => txs.filter((t) => t.type === "income" && (t.date || "").slice(0, 7) === m).reduce((s, t) => s + t.amount, 0));
-    const expenseArr = months.map((m) => txs.filter((t) => t.type === "expense" && (t.date || "").slice(0, 7) === m).reduce((s, t) => s + t.amount, 0));
-    const muted = cssVar("--muted"), line = cssVar("--line"), ok = cssVar("--ok"), danger = cssVar("--danger");
-    finCharts.push(new Chart(cv, {
-      type: "bar",
-      plugins: [barLabelPlugin],
-      data: {
-        labels: months.map((m) => m.slice(2)),
-        datasets: [
-          { label: "收入", data: incomeArr, backgroundColor: ok, borderRadius: 6 },
-          { label: "支出", data: expenseArr, backgroundColor: danger, borderRadius: 6 },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        layout: { padding: { top: 18 } },
-        plugins: {
-          legend: { position: "top", labels: { color: muted, font: { size: 11 }, boxWidth: 10, boxHeight: 10, padding: 8 } },
-          tooltip: {
-                backgroundColor: (document.documentElement.getAttribute("data-theme") === "dark" || document.documentElement.getAttribute("data-theme") === "midnight") ? "rgba(28, 33, 40, 0.92)" : "rgba(255, 255, 255, 0.92)",
-      titleColor: (document.documentElement.getAttribute("data-theme") === "dark") ? "#eef1f5" : "#2b2f36",
-      bodyColor: (document.documentElement.getAttribute("data-theme") === "dark") ? "#c3cbd4" : "#4a5058",
-      borderColor: "rgba(214, 155, 114, 0.35)",
-      borderWidth: 1,
-      cornerRadius: 10,
-      padding: 10,
-            callbacks: {
-              label: (ctx) => ` ${ctx.dataset.label} ${ctx.parsed.y >= 0 ? "+" : ""}${fmtYuan(ctx.parsed.y)} 元`,
-            },
-          },
-        },
-        scales: {
-          x: { ticks: { color: muted, font: { size: 10 } }, grid: { display: false } },
-          y: { beginAtZero: true, ticks: { color: muted, font: { size: 10 } }, grid: { color: line } },
-        },
-      },
-    }));
-  }
-
-  /** 年账视图辅助：今年 vs 去年月度支出对比柱图 */
-  function renderYearCmpChart(el, txs) {
-    if (typeof Chart === "undefined") return;
-    const cv = el.querySelector("#chartYearCmp");
-    if (!cv) return;
-    const thisYear = now.getFullYear();
-    const lastYear = thisYear - 1;
-    const months = ["01","02","03","04","05","06","07","08","09","10","11","12"];
-    const byM = (y) => months.map((m) => txs.filter((t) => t.type === "expense" && (t.date || "").slice(0, 7) === `${y}-${m}`).reduce((s, t) => s + Number(t.amount || 0), 0));
-    const cur = byM(thisYear), prev = byM(lastYear);
-    if (cur.every((v) => v === 0) && prev.every((v) => v === 0)) return;
-    const muted = cssVar("--muted"), line = cssVar("--line"), danger = cssVar("--danger");
-    finCharts.push(new Chart(cv, {
-      type: "bar",
-      data: {
-        labels: ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"],
-        datasets: [
-          { label: `${lastYear} 年`, data: prev, backgroundColor: muted, borderRadius: 4 },
-          { label: `${thisYear} 年`, data: cur, backgroundColor: danger, borderRadius: 4 },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { position: "top", labels: { color: muted, font: { size: 11 }, boxWidth: 10, boxHeight: 10, padding: 8 } },
-          tooltip: {
-            backgroundColor: (document.documentElement.getAttribute("data-theme") === "dark" || document.documentElement.getAttribute("data-theme") === "midnight") ? "rgba(28, 33, 40, 0.92)" : "rgba(255, 255, 255, 0.92)",
-      titleColor: (document.documentElement.getAttribute("data-theme") === "dark") ? "#eef1f5" : "#2b2f36",
-      bodyColor: (document.documentElement.getAttribute("data-theme") === "dark") ? "#c3cbd4" : "#4a5058",
-      borderColor: "rgba(214, 155, 114, 0.35)",
-      borderWidth: 1,
-      cornerRadius: 10,
-      padding: 10,
-      callbacks: { label: (c) => ` ${c.dataset.label} ${fmtYuan(c.parsed.y)} 元` } },
-        },
-        scales: {
-          x: { ticks: { color: muted, font: { size: 10 } }, grid: { display: false } },
-          y: { beginAtZero: true, ticks: { color: muted, font: { size: 10 } }, grid: { color: line } },
-        },
-      },
-    }));
-  }
-  /** 通用 CSV 下载（\uFEFF BOM：让 Excel 正确识别 UTF-8 中文） */
-  function downloadCsv(filename, rows, cats) {
-    const head = "日期,类型,分类,金额,备注";
-    // 防 CSV 公式注入：以 = + - @ 或制表符开头的单元格前加单引号
-    const safeCsv = (v) => {
-      const s = String(v == null ? "" : v);
-      return /^[=+\-@\t]/.test(s) ? "'" + s : s;
-    };
-    const lines = rows.map((t) => {
-      const c = catOf(cats, t.type, t.category);
-      // CSV 转义：字段含逗号/引号/换行时用双引号包裹
-      const note = /[",\n]/.test(t.note) ? `"${t.note.replace(/"/g, '""')}"` : t.note;
-      return [safeCsv(t.date), safeCsv(typeLabel(t.type)), safeCsv(c.name), safeCsv(t.amount), note].join(",");
-    });
-    const blob = new Blob(["\uFEFF" + head + "\n" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
-
   /** 列表页导出：当前筛选结果（需求 §9.4 导出与页面对齐） */
   function exportList(cats, txs) {
     const scope = scopedTx(txs);
@@ -1055,7 +903,7 @@
     const label = finDateStart || finDateEnd
       ? `${finDateStart || "起"}至${finDateEnd || "今"}`
       : finYear + "年";
-    downloadCsv(`记账_${label}_${typeLabel(finTab)}.csv`, rows, cats);
+    window.WB.finIO.downloadCsv(`记账_${label}_${typeLabel(finTab)}.csv`, rows, cats);
   }
 
   /** 周/月/年账按行导出：该期间全部类型明细（需求 §7） */
@@ -1063,195 +911,7 @@
     const rows = txs
       .filter((t) => t.date >= start && t.date <= end)
       .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-    downloadCsv(`记账_${label}.csv`, rows, cats);
-  }
-
-  // ---------- 导入 ----------
-  const TYPE_BY_LABEL = { 收入: "income", 支出: "expense", 储蓄: "saving" };
-  const IMPORT_CAT_COLORS = ["#FF5A36", "#3B82F6", "#F59E0B", "#8B5CF6", "#EC4899", "#10B981", "#06B6D4", "#75726B"];
-
-  /** 判断引号是否会在本行内闭合（用于「字段开头的 " 是否是合法引号」）：
-   *  能闭合才按引号解析；否则视为备注里的普通字符（如 6.7"手机、行首裸引号），
-   *  避免单个裸引号把后续所有行吞并成一行导致「解析到 1 行」。 */
-  function lineHasClosingQuote(text, start) {
-    for (let j = start + 1; j < text.length; j++) {
-      const c = text[j];
-      if (c === "\n" || c === "\r") return false;
-      if (c === '"') {
-        if (text[j + 1] === '"') { j++; continue; } // "" 转义对，跳过
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /** 通用 CSV 解析（支持引号包裹、"" 转义、\r\n / \n），返回 string[][]，跳过全空行。
-   *  容错：只有「字段开头且本行内能闭合」的 " 才当引号，备注里的裸引号按字面处理。 */
-  function parseCsv(text) {
-    if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
-    const rows = [];
-    let row = [], field = "", inQ = false;
-    for (let i = 0; i < text.length; i++) {
-      const ch = text[i];
-      if (inQ) {
-        if (ch === '"') {
-          if (text[i + 1] === '"') { field += '"'; i++; }
-          else inQ = false;
-        } else field += ch;
-      } else if (ch === '"' && field === "" && lineHasClosingQuote(text, i)) inQ = true;
-      else if (ch === ",") { row.push(field); field = ""; }
-      else if (ch === "\n" || ch === "\r") {
-        if (ch === "\r" && text[i + 1] === "\n") i++;
-        row.push(field); field = "";
-        if (row.some((f) => f.trim() !== "")) rows.push(row);
-        row = [];
-      } else field += ch;
-    }
-    row.push(field);
-    if (row.some((f) => f.trim() !== "")) rows.push(row);
-    return rows;
-  }
-
-  /** 读取 CSV 文件：先按 UTF-8 解码；若表头识别失败（Excel 另存的 GBK/ANSI 中文文件
-   *  按 UTF-8 解码会产生乱码），再尝试 GBK 解码兜底。 */
-  async function decodeCsvFile(file) {
-    const buf = await file.arrayBuffer();
-    let text = new TextDecoder("utf-8").decode(buf);
-    const first = parseCsv(text)[0] || [];
-    if (mapCsvHeader(first)) return text;
-    try {
-      text = new TextDecoder("gbk").decode(buf);
-    } catch (e) { /* 浏览器不支持 gbk 时保持乱码原文，由导入环节报「无法识别表头」 */ }
-    return text;
-  }
-
-  /** 识别表头列位置：兼容本站导出（日期,类型,分类,金额,备注）与
-   *  海豚云记录（金额(元),交易日期,收/支,收/支类型,备注）。
-   *  判断顺序关键：先精确匹配类型列（收/支 或 类型），再模糊匹配分类列，
-   *  避免「收/支类型」被误认为类型列。 */
-  function mapCsvHeader(header) {
-    const idx = { amount: -1, date: -1, type: -1, cat: -1, note: -1 };
-    header.forEach((h, i) => {
-      const s = String(h).replace(/\s/g, "");
-      if (idx.amount < 0 && s.includes("金额")) idx.amount = i;
-      else if (idx.date < 0 && s.includes("日期")) idx.date = i;
-      else if (idx.type < 0 && (s === "收/支" || s === "类型" || s === "收支")) idx.type = i;
-      else if (idx.cat < 0 && (s.includes("类型") || s.includes("分类"))) idx.cat = i;
-      else if (idx.note < 0 && s.includes("备注")) idx.note = i;
-    });
-    return idx.amount >= 0 && idx.date >= 0 && idx.type >= 0 ? idx : null;
-  }
-
-  /** 日期规整为 YYYY-MM-DD（兼容 2026/7/3、2026.07.03） */
-  function normImportDate(s) {
-    const m = String(s).trim().match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
-    return m ? m[1] + "-" + m[2].padStart(2, "0") + "-" + m[3].padStart(2, "0") : "";
-  }
-
-  /** 导入核心：rows 为二维数组（含表头行），确认后批量入库，未知分类自动建为自定义分类。
-   *  返回 {added, skipped, newCats} / {cancelled} / {err}。 */
-  async function importRows(rows, cats) {
-    if (rows.length < 2) return { err: "文件为空或只有表头" };
-    const idx = mapCsvHeader(rows[0]);
-    if (!idx) return { err: "无法识别表头，需包含金额、日期、收/支（类型）三列" };
-
-    // 分类名 → id 映射；未知分类攒到 catAdd 统一新建
-    const nameToId = {
-      income: new Map(cats.income.map((c) => [c.name, c.id])),
-      expense: new Map(cats.expense.map((c) => [c.name, c.id])),
-    };
-    const catAdd = { income: [], expense: [] };
-    let records = [];
-    let skipped = 0;
-    const stamp = nowStamp();
-    for (const r of rows.slice(1)) {
-      const type = TYPE_BY_LABEL[String(r[idx.type] || "").trim()];
-      const amount = parseFloat(String(r[idx.amount] || "").replace(/[,，¥￥\s]/g, ""));
-      const date = normImportDate(r[idx.date]);
-      if (!type || !(amount > 0) || !date) { skipped++; continue; }
-      let category = "saving";
-      if (type !== "saving") {
-        const name = String(idx.cat >= 0 ? r[idx.cat] || "" : "").trim() || (type === "income" ? "其它收入" : "其它支出");
-        let cid = nameToId[type].get(name);
-        if (!cid) {
-          cid = "c" + uid();
-          nameToId[type].set(name, cid);
-          catAdd[type].push({ id: cid, name, color: IMPORT_CAT_COLORS[(catAdd.income.length + catAdd.expense.length) % IMPORT_CAT_COLORS.length] });
-        }
-        category = cid;
-      }
-      records.push({
-        id: uid(), type, amount, category,
-        note: String(idx.note >= 0 ? r[idx.note] || "" : "").trim(),
-        date, createdAt: stamp, updatedAt: stamp,
-      });
-    }
-    if (!records.length) return { err: `没有可导入的有效行（跳过 ${skipped} 行）` };
-
-    // 去重两道闸：
-    // 1) id 命中（自己导的重复文件）; 2) 内容指纹（date|type|amount|note|category 与已有重复，跨来源也拦）。
-    //    指纹含 category：同日同额同注但分类不同的两行是不同交易，不再被误判为重复
-    const existing = await financeRepo.list();
-    const existingIds = new Set(existing.map((r) => r.id));
-    const contentHash = (r) => [r.date || "", r.type || "", String(r.amount || 0), (r.note || "").trim(), r.category || ""].join("|");
-    const existingHashes = new Set(existing.map(contentHash));
-    const before = records.length;
-    const idDup = records.filter((r) => existingIds.has(r.id)).length;
-    records = records.filter((r) => !existingIds.has(r.id));
-    const hashesSeen = new Set(existingHashes);
-    const contentDup = [];
-    records = records.filter((r) => {
-      const h = contentHash(r);
-      if (hashesSeen.has(h)) { contentDup.push(r); return false; }
-      hashesSeen.add(h);
-      return true;
-    });
-    const deduped = before - records.length;
-    if (!records.length) return { err: `所有 ${before} 条记录均已存在或内容重复，无需导入` };
-    skipped += deduped;
-
-    const newCats = catAdd.income.concat(catAdd.expense).map((c) => c.name);
-    let msg = `解析到 ${rows.length - 1} 行，可导入 ${records.length} 条`;
-    if (idDup) msg += `，id 已存在跳过 ${idDup} 条`;
-    if (contentDup.length) msg += `，内容重复跳过 ${contentDup.length} 条`;
-    if (skipped) msg += `，无效跳过 ${skipped} 行`;
-    if (newCats.length) msg += `\n将自动新建分类：${newCats.join("、")}`;
-    if (!window.confirm(msg + "\n\n确认导入？")) return { cancelled: true };
-
-    if (newCats.length) {
-      const cur = await getSetting("finCategories", { income: [], expense: [] });
-      cur.income = (cur.income || []).concat(catAdd.income);
-      cur.expense = (cur.expense || []).concat(catAdd.expense);
-      await setSetting("finCategories", cur);
-    }
-    await financeRepo.bulkPut(records);
-    return { added: records.length, skipped, newCats, addedDates: records.map((r) => r.date) };
-  }
-
-  /** 解析 CSV 文本并导入（confirm 在 importRows 内） */
-  async function importCsvText(text, cats) {
-    return importRows(parseCsv(text), cats);
-  }
-
-  /** 解析 xlsx/xlsm（SheetJS mini，cellDates 让日期单元格变为 Date）并导入。
-   *  单元格统一转字符串：Date 用本地时间取年月日，避免 toISOString 的 UTC 偏移差一天。 */
-  async function importXlsxFile(file, cats) {
-    if (typeof XLSX === "undefined") {
-      // xlsx 只在导入时才需要：按需拉取（SW 有预缓存，离线也能取到）
-      try { await window.WB.loadScript("/lib/xlsx.mini.min.js"); } catch (e) { return { err: "xlsx 解析库加载失败，请检查网络后重试" }; }
-    }
-    const buf = await file.arrayBuffer();
-    const wb = XLSX.read(buf, { type: "array", cellDates: true });
-    const name = wb.SheetNames[0];
-    if (!name) return { err: "文件中没有工作表" };
-    const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: "" });
-    const norm = rows.map((r) => r.map((v) => {
-      if (v instanceof Date) {
-        return v.getFullYear() + "-" + String(v.getMonth() + 1).padStart(2, "0") + "-" + String(v.getDate()).padStart(2, "0");
-      }
-      return v == null ? "" : String(v);
-    }));
-    return importRows(norm, cats);
+    window.WB.finIO.downloadCsv(`记账_${label}.csv`, rows, cats);
   }
 
   // ---------- 定期账单 ----------
@@ -1355,7 +1015,7 @@
     title: "记账",
     async render(el) {
       const [records, finSt] = await Promise.all([
-        financeRepo.list(),
+        loadFinance(),
         getSettings({ saveTarget: 60000, finCategories: { income: [], expense: [] }, monthBudget: 0, finTemplates: [], finSchedules: [], finCatBudget: {}, finGoals: [] }),
       ]);
       const target = finSt.saveTarget, finCatsCustom = finSt.finCategories, monthBudget = finSt.monthBudget, finTemplates = finSt.finTemplates, finSchedules = finSt.finSchedules;
@@ -1383,8 +1043,7 @@
 
       // 销毁旧图表
       if (!/^#\/finance/.test(location.hash || "")) return;
-      finCharts.forEach((c) => c.destroy());
-      finCharts = [];
+      window.WB.finChartMgr.destroyAll();
 
       el.innerHTML = `
         ${summaryHtml(mtx, ytx, txs)}
@@ -1404,9 +1063,7 @@
         </div>
       `;
 
-      renderFinChart(el, mtx, cats);
-      renderTrendChart(el, txs);
-      renderYearCmpChart(el, txs);
+      window.WB.finChartMgr.renderAll(el, mtx, txs, cats, finYear, finMonth);
 
       const rerender = () => routes.finance.render(el);
       const $ = (sel) => el.querySelector(sel);
@@ -1464,7 +1121,7 @@
         adding = true;
         const stamp = nowStamp();
         try {
-          await financeRepo.put({
+          const rec = {
             id: uid(),
             type: finTab,
             category: $("#finCategory").value,
@@ -1474,7 +1131,9 @@
             date: $("#finDate").value || todayStr(),
             createdAt: stamp,
             updatedAt: stamp,
-          });
+          };
+          await financeRepo.put(rec);
+          finCacheAdd(rec);
         } finally { adding = false; }
         rerender();
       };
@@ -1575,7 +1234,7 @@
           tplBusy = true;
           const stamp = nowStamp();
           try {
-            await financeRepo.put({
+            const rec = {
               id: uid(),
               type: "expense",
               category: tp.category,
@@ -1584,7 +1243,9 @@
               date: todayStr(),
               createdAt: stamp,
               updatedAt: stamp,
-            });
+            };
+            await financeRepo.put(rec);
+            finCacheAdd(rec);
           } finally { tplBusy = false; }
           rerender();
         } else if (e.target.closest('[data-act="del-tpl"]')) {
@@ -1690,12 +1351,12 @@
           const name = (file.name || "").toLowerCase();
           let res;
           if (name.endsWith(".xlsx") || name.endsWith(".xlsm")) {
-            res = await importXlsxFile(file, cats);
+            res = await window.WB.finIO.importXlsxFile(file, cats);
           } else if (name.endsWith(".xls")) {
             window.WB.showToast("暂不支持 .xls 旧格式，请在 Excel 中另存为 .xlsx 或 CSV 后再导入", "error");
             return;
           } else {
-            res = await importCsvText(await decodeCsvFile(file), cats);
+            res = await window.WB.finIO.importCsvText(await window.WB.finIO.decodeCsvFile(file), cats);
           }
           if (res.err) { window.WB.showToast("导入失败：" + res.err, "error"); return; }
           if (res.cancelled) return;
@@ -1828,6 +1489,7 @@
             await setSetting("finSchedDone", doneKey);
           }
           await financeRepo.delete(id);
+          finCacheRemove(id);
           rerender();
           return;
         }
@@ -1858,7 +1520,7 @@
           const amount = parseFloat(amtInput.value);
           if (!(amount > 0)) return flashInvalid(amtInput);
           const orig = txs.find((t) => t.id === id) || {};
-          await financeRepo.put({
+          const rec = {
             id,
             type: item.dataset.type,
             category: item.querySelector('[data-ed="cat"]').value,
@@ -1867,7 +1529,9 @@
             date: item.querySelector('[data-ed="date"]').value || todayStr(),
             createdAt: orig.createdAt || "",
             updatedAt: nowStamp(),
-          });
+          };
+          await financeRepo.put(rec);
+          finCacheReplace(rec);
           finEditId = null;
           rerender();
           return;

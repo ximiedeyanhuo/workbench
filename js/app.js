@@ -1080,13 +1080,16 @@
         if (!(amount > 0)) return flashInvalid(amountInput);
         dFinBusy = true;
         try {
-          await repo("finance").put({
+          const rec = {
             id: uid(), type: "expense",
             category: el.querySelector("#dFinCategory").value,
             amount,
             note: el.querySelector("#dFinNote").value.trim(),
             date: today,
-          });
+          };
+          await repo("finance").put(rec);
+          // 记账页有会话级缓存，跨模块写入后使其失效，避免下次进入读到旧数据
+          if (window.WB.finCache) window.WB.finCache.invalidate();
         } finally { dFinBusy = false; }
         navigate();
       };
