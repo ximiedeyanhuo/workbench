@@ -104,10 +104,36 @@
     return { rows: out };
   }
 
+  /** 定位表头行：同时含「金额」和「收/支或类型」的行（跳过文件开头的元数据说明） */
+  function findHeaderRow(rows) {
+    return rows.findIndex((r) => {
+      const cells = r.map((c) => String(c).replace(/\s/g, ""));
+      return cells.some((c) => c.includes("金额")) && cells.some((c) => c.includes("收/支") || c.includes("收支") || c.includes("类型"));
+    });
+  }
+
+  /** 表头特征计分判源：微信独有「支付方式/当前状态/交易类型」，
+   *  支付宝独有「交易创建时间/交易号/商家订单号/交易来源地/资金状态」。
+   *  两家共有的子串（如「交易时间」⊂「交易创建时间」的反例）不参与计分，杜绝顺序依赖误判。 */
+  function detectFormat(header) {
+    const has = (kw) => header.some((c) => String(c).replace(/\s/g, "").includes(kw));
+    let w = 0, a = 0;
+    if (has("支付方式")) w += 2;
+    if (has("当前状态")) w += 1;
+    if (has("交易类型")) w += 1;
+    if (has("交易创建时间")) a += 2;
+    if (has("交易号") || has("商家订单号")) a += 2;
+    if (has("交易来源地") || has("资金状态")) a += 1;
+    if (w > a) return "wechat";
+    if (a > w) return "alipay";
+    return null;
+  }
+
   /** 读账单文件：xlsx 走 SheetJS，csv 先 UTF-8 后 GBK 降级；
-   *  按表头内容自动识别微信/支付宝格式（不依赖扩展名）。 */
+   *  表头特征计分自动识别微信/支付宝格式（不依赖扩展名与尝试顺序）。 */
   async function readTableFile(file) {
-    let rows;
+    let rows = null;
+    let decodeErr = "没找到账单表头（需包含金额和收/支或类型列）";
     if (/\.xlsx$|\.xlsm$/i.test(file.name)) {
       if (typeof XLSX === "undefined") {
         try { await window.WB.loadScript("/lib/xlsx.mini.min.js"); } catch (e) { return { err: "xlsx 解析库加载失败，请检查网络后重试" }; }
@@ -125,27 +151,20 @@
         }
         return v == null ? "" : String(v);
       }));
-      const w = mapWechatRows(rows);
-      if (!w.err) return w;
-      const a = mapAlipayRows(rows);
-      return a.err ? { err: w.err } : a;
+    } else {
+      const buf = await file.arrayBuffer();
+      const attempts = [new TextDecoder("utf-8").decode(buf)];
+      try { attempts.push(new TextDecoder("gbk").decode(buf)); } catch (e) { /* 浏览器不支持 gbk 就只试 utf-8 */ }
+      for (const text of attempts) {
+        const rs = window.WB.finIO.parseCsv(text);
+        if (findHeaderRow(rs) >= 0) { rows = rs; break; } // 乱码解码找不到表头 → 换下一种编码
+      }
     }
-    const buf = await file.arrayBuffer();
-    const attempts = [new TextDecoder("utf-8").decode(buf)];
-    try { attempts.push(new TextDecoder("gbk").decode(buf)); } catch (e) { /* 浏览器不支持 gbk 就只试 utf-8 */ }
-    let lastErr = "无法识别账单格式";
-    for (const text of attempts) {
-      const rs = window.WB.finIO.parseCsv(text);
-      // 微信映射优先：其表头「交易时间」是支付宝「交易创建时间」的子串反例，
-      // 若支付宝映射先试会误吞微信格式（来源/商品列错位）
-      const w = mapWechatRows(rs);
-      if (!w.err) return w;
-      lastErr = w.err;
-      const a = mapAlipayRows(rs);
-      if (!a.err) return a;
-      lastErr = a.err;
-    }
-    return { err: lastErr };
+    if (!rows) return { err: decodeErr };
+    const hi = findHeaderRow(rows);
+    const fmt = hi >= 0 ? detectFormat(rows[hi]) : null;
+    if (!fmt) return { err: "无法识别账单来源：表头不是微信/支付宝格式（可把表头前两行发我加适配）" };
+    return fmt === "wechat" ? mapWechatRows(rows) : mapAlipayRows(rows);
   }
 
   /** 导入：指纹去重（source|date|amount|counterparty|note）→ 确认 → 入库 */
