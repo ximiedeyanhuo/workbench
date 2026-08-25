@@ -223,5 +223,5 @@
     return importRows(norm, cats);
   }
 
-  window.WB.finIO = { downloadCsv, decodeCsvFile, importCsvText, importXlsxFile };
+  window.WB.finIO = { downloadCsv, decodeCsvFile, parseCsv, importCsvText, importXlsxFile };
 })();

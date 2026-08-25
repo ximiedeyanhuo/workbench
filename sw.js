@@ -7,7 +7,7 @@
  * - 离线时：展示缓存的页面，API 部分降级提示
  */
 
-const CACHE = "workbench-v152";
+const CACHE = "workbench-v153";
 const STATIC = [
   "/",
   "/index.html",
@@ -20,6 +20,7 @@ const STATIC = [
   "/js/finance.js",
   "/js/finance-charts.js",
   "/js/finance-io.js",
+  "/js/flows.js",
   "/js/stocks.js",
   "/js/gongkao.js",
   "/js/news.js",

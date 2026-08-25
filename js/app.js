@@ -1934,6 +1934,7 @@
     contacts: { icon: "i-contacts", name: "联系人" },
     life: { icon: "i-life", name: "生活" },
     finance: { icon: "i-finance", name: "记账" },
+    flows: { icon: "i-flows", name: "消费流水" },
     subs: { icon: "i-sub", name: "订阅" },
     reports: { icon: "i-reports", name: "统计" },
     stocks: { icon: "i-stock", name: "股票" },

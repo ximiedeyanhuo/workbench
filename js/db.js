@@ -195,7 +195,11 @@
   const CONTACTS_DB = "workbench_contacts";
   const CONTACTS_VERSION = 1;
   const CONTACTS_STORES = ["contacts", "contactlogs"];
-  const ALL_STORES = STORES.concat(FEEDS_STORES, HEALTH_STORES, STOCKS_STORES, MOCKEXAMS_STORES, QUICK_STORES, ANNIV_STORES, REMIND_STORES, MEDIA_STORES, TIMELINE_STORES, TRACKER_STORES, TIME_STORES, SUBS_STORES, CONTACTS_STORES); // 导入导出覆盖全部业务数据
+  // exttx（消费流水：微信/支付宝账单仓库，与正式账本完全隔离）同理独立建库
+  const FLOWS_DB = "workbench_exttx";
+  const FLOWS_VERSION = 1;
+  const FLOWS_STORES = ["exttx"];
+  const ALL_STORES = STORES.concat(FEEDS_STORES, HEALTH_STORES, STOCKS_STORES, MOCKEXAMS_STORES, QUICK_STORES, ANNIV_STORES, REMIND_STORES, MEDIA_STORES, TIMELINE_STORES, TRACKER_STORES, TIME_STORES, SUBS_STORES, CONTACTS_STORES, FLOWS_STORES); // 导入导出覆盖全部业务数据
   const EXPORT_VERSION = 1;
 
   const dbCache = {};
@@ -246,6 +250,7 @@
     if (TIME_STORES.indexOf(store) !== -1) return open(TIME_DB, TIME_VERSION, TIME_STORES);
     if (SUBS_STORES.indexOf(store) !== -1) return open(SUBS_DB, SUBS_VERSION, SUBS_STORES);
     if (CONTACTS_STORES.indexOf(store) !== -1) return open(CONTACTS_DB, CONTACTS_VERSION, CONTACTS_STORES);
+    if (FLOWS_STORES.indexOf(store) !== -1) return open(FLOWS_DB, FLOWS_VERSION, FLOWS_STORES);
     return open(DB_NAME, DB_VERSION, STORES);
   }
 

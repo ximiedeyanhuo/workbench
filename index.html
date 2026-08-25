@@ -41,6 +41,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   <symbol id="i-notes" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></symbol>
   <symbol id="i-life" viewBox="0 0 24 24"><path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/></symbol>
   <symbol id="i-finance" viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></symbol>
+  <symbol id="i-flows" viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/></symbol>
   <symbol id="i-stock" viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></symbol>
   <symbol id="i-news" viewBox="0 0 24 24"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></symbol>
   <symbol id="i-anniv" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M12 13.5l1 2 2 .3-1.5 1.5.4 2-1.9-1-1.9 1 .4-2-1.5-1.5 2-.3z"/></symbol>
@@ -126,8 +127,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         <div class="nav-sub"><div class="nav-sub-inner">
           <a href="#/life" data-route="life"><span class="nic"><svg class="ic"><use href="#i-life"/></svg></span><span>生活</span></a>
           <a href="#/finance" data-route="finance"><span class="nic"><svg class="ic"><use href="#i-finance"/></svg></span><span>记账</span></a>
+          <a href="#/flows" data-route="flows"><span class="nic"><svg class="ic"><use href="#i-flows"/></svg></span><span>消费流水</span></a>
           <a href="#/subs" data-route="subs"><span class="nic"><svg class="ic"><use href="#i-sub"/></svg></span><span>订阅</span></a>
-          <a href="#/reports" data-route="reports"><span class="nic"><svg class="ic"><use href="#i-reports"/></svg></span><span>统计</span></a>
+    <a href="#/reports" data-route="reports"><span class="nic"><svg class="ic"><use href="#i-reports"/></svg></span><span>统计</span></a>
+    <a href="#/flows" data-route="flows"><span class="nic"><svg class="ic"><use href="#i-flows"/></svg></span><span>消费流水</span></a>
           <a href="#/stocks" data-route="stocks"><span class="nic"><svg class="ic"><use href="#i-stock"/></svg></span><span>股票</span></a>
         </div></div>
       </div>
@@ -218,6 +221,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 <script src="js/finance.js"></script>
 <script src="js/finance-charts.js"></script>
 <script src="js/finance-io.js"></script>
+<script src="js/flows.js"></script>
   <script src="js/stocks.js"></script>
   <script src="js/gongkao.js"></script>
   <script src="js/news.js"></script>
