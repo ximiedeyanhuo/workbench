@@ -166,11 +166,26 @@
     async function doSearch() {
       const q = input.value.trim().toLowerCase();
       if (!q) return close();
-      const [tasks, notes, marks, links, finances, habits, trackers] = await Promise.all([
-        repo("tasks").list(), repo("notes").list(), repo("bookmarks").list(), repo("quicklinks").list(),
-        repo("finance").list(), repo("habits").list(), repo("trackers").list().catch(() => []),
-      ]).catch(() => [[], [], [], [], [], [], []]);
-      const hit = (s) => String(s || "").toLowerCase().includes(q);
+      let tasks, notes, marks, links, finances, habits, trackers;
+      if (window.WB.USE_API) {
+        // 在线模式走服务端检索：只传命中行，不再每次键入全量拉 7 个 store
+        try {
+          const res = await WB.rawApi("/api/search?q=" + encodeURIComponent(input.value.trim()));
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const s = await res.json();
+          tasks = s.tasks || []; notes = s.notes || []; marks = s.bookmarks || []; links = s.quicklinks || [];
+          finances = s.finance || []; habits = s.habits || []; trackers = s.trackers || [];
+        } catch (e) { /* 服务端检索失败（含旧版后端 404）→ 回退本地全量过滤 */ }
+      }
+      if (!tasks) {
+        [tasks, notes, marks, links, finances, habits, trackers] = await Promise.all([
+          repo("tasks").list(), repo("notes").list(), repo("bookmarks").list(), repo("quicklinks").list(),
+          repo("finance").list(), repo("habits").list(), repo("trackers").list().catch(() => []),
+        ]).catch(() => [[], [], [], [], [], [], []]);
+      }
+      // 服务端结果已按 JSON 值匹配过，不再二次过滤（否则 id/日期等服务端命中字段会被误删）
+      const serverSide = !!tasks;
+      const hit = serverSide ? () => true : (s) => String(s || "").toLowerCase().includes(q);
       const groups = [
         { name: "✅ 任务", type: "task", rows: tasks.filter((t) => hit(t.title) || hit(t.note) || (t.tags || []).some(hit)) },
         { name: "📚 笔记", type: "note", rows: notes.filter((n) => hit(n.title) || hit(n.content) || hit(n.folder)) },

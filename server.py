@@ -529,7 +529,8 @@ def get_row(store: str, item_id: str):
 
 
 @app.put("/api/db/{store}/{item_id}")
-async def put_row(store: str, item_id: str, request: Request):
+async def put_row(store: str, item_id: str, request: Request, ifUpdated: str = None):
+    # 参数名 ifUpdated 与查询串 ?ifUpdated= 精确对应（FastAPI 按参数名取 query）
     check_store(store)
     obj = await request.json()
     if not isinstance(obj, dict):
@@ -541,6 +542,21 @@ async def put_row(store: str, item_id: str, request: Request):
 
     def _write():
         with db_conn() as conn:
+            # 乐观锁（可选）：调用方带上自己读到的 updatedAt，若记录此后被别的窗口
+            # 更新过则 409 拒绝，防双标签整行覆盖丢更新。仅在双方都有 updatedAt 时
+            # 比较（同模块内时间格式一致，字符串比较即成立）。
+            if ifUpdated:
+                row = conn.execute(f'SELECT data FROM "{store}" WHERE id=?', (item_id,)).fetchone()
+                if row:
+                    try:
+                        old_updated = (json.loads(row[0]) or {}).get("updatedAt") or ""
+                    except ValueError:
+                        old_updated = ""
+                    if old_updated and old_updated > ifUpdated:
+                        raise HTTPException(
+                            status_code=409,
+                            detail="该记录已在其他窗口被修改，为避免覆盖你的内容未保存；请复制正文后刷新对比",
+                        )
             conn.execute(
                 f'INSERT INTO "{store}" (id, data) VALUES (?, ?) '
                 "ON CONFLICT(id) DO UPDATE SET data=excluded.data",
@@ -585,6 +601,53 @@ async def bulk_put(store: str, request: Request):
     return {"ok": True, "count": len(rows)}
 
 
+# ---------- 全局搜索（服务端跨 store 检索，替代前端每次键入全量拉取） ----------
+SEARCH_STORES = ("tasks", "notes", "bookmarks", "quicklinks", "finance", "habits", "trackers")
+SEARCH_CAP = 50  # 单 store 命中上限（前端每组只展示 5 条 + 折叠计数）
+
+
+def _iter_strings(obj):
+    """递归收集 JSON 值里的所有字符串（不含键名）"""
+    if isinstance(obj, str):
+        yield obj
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from _iter_strings(v)
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            yield from _iter_strings(v)
+
+
+@app.get("/api/search")
+def search_all(q: str):
+    """跨常用 store 全文搜索：LIKE 预筛缩小候选 → Python 精确匹配 JSON 值
+    （键名不参与匹配，与旧前端全量过滤行为一致）。返回 {store: [命中行]}"""
+    q = (q or "").strip().lower()
+    if not q or len(q) > 50:
+        return {}
+    like = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+    out = {}
+    with db_conn() as conn:
+        for s in SEARCH_STORES:
+            rows = conn.execute(
+                f"SELECT data FROM \"{s}\" WHERE LOWER(data) LIKE ? ESCAPE '\\' LIMIT ?",
+                (like, SEARCH_CAP * 4),
+            ).fetchall()
+            hits = []
+            for (raw,) in rows:
+                try:
+                    obj = json.loads(raw)
+                except ValueError:
+                    continue
+                if any(q in v.lower() for v in _iter_strings(obj)):
+                    hits.append(obj)
+                    if len(hits) >= SEARCH_CAP:
+                        break
+            if hits:
+                out[s] = hits
+    return out
+
+
 # ---------- 一键迁移（前端 exportAll 格式，整体覆盖） ----------
 @app.post("/api/import")
 async def import_all(request: Request):
@@ -593,12 +656,20 @@ async def import_all(request: Request):
         raise HTTPException(status_code=400, detail="备份数据格式不正确")
     data = payload["data"]
 
-    def _import():  # 全删全插可能上千行 + 大 JSON，放线程池避免占住事件循环
-        with db_conn() as conn:  # 单事务：要么全部导入成功，要么保持原样
-            for s in STORES:
+    def _import():  # 预校验全部行（主键存在且不重复）后再按 store 分事务写入：
+        # 校验错误零写入；写入阶段只剩磁盘/锁类罕见失败，单 store 事务把最长持锁
+        # 从「全量一条大事务」降到单表，并发写最多等一个 store 的时间
+        validated = []
+        for s in STORES:
+            arr = data.get(s) or []
+            rows = [(row_key(s, o), json_text(o)) for o in arr if isinstance(o, dict)]
+            keys = [k for k, _ in rows]
+            if len(set(keys)) != len(keys):
+                raise HTTPException(status_code=400, detail=f"备份数据 {s} 中存在重复主键，无法导入")
+            validated.append((s, rows))
+        for s, rows in validated:
+            with db_conn() as conn:
                 conn.execute(f'DELETE FROM "{s}"')
-                arr = data.get(s) or []
-                rows = [(row_key(s, o), json_text(o)) for o in arr if isinstance(o, dict)]
                 if rows:
                     conn.executemany(f'INSERT INTO "{s}" (id, data) VALUES (?, ?)', rows)
     await run_in_threadpool(_import)
@@ -1989,21 +2060,25 @@ async def webdav_restore(request: Request):
         with open(tmp_path, "wb") as f:
             f.write(data)
 
-        def _restore():  # 整库覆盖可能上千行，放线程池避免占住事件循环
+        def _restore():  # 先从备份库整读校验，再按 store 分事务覆盖：单表事务把最长持锁降到单表
             count = 0
-            with db_conn() as conn:
-                src = sqlite3.connect(tmp_path)
-                try:
-                    tables = [r[0] for r in src.execute("SELECT name FROM sqlite_master WHERE type='table'")]
-                    for t in tables:
-                        if t not in STORES:
-                            continue
-                        rows = src.execute(f'SELECT id, data FROM "{t}"').fetchall()
-                        conn.execute(f'DELETE FROM "{t}"')
+            src = sqlite3.connect(tmp_path)
+            try:
+                tables = [r[0] for r in src.execute("SELECT name FROM sqlite_master WHERE type='table'")]
+                validated = []
+                for t in tables:
+                    if t not in STORES:
+                        continue
+                    rows = src.execute(f'SELECT id, data FROM "{t}"').fetchall()
+                    validated.append((t, rows))
+                    count += len(rows)
+            finally:
+                src.close()
+            for t, rows in validated:
+                with db_conn() as conn:
+                    conn.execute(f'DELETE FROM "{t}"')
+                    if rows:
                         conn.executemany(f'INSERT INTO "{t}" (id, data) VALUES (?, ?)', rows)
-                        count += len(rows)
-                finally:
-                    src.close()
             return count
         count = await run_in_threadpool(_restore)
         return {"ok": True, "rows": count}

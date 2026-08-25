@@ -18,6 +18,7 @@
   // 脏检查：记录编辑器最后保存内容，切换路由/关闭页面前提示未保存修改
   let savedContent = "";
   let dirtyLock = false;
+  let editorLoadedUpdatedAt = ""; // 编辑器当前内容的 updatedAt 基线（服务端乐观锁用）
   let lastHash = location.hash;
 
   const fmtTime = (iso) => (iso ? iso.slice(0, 16).replace("T", " ") : "");
@@ -49,6 +50,7 @@
   function notesHtml(notes) {
     const list = filterNotes(notes);
     const cur = notes.find((n) => n.id === currentId);
+    editorLoadedUpdatedAt = (cur && cur.updatedAt) || ""; // 每次渲染刷新冲突基线
     const folders = folderNames(notes);
     const unfiledCnt = notes.filter((n) => !n.folder).length;
     const folderHtml = `<div class="folder-list">
@@ -155,7 +157,17 @@
         const ta = el.querySelector("#nContent");
         if (ta) cur.content = ta.value;
         cur.updatedAt = new Date().toISOString();
-        await notesRepo.put(cur);
+        try {
+          // 乐观锁：基线之后若被其他窗口改过，服务端 409 拒绝，防整行覆盖丢更新
+          await notesRepo.put(cur, { ifUpdated: editorLoadedUpdatedAt });
+        } catch (err) {
+          if (String((err && err.message) || "").indexOf("其他窗口") >= 0) {
+            window.WB.showToast("该笔记已在其他窗口被修改，本次未保存；请复制正文后刷新对比", "error");
+            return;
+          }
+          throw err;
+        }
+        editorLoadedUpdatedAt = cur.updatedAt;
         savedContent = cur.content;
         rerender();
       };
@@ -165,7 +177,21 @@
         const ta = el.querySelector("#nContent");
         if (ta) {
           const cur = await notesRepo.get(currentId);
-          if (cur) { cur.content = ta.value; cur.updatedAt = new Date().toISOString(); await notesRepo.put(cur); savedContent = ta.value; }
+          if (cur) {
+            cur.content = ta.value;
+            cur.updatedAt = new Date().toISOString();
+            try {
+              await notesRepo.put(cur, { ifUpdated: editorLoadedUpdatedAt });
+            } catch (err) {
+              if (String((err && err.message) || "").indexOf("其他窗口") >= 0) {
+                window.WB.showToast("该笔记已在其他窗口被修改，本次未保存；请复制正文后刷新对比", "error");
+                return;
+              }
+              throw err;
+            }
+            editorLoadedUpdatedAt = cur.updatedAt;
+            savedContent = ta.value;
+          }
         }
         previewing = !previewing;
         rerender();

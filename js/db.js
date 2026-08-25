@@ -303,7 +303,11 @@
       on401();
       throw new Error("未登录或登录已过期");
     }
-    if (!res.ok) throw new Error("服务器请求失败 HTTP " + res.status);
+    if (!res.ok) {
+      let detail = "";
+      try { detail = ((await res.clone().json()) || {}).detail || ""; } catch (e) { /* ignore */ }
+      throw new Error(detail || "服务器请求失败 HTTP " + res.status);
+    }
     return res.json();
   }
 
@@ -329,7 +333,7 @@
       list: () => api("GET", store),
       get: (id) =>
         api("GET", store + "/" + encodeURIComponent(id)).then((r) => (r === null ? undefined : r)),
-      put: (obj) => api("PUT", store + "/" + encodeURIComponent(keyOf(store, obj)), obj),
+      put: (obj, opts) => api("PUT", store + "/" + encodeURIComponent(keyOf(store, obj)) + (opts && opts.ifUpdated ? "?ifUpdated=" + encodeURIComponent(opts.ifUpdated) : ""), obj),
       delete: (id) => api("DELETE", store + "/" + encodeURIComponent(id)),
       clear: () => api("DELETE", store),
       bulkPut: (arr) => api("POST", store + "/bulk", arr),
