@@ -5275,14 +5275,22 @@ details.set-fold > .set-fold-body { padding: 2px 20px 18px; }
 @media (max-width: 900px) { .flow-stat-grid { grid-template-columns: 1fr; } }
 
 /* ---------- 消费流水列表 ---------- */
-.flow-li { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px dashed var(--line); }
+.flow-li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px dashed var(--line); }
 .flow-li:last-child { border-bottom: none; }
 .flow-main { flex: 1; min-width: 0; }
 .flow-party { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .flow-note { color: var(--muted); font-size: 12px; margin-left: 6px; }
-.flow-sub { display: flex; align-items: center; gap: 6px; margin-top: 2px; font-size: 12px; color: var(--muted); }
+.flow-sub { display: flex; align-items: center; gap: 8px; margin-top: 3px; font-size: 12px; color: var(--muted); }
 .flow-badge { font-weight: 500; }
 .flow-amt { font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
 #flowList .icon-btn { opacity: 0.55; }
 #flowList .flow-li:hover .icon-btn { opacity: 1; }
-.flow-pagebar { display: flex; align-items: center; justify-content: center; gap: 12px; padding-top: 10px; }
+.flow-pagebar { display: flex; align-items: center; justify-content: center; gap: 12px; padding-top: 12px; }
+.flow-type-item { padding: 5px 0; }
+.flow-type-line { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; }
+.flow-type-bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin-top: 4px; }
+.flow-type-bar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.flow-kpi { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
+.flow-kpi span { color: var(--muted); }
+.flow-kpi b { font-variant-numeric: tabular-nums; }
+.flow-kpi em { color: var(--muted); font-size: 12px; font-style: normal; margin-left: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

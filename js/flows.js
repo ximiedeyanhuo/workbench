@@ -209,7 +209,7 @@
     list = list.slice().sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.id || "").localeCompare(a.id || ""));
 
     // 分页：大数据量（千条级）避免一次渲染全部 DOM
-    const PAGE_SIZE = 50;
+    const PAGE_SIZE = 20;
     _totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
     if (flowsPage > _totalPages) flowsPage = _totalPages;
     const pageRows = list.slice((flowsPage - 1) * PAGE_SIZE, flowsPage * PAGE_SIZE);
@@ -248,6 +248,45 @@
     const topHtml = top5.length
       ? top5.map(([name, v]) => `<div class="flow-top-item"><span class="flow-top-name">${esc(name)}</span><span class="flow-top-meta">${v.n} 次 · <b>${fmtYuan(v.sum)}</b></span></div>`).join("")
       : `<div class="empty">当前范围没有${topTag}记录</div>`;
+
+    // 交易类型分布：当前标签范围内按 rawType 聚合（微信的商户消费/红包/转账…很有信息量）
+    const byType = {};
+    list.filter((r) => r.tag === topTag).forEach((r) => {
+      const k = r.rawType || "未分类";
+      if (!byType[k]) byType[k] = { n: 0, sum: 0 };
+      byType[k].n += 1;
+      byType[k].sum += Number(r.amount || 0);
+    });
+    const typeTotal = Object.values(byType).reduce((s, v) => s + v.sum, 0);
+    const typeTop = Object.entries(byType).sort((a, b) => b[1].sum - a[1].sum).slice(0, 5);
+    const typeHtml = typeTop.length
+      ? typeTop.map(([name, v]) => {
+          const pct = typeTotal > 0 ? Math.round((v.sum / typeTotal) * 100) : 0;
+          return `<div class="flow-type-item">
+            <div class="flow-type-line"><span class="flow-top-name">${esc(name)}</span><span class="flow-top-meta">${v.n} 次 · ${fmtYuan(v.sum)} · ${pct}%</span></div>
+            <div class="flow-type-bar"><i style="width:${pct}%"></i></div>
+          </div>`;
+        }).join("")
+      : `<div class="empty">当前范围没有${topTag}记录</div>`;
+
+    // 关键数字：日均消费 / 最大单笔 / 来源占比（消费口径）
+    const consumeRows = list.filter((r) => r.tag === "消费");
+    const consumeSum = consumeRows.reduce((s, r) => s + Number(r.amount || 0), 0);
+    let days = 0;
+    if (flowsMonth) {
+      days = new Date(Number(flowsMonth.slice(0, 4)), Number(flowsMonth.slice(5, 7)), 0).getDate();
+    } else {
+      const ds = list.map((r) => r.date).filter(Boolean).sort();
+      days = ds.length ? Math.max(1, Math.round((new Date(ds[ds.length - 1]) - new Date(ds[0])) / 86400000) + 1) : 0;
+    }
+    const dailyAvg = days > 0 ? consumeSum / days : 0;
+    const maxRow = consumeRows.slice().sort((a, b) => b.amount - a.amount)[0];
+    const bySrc = {};
+    consumeRows.forEach((r) => { const k = SOURCE_NAME[r.source] || r.source || "其他"; bySrc[k] = (bySrc[k] || 0) + Number(r.amount || 0); });
+    const srcHtml = Object.entries(bySrc).sort((a, b) => b[1] - a[1]).map(([name, v]) => {
+      const pct = consumeSum > 0 ? Math.round((v / consumeSum) * 100) : 0;
+      return `<div class="flow-type-line"><span class="flow-top-name">${esc(name)}</span><span class="flow-top-meta">${fmtYuan(v)} · ${pct}%</span></div><div class="flow-type-bar"><i style="width:${pct}%"></i></div>`;
+    }).join("");
 
     const monthOpts = ['<option value=""' + (flowsMonth ? "" : " selected") + '>全部月份</option>']
       .concat(months.map((m) => `<option value="${m}" ${flowsMonth === m ? "selected" : ""}>${m}</option>`)).join("");
@@ -305,6 +344,17 @@
         <div>
           <div class="tx-day-head">近 6 月消费 / 收入</div>
           <div class="tx-chart-wrap"><canvas id="flowTrend" height="170"></canvas></div>
+        </div>
+        <div>
+          <div class="tx-day-head">交易类型分布 · ${esc(topTag)}</div>
+          ${typeHtml}
+        </div>
+        <div>
+          <div class="tx-day-head">关键数字 · 消费</div>
+          <div class="flow-kpi"><span>日均消费（${days > 0 ? days + " 天" : "无数据"}）</span><b>${fmtYuan(dailyAvg)}</b></div>
+          <div class="flow-kpi"><span>最大单笔</span><b>${fmtYuan(maxRow ? maxRow.amount : 0)}</b>${maxRow ? `<em>${esc(maxRow.counterparty || "")}</em>` : ""}</div>
+          <div class="flow-kpi" style="border-bottom:none"><span>来源占比</span></div>
+          ${srcHtml || '<div class="empty">无消费记录</div>'}
         </div>
       </div>` : ""}
       <div id="flowList">${listHtml}</div>
