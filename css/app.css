@@ -5294,3 +5294,10 @@ details.set-fold > .set-fold-body { padding: 2px 20px 18px; }
 .flow-kpi span { color: var(--muted); }
 .flow-kpi b { font-variant-numeric: tabular-nums; }
 .flow-kpi em { color: var(--muted); font-size: 12px; font-style: normal; margin-left: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.flow-span2 { grid-column: 1 / -1; }
+.flow-year-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.flow-year-table th, .flow-year-table td { padding: 7px 8px; text-align: right; border-bottom: 1px dashed var(--line); font-variant-numeric: tabular-nums; }
+.flow-year-table th:first-child, .flow-year-table td:first-child { text-align: left; }
+.flow-year-table th { color: var(--muted); font-weight: 500; font-size: 12px; }
+.flow-year-table tr.cur td { color: var(--accent); font-weight: 600; }
+.flow-year-table tr:last-child td { border-bottom: none; }

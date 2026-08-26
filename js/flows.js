@@ -16,7 +16,8 @@
   let flowsTag = "";     // "" = 全部标签
   let flowsQ = "";       // 关键词（交易对方/商品/备注）
   let flowsSource = "";  // wechat | alipay | "" = 全部来源
-  let flowsPage = 1;     // 列表分页（每页 50 条）
+  let flowsPage = 1;     // 列表分页（每页 20 条）
+  let flowsTrendMode = "recent"; // 趋势图：recent = 近 6 月 | year = 今年逐月
   let _totalPages = 1;
   let _trendRows = [];   // 趋势图数据源（随标签/来源/关键词筛选，忽略月份——趋势天然跨月）
   let _charts = [];      // 图表实例注册表（重渲染前销毁）
@@ -288,6 +289,24 @@
       return `<div class="flow-type-line"><span class="flow-top-name">${esc(name)}</span><span class="flow-top-meta">${fmtYuan(v)} · ${pct}%</span></div><div class="flow-type-bar"><i style="width:${pct}%"></i></div>`;
     }).join("");
 
+    // 年度汇总：按年聚合（跟随标签/来源/关键词，忽略月份）
+    const byYear = {};
+    _trendRows.forEach((r) => {
+      const y = (r.date || "").slice(0, 4);
+      if (!y) return;
+      if (!byYear[y]) byYear[y] = { consume: 0, income: 0, n: 0 };
+      byYear[y].n += 1;
+      if (r.tag === "消费") byYear[y].consume += Number(r.amount || 0);
+      else if (r.tag === "收入") byYear[y].income += Number(r.amount || 0);
+    });
+    const curYear = String(new Date().getFullYear());
+    const yearRows = Object.keys(byYear).sort((a, b) => b.localeCompare(a));
+    const yearHtml = yearRows.length
+      ? `<table class="flow-year-table"><thead><tr><th>年份</th><th>消费</th><th>收入</th><th>笔数</th></tr></thead><tbody>
+        ${yearRows.map((y) => `<tr class="${y === curYear ? "cur" : ""}"><td>${y}${y === curYear ? " · 今年" : ""}</td><td>${fmtYuan(byYear[y].consume)}</td><td>${fmtYuan(byYear[y].income)}</td><td>${byYear[y].n}</td></tr>`).join("")}
+      </tbody></table>`
+      : `<div class="empty">暂无数据</div>`;
+
     const monthOpts = ['<option value=""' + (flowsMonth ? "" : " selected") + '>全部月份</option>']
       .concat(months.map((m) => `<option value="${m}" ${flowsMonth === m ? "selected" : ""}>${m}</option>`)).join("");
     const tagChips = ['<button class="tab ' + (flowsTag === "" ? "on" : "") + '" data-ftag="">全部</button>']
@@ -342,7 +361,13 @@
           ${topHtml}
         </div>
         <div>
-          <div class="tx-day-head">近 6 月消费 / 收入</div>
+          <div class="tx-day-head" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+            <span>消费 / 收入趋势</span>
+            <span class="tx-stat-seg">
+              <button class="tab ${flowsTrendMode === "recent" ? "on" : ""}" data-tmode="recent">近 6 月</button>
+              <button class="tab ${flowsTrendMode === "year" ? "on" : ""}" data-tmode="year">今年逐月</button>
+            </span>
+          </div>
           <div class="tx-chart-wrap"><canvas id="flowTrend" height="170"></canvas></div>
         </div>
         <div>
@@ -355,6 +380,10 @@
           <div class="flow-kpi"><span>最大单笔</span><b>${fmtYuan(maxRow ? maxRow.amount : 0)}</b>${maxRow ? `<em>${esc(maxRow.counterparty || "")}</em>` : ""}</div>
           <div class="flow-kpi" style="border-bottom:none"><span>来源占比</span></div>
           ${srcHtml || '<div class="empty">无消费记录</div>'}
+        </div>
+        <div class="flow-span2">
+          <div class="tx-day-head">年度汇总</div>
+          ${yearHtml}
         </div>
       </div>` : ""}
       <div id="flowList">${listHtml}</div>
@@ -384,10 +413,16 @@
       return;
     }
     const now = new Date();
-    const months = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      months.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"));
+    let months;
+    if (flowsTrendMode === "year") {
+      const y = now.getFullYear();
+      months = Array.from({ length: 12 }, (_, i) => y + "-" + String(i + 1).padStart(2, "0"));
+    } else {
+      months = [];
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        months.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"));
+      }
     }
     const consumeArr = months.map((m) => _trendRows.filter((r) => r.tag === "消费" && (r.date || "").slice(0, 7) === m).reduce((s, r) => s + Number(r.amount || 0), 0));
     const incomeArr = months.map((m) => _trendRows.filter((r) => r.tag === "收入" && (r.date || "").slice(0, 7) === m).reduce((s, r) => s + Number(r.amount || 0), 0));
@@ -437,6 +472,9 @@
         if (b.dataset.fpage === "prev" && flowsPage > 1) flowsPage--;
         else if (b.dataset.fpage === "next" && flowsPage < _totalPages) flowsPage++;
         rerender();
+      }));
+      el.querySelectorAll("[data-tmode]").forEach((b) => b.addEventListener("click", () => {
+        if (flowsTrendMode !== b.dataset.tmode) { flowsTrendMode = b.dataset.tmode; rerender(); }
       }));
 
       on("#flowsImport", "click", () => $("#flowsFile").click());
