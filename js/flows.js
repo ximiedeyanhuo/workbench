@@ -180,12 +180,15 @@
     const seen = new Set(existing.map(hash));
     const fresh = [];
     let dup = 0;
+    const importStamp = new Date().toISOString();
     for (const r of rows) {
       r.id = uid();
       r.tag = tagOf(r.direction, r.rawType, r.counterparty, r.note);
       const h = hash(r);
       if (seen.has(h)) { dup++; continue; }
       seen.add(h);
+      // updatedAt 仅作乐观锁基线，统一在指纹计算后补戳（若未来 hash 纳入全字段也不破坏去重）
+      r.updatedAt = importStamp;
       fresh.push(r);
     }
     if (!fresh.length) return { err: `全部 ${rows.length} 条均已导入过，无需重复` };
@@ -547,6 +550,7 @@
           const origParty = rec.counterparty || "";
           const origNote = rec.note || "";
           const origTag = rec.tag || "消费";
+          const editBase = rec.updatedAt || "";
           li.classList.add("editing");
           li.innerHTML = `<div class="flow-edit-form">
             <div class="flow-edit-row"><label>交易对方</label><input class="flow-edit-party" value="${esc(origParty)}" /></div>
@@ -568,7 +572,19 @@
             if (newTag !== origTag) d.tag = newTag;
             if (Object.keys(d).length) {
               const existing = await flowsRepo.get(id);
-              if (existing) await flowsRepo.put({ ...existing, ...d });
+              if (existing) {
+                d.updatedAt = new Date().toISOString();
+                try {
+                  // 乐观锁：打开编辑后若被其他端改过，服务端 409 拒绝，防整行覆盖
+                  await flowsRepo.put({ ...existing, ...d }, editBase ? { ifUpdated: editBase } : undefined);
+                } catch (err) {
+                  if (String((err && err.message) || "").indexOf("其他窗口") >= 0) {
+                    window.WB.showToast("该流水已在其他窗口被修改，本次未保存；请刷新后对比", "error");
+                    return;
+                  }
+                  throw err;
+                }
+              }
             }
             rerender();
           });

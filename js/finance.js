@@ -1530,7 +1530,16 @@
             createdAt: orig.createdAt || "",
             updatedAt: nowStamp(),
           };
-          await financeRepo.put(rec);
+          try {
+            // 乐观锁：打开编辑后若被其他端改过，服务端 409 拒绝，防整行覆盖丢更新
+            await financeRepo.put(rec, orig.updatedAt ? { ifUpdated: orig.updatedAt } : undefined);
+          } catch (err) {
+            if (String((err && err.message) || "").indexOf("其他窗口") >= 0) {
+              window.WB.showToast("该账单已在其他窗口被修改，本次未保存；请复制改动后刷新对比", "error");
+              return;
+            }
+            throw err;
+          }
           finCacheReplace(rec);
           finEditId = null;
           rerender();
