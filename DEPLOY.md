@@ -1,6 +1,8 @@
-# 个人工作台部署指南（VPS + 无域名）
+# 个人工作台部署指南（VPS + 域名）
 
 > **实际生产服务器参数（写死，不要猜）**：`root@111.228.27.161`，代码目录 `/data/app/workbench`，端口 8642。
+> **访问地址**：域名 `https://workbench.duole.site`（推荐，走 HTTPS）；旧 IP `http://111.228.27.161` 仍保留 HTTP 直访兼容。
+> **HTTPS**：certbot（Let's Encrypt）管理，证书 `/etc/letsencrypt/live/workbench.duole.site/`，`certbot.timer` 每天自动续期。nginx 配置在 `/etc/nginx/sites-enabled/workbench`（改前备份在 `/root/workbench.ngx.bak`）。IP 走 80、域名 80 端口 301 跳 443。
 > 日常增量上线（改完代码后）走 **deploy.ps1** 或下方「日常上线」章节，**只传代码绝不传数据**；本指南其余章节是**首次部署/迁移**用。
 
 ## 0. 日常增量上线（每次改完代码）

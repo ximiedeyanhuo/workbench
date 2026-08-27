@@ -33,7 +33,7 @@ curl.exe -s -b "$env:TEMP\ck.txt" http://localhost:8642/api/db/tasks
 - 服务器 `root@111.228.27.161`，代码目录 `/data/app/workbench`，端口 8642。
 - git remote 是 **SSH over 443**：`ssh://git@ssh.github.com:443/ximiedeyanhuo/workbench.git`。**不是** github.com:22，直接 `git push` 默认走 22 会超时；也别改成 https（需要额外凭据）。
 - 本地 `server.py` 里 `HOST = "0.0.0.0"`，**远程服务器上必须改成 `"127.0.0.1"`**（8642 不暴露公网，由 nginx 反代）。scp 覆盖 server.py 后必须改回，否则服务监听全网口。
-- 远程验证用 `curl http://127.0.0.1:8642/...`（服务器本机回环）；外部访问走 http://111.228.27.161（nginx 80 端口）。
+- 远程验证用 `curl http://127.0.0.1:8642/...`（服务器本机回环）；外部访问走 https://workbench.duole.site（nginx 反代 + certbot HTTPS，HTTP 301 跳 HTTPS；IP 直访 http://111.228.27.161 保留兜底）。
 - 本机 PowerShell 版本 7.6.x；git 未设 `push.default`，推送必须写全 `git push origin main`。
 
 ### 标准流程（二选一）
