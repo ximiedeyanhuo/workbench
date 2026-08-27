@@ -5301,3 +5301,10 @@ details.set-fold > .set-fold-body { padding: 2px 20px 18px; }
 .flow-year-table th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .flow-year-table tr.cur td { color: var(--accent); font-weight: 600; }
 .flow-year-table tr:last-child td { border-bottom: none; }
+.flow-li.editing { padding: 10px 0; }
+.flow-edit-form { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.flow-edit-row { display: flex; align-items: center; gap: 8px; }
+.flow-edit-row label { width: 70px; font-size: 13px; color: var(--muted); text-align: right; flex-shrink: 0; }
+.flow-edit-row input, .flow-edit-row select { flex: 1; font: inherit; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg-card); color: var(--fg); font-size: 13px; }
+.flow-edit-row input:focus, .flow-edit-row select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.flow-edit-actions { display: flex; gap: 8px; justify-content: flex-end; padding-top: 4px; }

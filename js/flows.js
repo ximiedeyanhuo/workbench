@@ -21,6 +21,7 @@
   let _totalPages = 1;
   let _trendRows = [];   // 趋势图数据源（随标签/来源/关键词筛选，忽略月份——趋势天然跨月）
   let _charts = [];      // 图表实例注册表（重渲染前销毁）
+  const _state = { all: [] }; // 当前全量数据快照（供编辑/导出查找）
 
   const TAGS = ["消费", "收入", "转账", "还款", "其他"];
   const TAG_COLOR = { "消费": "var(--danger)", "收入": "var(--ok)", "转账": "var(--accent)", "还款": "var(--purple)", "其他": "var(--muted)" };
@@ -328,6 +329,7 @@
                 <div class="flow-sub"><span class="flow-badge" style="color:${TAG_COLOR[r.tag] || "var(--muted)"}">${esc(r.tag)}</span><span>${esc(SOURCE_NAME[r.source] || r.source || "")}</span>${r.rawType ? `<span>${esc(r.rawType)}</span>` : ""}</div>
               </div>
               <div class="flow-amt" style="color:${color}">${sign}${fmtYuan(r.amount)}</div>
+              <button class="icon-btn" data-act="edit-flow" data-id="${esc(r.id)}" title="编辑">${window.WB.icon("edit")}</button>
               <button class="icon-btn" data-act="del-flow" data-id="${esc(r.id)}" title="删除">${window.WB.icon("del")}</button>
             </li>`;
           }).join("");
@@ -342,6 +344,7 @@
         <div class="row">
           <button class="btn sm ghost" id="flowsImport">导入账单</button>
           <input type="file" id="flowsFile" accept=".csv,text/csv,.xlsx,.xlsm" hidden />
+          <button class="btn sm ghost" id="flowsExport">导出</button>
           <button class="btn danger sm" id="flowsClear">清空</button>
         </div>
       </div>
@@ -456,6 +459,7 @@
     title: "消费流水",
     async render(el) {
       const all = await flowsRepo.list();
+      _state.all = all;
       destroyCharts();
       el.innerHTML = flowsHtml(all);
       renderTrend(el);
@@ -496,6 +500,34 @@
         }
       });
 
+      on("#flowsExport", "click", () => {
+        const all = _state.all || [];
+        const rows = all.filter((r) => {
+          if (flowsMonth && !(r.date || "").startsWith(flowsMonth)) return false;
+          if (flowsTag && r.tag !== flowsTag) return false;
+          if (flowsSource && r.source !== flowsSource) return false;
+          if (flowsQ && !(r.counterparty || "").includes(flowsQ) && !(r.note || "").includes(flowsQ) && !(r.detail || "").includes(flowsQ)) return false;
+          return true;
+        });
+        if (!rows.length) { window.WB.showToast("当前筛选无数据可导出", "error"); return; }
+        const fmt = (n) => Number(n || 0).toFixed(2);
+        const csvRows = [["交易时间", "收支类型", "金额", "交易对方", "商品说明", "收/支", "交易类型", "当前状态", "来源"]].concat(
+          rows.map((r) => [
+            r.date || "", r.tag || "", fmt(r.amount), r.counterparty || "", r.note || "",
+            r.direction === "in" ? "收入" : r.direction === "out" ? "支出" : "",
+            r.rawType || "", r.status || "", SOURCE_NAME[r.source] || r.source || ""
+          ])
+        );
+        const csv = csvRows.map((row) => row.map((cell) => String(cell).includes(",") || String(cell).includes('"') || String(cell).includes("\n") ? '"' + String(cell).replace(/"/g, '""') + '"' : String(cell)).join(",")).join("\n");
+        const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = `消费流水_${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        window.WB.showToast(`已导出 ${rows.length} 条流水`, "success");
+      });
+
       on("#flowsClear", "click", async () => {
         if (!confirm("清空全部消费流水？正式账本不受影响，但外部明细将无法恢复（建议先留好原始账单文件）。")) return;
         await flowsRepo.clear();
@@ -503,7 +535,45 @@
         rerender();
       });
 
-      on("#flowList", "click", async (e) => {
+      el.addEventListener("click", async (e) => {
+        const editBtn = e.target.closest('[data-act="edit-flow"]');
+        if (editBtn) {
+          e.stopPropagation();
+          const li = editBtn.closest(".flow-li");
+          if (!li || li.classList.contains("editing")) return;
+          const id = editBtn.dataset.id;
+          const rec = (_state.all || []).find((r) => r.id === id);
+          if (!rec) return;
+          const origParty = rec.counterparty || "";
+          const origNote = rec.note || "";
+          const origTag = rec.tag || "消费";
+          li.classList.add("editing");
+          li.innerHTML = `<div class="flow-edit-form">
+            <div class="flow-edit-row"><label>交易对方</label><input class="flow-edit-party" value="${esc(origParty)}" /></div>
+            <div class="flow-edit-row"><label>备注</label><input class="flow-edit-note" value="${esc(origNote)}" placeholder="可选" /></div>
+            <div class="flow-edit-row"><label>标签</label><select class="flow-edit-tag">${TAGS.map((t) => `<option value="${t}" ${t === origTag ? "selected" : ""}>${t}</option>`).join("")}</select></div>
+            <div class="flow-edit-actions">
+              <button class="btn sm ghost flow-edit-save">保存</button>
+              <button class="btn sm ghost flow-edit-cancel">取消</button>
+            </div>
+          </div>`;
+          li.querySelector(".flow-edit-cancel").addEventListener("click", () => { rerender(); });
+          li.querySelector(".flow-edit-save").addEventListener("click", async () => {
+            const newParty = li.querySelector(".flow-edit-party").value.trim();
+            const newNote = li.querySelector(".flow-edit-note").value.trim();
+            const newTag = li.querySelector(".flow-edit-tag").value;
+            const d = {};
+            if (newParty !== origParty) d.counterparty = newParty;
+            if (newNote !== origNote) d.note = newNote;
+            if (newTag !== origTag) d.tag = newTag;
+            if (Object.keys(d).length) {
+              const existing = await flowsRepo.get(id);
+              if (existing) await flowsRepo.put({ ...existing, ...d });
+            }
+            rerender();
+          });
+          return;
+        }
         const btn = e.target.closest('[data-act="del-flow"]');
         if (!btn) return;
         const id = btn.dataset.id;
