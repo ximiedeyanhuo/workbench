@@ -12,7 +12,8 @@
   const flowsRepo = repo("exttx");
 
   // ---------- 状态 ----------
-  let flowsMonth = "";   // "YYYY-MM"，"" = 全部月份
+  const now = new Date();
+  let flowsMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`; // "YYYY-MM"
   let flowsTag = "";     // "" = 全部标签
   let flowsQ = "";       // 关键词（交易对方/商品/备注）
   let flowsSource = "";  // wechat | alipay | "" = 全部来源
@@ -197,11 +198,206 @@
     return { added: fresh.length, dup };
   }
 
+  // ---------- 仪表盘工具 ----------
+  function fmtMonthTitle(m) {
+    return m ? `${m.slice(0, 4)}年${Number(m.slice(5, 7))}月` : "全部月份";
+  }
+  function monthBounds(m) {
+    if (!m) return { start: "", end: "", days: 0 };
+    const [y, mm] = m.split("-").map(Number);
+    const days = new Date(y, mm, 0).getDate();
+    return { start: `${m}-01`, end: `${m}-${String(days).padStart(2, "0")}`, days };
+  }
+  function addMonth(m, delta) {
+    if (!m) return "";
+    const [y, mm] = m.split("-").map(Number);
+    const d = new Date(y, mm - 1 + delta, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  const CAT_RULES = [
+    { name: "餐饮", kw: "美团,饿了么,餐厅,饭店,肯德基,麦当劳,星巴克,瑞幸,奶茶,咖啡,食堂,快餐,火锅,烧烤,面包,蛋糕,甜品,小吃" },
+    { name: "交通", kw: "滴滴,高德,地铁,公交,加油,停车,高速,铁路,机票,火车票,出租车,网约车,共享单车,出行" },
+    { name: "住房", kw: "房租,房贷,物业,水电,燃气,宽带,话费,房东,租赁,公寓" },
+    { name: "购物", kw: "淘宝,京东,拼多多,天猫,超市,便利店,盒马,山姆,唯品会,商场,百货,买菜" },
+    { name: "娱乐", kw: "游戏,腾讯,爱奇艺,优酷,B站,哔哩,会员,视频,电影,KTV,酒吧,直播,娱乐,Steam" },
+    { name: "医疗", kw: "医院,药店,医疗,挂号,诊所,体检,药品,医药" },
+    { name: "学习", kw: "课程,培训,书籍,书店,知识付费,教育,学费,报名,考试" },
+    { name: "数码", kw: "手机,电脑,数码,电子,苹果,华为,小米,配件,维修,耳机" },
+    { name: "人情", kw: "红包,礼金,礼物,人情,份子,结婚,生日" },
+  ];
+  function categoryOf(r) {
+    const s = `${r.counterparty || ""} ${r.note || ""} ${r.rawType || ""}`;
+    for (const c of CAT_RULES) {
+      if (c.kw.split(",").some((k) => s.includes(k))) return c.name;
+    }
+    return r.rawType || "其它";
+  }
+
+  const NEC_KW = {
+    necessary: "房租,房贷,水电,燃气,宽带,话费,物业,停车,加油,地铁,公交,餐饮,食堂,快餐,超市,水果,蔬菜,医疗,药品,保险,教育,学费,奶粉,买菜,日用品,理发,洗衣,快递,水电煤",
+    unnecessary: "游戏,娱乐,会员,视频,电影,KTV,酒吧,奶茶,咖啡,奢侈品,旅游,酒店,直播,打赏,零食,礼物,人情,红包",
+  };
+  function necessaryOf(r) {
+    const s = `${r.counterparty || ""} ${r.note || ""} ${r.rawType || ""}`;
+    if (NEC_KW.unnecessary.split(",").some((k) => s.includes(k))) return false;
+    if (NEC_KW.necessary.split(",").some((k) => s.includes(k))) return true;
+    return true; // 默认记为必要，避免新数据被误判
+  }
+
+  const PIE_COLORS = ["#4A8C6E", "#B65747", "#B8902C", "#6B6F8E", "#3B82F6", "#EC4899", "#8B5CF6", "#F59E0B", "#06B6D4", "#75726B"];
+
+  function svgPie(entries, total, donut, centerText) {
+    // entries: [{name, value, color}]
+    if (!total) return `<div class="empty" style="height:150px;display:flex;align-items:center;justify-content:center">无数据</div>`;
+    let acc = 0;
+    const slices = entries.map((e) => {
+      const start = acc;
+      acc += e.value / total;
+      return { ...e, start, end: acc };
+    });
+    const r = 70, cx = 75, cy = 75;
+    function coord(a) {
+      const rad = (a - 0.25) * Math.PI * 2;
+      return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
+    }
+    const paths = slices.map((s) => {
+      const [x1, y1] = coord(s.start);
+      const [x2, y2] = coord(s.end);
+      const large = s.end - s.start > 0.5 ? 1 : 0;
+      return `<path d="M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z" fill="${s.color}" stroke="var(--card)" stroke-width="1"/>`;
+    }).join("");
+    const hole = donut
+      ? `<circle cx="${cx}" cy="${cy}" r="44" fill="var(--card)"/>`
+      : "";
+    const label = donut && centerText
+      ? `<div class="center-label"><span class="amt">${centerText.amt}</span><span class="lab">${centerText.lab}</span></div>`
+      : "";
+    return `<div class="${donut ? "flow-donut-wrap" : "flow-pie-wrap"}">${label}<svg viewBox="0 0 150 150" class="${donut ? "flow-donut-svg" : "flow-pie-svg"}">${paths}${hole}</svg></div>`;
+  }
+
+  function calendarHtml(month, rows) {
+    const { days } = monthBounds(month);
+    const firstDay = new Date(`${month}-01T00:00:00`).getDay();
+    const byDay = {};
+    rows.filter((r) => r.tag === "消费" && (r.date || "").startsWith(month)).forEach((r) => {
+      const d = Number(r.date.slice(8, 10));
+      byDay[d] = (byDay[d] || 0) + Number(r.amount || 0);
+    });
+    const wd = ["日", "一", "二", "三", "四", "五", "六"];
+    let cells = wd.map((w) => `<div class="flow-cal-wd">${w}</div>`).join("");
+    for (let i = 0; i < firstDay; i++) cells += `<div class="flow-cal-cell empty"></div>`;
+    for (let d = 1; d <= days; d++) {
+      const amt = byDay[d] || 0;
+      const cls = amt <= 0 ? "" : amt <= 100 ? "low" : amt <= 250 ? "mid" : "high";
+      const txt = amt > 0 ? (amt >= 1000 ? (amt / 1000).toFixed(1) + "k" : amt.toFixed(0)) : "";
+      cells += `<div class="flow-cal-cell ${cls}"><span class="d">${d}</span>${txt ? `<span class="amt">${txt}</span>` : ""}</div>`;
+    }
+    const total = Object.values(byDay).reduce((a, b) => a + b, 0);
+    const maxDay = Object.entries(byDay).sort((a, b) => b[1] - a[1])[0];
+    const sub = total > 0
+      ? `共 ${fmtYuan(total)} · 最高 ${maxDay ? `${month.slice(5, 7)}月${Number(maxDay[0])}日 ${fmtYuan(maxDay[1])}` : "—"}`
+      : "本月暂无消费记录";
+    return `<div class="flow-cal-card">
+      <div class="flow-cal-hd"><h3>日历支出图</h3><span class="sub">${sub}</span></div>
+      <div class="flow-cal-grid">${cells}</div>
+      <div class="flow-cal-legend sp-t-sm">
+        <span><i style="background:var(--ok)"></i>≤100</span>
+        <span><i style="background:var(--warn)"></i>100.01-250</span>
+        <span><i style="background:var(--danger)"></i>>250</span>
+      </div>
+    </div>`;
+  }
+
+  function dashboardHtml(monthRows, month) {
+    const income = monthRows.filter((r) => r.tag === "收入").reduce((s, r) => s + Number(r.amount || 0), 0);
+    const expense = monthRows.filter((r) => r.tag === "消费").reduce((s, r) => s + Number(r.amount || 0), 0);
+    const balance = income - expense;
+
+    // 支出类型占比（按关键词分类）
+    const consumeRows = monthRows.filter((r) => r.tag === "消费");
+    const catMap = {};
+    consumeRows.forEach((r) => {
+      const c = categoryOf(r);
+      catMap[c] = (catMap[c] || 0) + Number(r.amount || 0);
+    });
+    const catEntries = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+    const catTotal = consumeRows.reduce((s, r) => s + Number(r.amount || 0), 0);
+    const catItems = catEntries.map(([name, v], i) => ({
+      name, value: v,
+      color: PIE_COLORS[i % PIE_COLORS.length],
+      pct: catTotal > 0 ? Math.round((v / catTotal) * 100) : 0,
+    }));
+
+    // 必要性分析
+    const nec = consumeRows.filter((r) => necessaryOf(r)).reduce((s, r) => s + Number(r.amount || 0), 0);
+    const unnec = consumeRows.filter((r) => !necessaryOf(r)).reduce((s, r) => s + Number(r.amount || 0), 0);
+    const necItems = [
+      { name: "必要性支出", value: nec, color: "var(--ok)", pct: catTotal > 0 ? Math.round((nec / catTotal) * 100) : 0 },
+      { name: "非必要性支出", value: unnec, color: "var(--warn)", pct: catTotal > 0 ? Math.round((unnec / catTotal) * 100) : 0 },
+    ];
+
+    const catLegend = catItems.map((it) => `<div class="flow-legend-item">
+      <i class="dot" style="background:${it.color}"></i>
+      <span class="name">${esc(it.name)}</span>
+      <span class="pct">${it.pct}%</span>
+      <span class="sum">${fmtYuan(it.value)}</span>
+    </div>`).join("") || '<div class="empty">无消费数据</div>';
+    const necLegend = necItems.map((it) => `<div class="flow-legend-item">
+      <i class="dot" style="background:${it.color}"></i>
+      <span class="name">${esc(it.name)}</span>
+      <span class="pct">${it.pct}%</span>
+      <span class="sum">${fmtYuan(it.value)}</span>
+    </div>`).join("");
+
+    return `<div class="flow-dashboard">
+      <div class="flow-monthbar">
+        <button class="icon-btn plain" data-fmonth="prev" title="上个月">${window.WB.icon("prev")}</button>
+        <span class="flow-month-txt">${fmtMonthTitle(month)}</span>
+        <button class="icon-btn plain" data-fmonth="next" title="下个月">${window.WB.icon("next")}</button>
+      </div>
+      <div class="flow-sumcards">
+        <div class="flow-sumcard income"><div class="lab">收入</div><div class="val">+${fmtYuan(income)}</div></div>
+        <div class="flow-sumcard expense"><div class="lab">支出</div><div class="val">-${fmtYuan(expense)}</div></div>
+        <div class="flow-sumcard balance"><div class="lab">结余</div><div class="val">${balance >= 0 ? "+" : ""}${fmtYuan(balance)}</div></div>
+      </div>
+      ${calendarHtml(month, monthRows)}
+      <div class="flow-chart-grid">
+        <div class="flow-chart-card">
+          <h3>支出类型占比</h3>
+          <div class="flow-chart-body">
+            ${svgPie(catItems, catTotal, false)}
+            <div class="flow-legend">${catLegend}</div>
+          </div>
+        </div>
+        <div class="flow-chart-card">
+          <h3>支出必要性分析</h3>
+          <div class="flow-chart-body">
+            ${svgPie(necItems, catTotal, true, { amt: fmtYuan(expense), lab: "合计" })}
+            <div class="flow-legend">${necLegend}</div>
+          </div>
+        </div>
+      </div>
+      <div class="flow-actions-bar">
+        <button class="btn ghost sm" id="flowsImport2">导入账单</button>
+        <button class="btn ghost sm" id="flowsExport2">导出</button>
+        <button class="btn danger sm" id="flowsClear2">清空</button>
+      </div>
+    </div>`;
+  }
+
   // ---------- 渲染 ----------
   function flowsHtml(all) {
     const months = [];
     all.forEach((r) => { const m = (r.date || "").slice(0, 7); if (m && months.indexOf(m) === -1) months.push(m); });
     months.sort((a, b) => b.localeCompare(a));
+
+    // 若当前月份无数据，回退到最近有数据的月份，避免空白仪表盘
+    let dashMonth = flowsMonth;
+    if (dashMonth && months.length && months.indexOf(dashMonth) === -1) {
+      dashMonth = months[0];
+    }
+    const monthRows = dashMonth ? all.filter((r) => (r.date || "").slice(0, 7) === dashMonth) : all;
 
     let list = all;
     if (flowsMonth) list = list.filter((r) => (r.date || "").slice(0, 7) === flowsMonth);
@@ -341,7 +537,8 @@
         }).join("") + pageBar
       : `<div class="empty">${all.length ? "当前筛选没有匹配的流水" : "还没有导入过账单。把微信/支付宝的账单文件存进来，消费明细随时可查，且不影响正式账本。"}</div>`;
 
-    return `<div class="card">
+    return `${monthRows.length || all.length ? dashboardHtml(monthRows, dashMonth) : ""}
+    <div class="card">
       <div class="row sp-b-md">
         <h2 style="margin:0">消费流水 <span class="count">外部仓库 · 不计入统计</span></h2>
         <div class="row">
@@ -483,8 +680,13 @@
       el.querySelectorAll("[data-tmode]").forEach((b) => b.addEventListener("click", () => {
         if (flowsTrendMode !== b.dataset.tmode) { flowsTrendMode = b.dataset.tmode; rerender(); }
       }));
+      el.querySelectorAll("[data-fmonth]").forEach((b) => b.addEventListener("click", () => {
+        const m = addMonth(flowsMonth, b.dataset.fmonth === "prev" ? -1 : 1);
+        if (m) { flowsMonth = m; flowsPage = 1; rerender(); }
+      }));
 
       on("#flowsImport", "click", () => $("#flowsFile").click());
+      on("#flowsImport2", "click", () => $("#flowsFile").click());
       on("#flowsFile", "change", async (e) => {
         const file = e.target.files[0];
         e.target.value = "";
@@ -531,10 +733,14 @@
         window.WB.showToast(`已导出 ${rows.length} 条流水`, "success");
       });
 
+      on("#flowsExport2", "click", () => { if ($("#flowsExport")) $("#flowsExport").click(); });
+      on("#flowsClear2", "click", () => { if ($("#flowsClear")) $("#flowsClear").click(); });
+
       on("#flowsClear", "click", async () => {
         if (!confirm("清空全部消费流水？正式账本不受影响，但外部明细将无法恢复（建议先留好原始账单文件）。")) return;
         await flowsRepo.clear();
-        flowsMonth = ""; flowsTag = ""; flowsQ = "";
+        flowsMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+        flowsTag = ""; flowsQ = "";
         rerender();
       });
 

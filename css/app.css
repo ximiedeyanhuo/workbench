@@ -5308,3 +5308,112 @@ details.set-fold > .set-fold-body { padding: 2px 20px 18px; }
 .flow-edit-row input, .flow-edit-row select { flex: 1; font: inherit; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg-card); color: var(--fg); font-size: 13px; }
 .flow-edit-row input:focus, .flow-edit-row select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .flow-edit-actions { display: flex; gap: 8px; justify-content: flex-end; padding-top: 4px; }
+
+/* ---------- 消费流水仪表盘（参考轻记账） ---------- */
+.flow-dashboard { display: flex; flex-direction: column; gap: 16px; margin-bottom: 18px; }
+.flow-monthbar {
+  display: flex; align-items: center; justify-content: center; gap: 18px;
+  padding: 10px; background: var(--card2); border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+}
+.flow-monthbar button {
+  border: none; background: transparent; color: var(--muted); cursor: pointer;
+  padding: 6px; border-radius: var(--radius-xs); transition: all .15s;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.flow-monthbar button:hover { color: var(--ink); background: var(--card); }
+.flow-monthbar button svg { width: 18px; height: 18px; }
+.flow-monthbar .flow-month-txt {
+  font-size: 16px; font-weight: 800; color: var(--ink); letter-spacing: -0.01em;
+  min-width: 110px; text-align: center;
+}
+
+.flow-sumcards {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+}
+.flow-sumcard {
+  background: var(--card2); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px; text-align: center; transition: transform .15s, box-shadow .15s;
+}
+.flow-sumcard:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.flow-sumcard .lab { font-size: 12px; color: var(--muted); font-weight: 600; }
+.flow-sumcard .val {
+  font-size: 22px; font-weight: 800; font-family: var(--mono); margin-top: 6px;
+  letter-spacing: -0.02em;
+}
+.flow-sumcard.income .val { color: var(--ok); }
+.flow-sumcard.expense .val { color: var(--danger); }
+.flow-sumcard.balance .val { color: var(--accent); }
+@media (max-width: 640px) {
+  .flow-sumcards { grid-template-columns: 1fr; }
+  .flow-sumcard { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; }
+  .flow-sumcard .val { margin-top: 0; font-size: 18px; }
+}
+
+.flow-cal-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+.flow-cal-hd {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;
+}
+.flow-cal-hd h3 { margin: 0; font-size: 14px; font-weight: 800; color: var(--ink); }
+.flow-cal-hd .sub { font-size: 12px; color: var(--muted); }
+.flow-cal-legend { display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--muted); }
+.flow-cal-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.flow-cal-legend i {
+  width: 10px; height: 10px; border-radius: 3px; display: inline-block;
+}
+.flow-cal-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;
+}
+.flow-cal-wd {
+  text-align: center; font-size: 11px; font-weight: 700; color: var(--muted); padding: 6px 0;
+}
+.flow-cal-cell {
+  aspect-ratio: 1; border-radius: var(--radius-xs); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2px;
+  background: var(--card2); border: 1px solid var(--line);
+  font-size: 11px; color: var(--muted); transition: all .15s;
+}
+.flow-cal-cell:hover { border-color: var(--accent); transform: scale(1.04); }
+.flow-cal-cell .d { font-weight: 700; font-size: 12px; color: var(--ink); }
+.flow-cal-cell .amt { font-size: 10px; font-family: var(--mono); }
+.flow-cal-cell.low { background: var(--ok); color: #fff; border-color: var(--ok); }
+.flow-cal-cell.low .d, .flow-cal-cell.low .amt { color: #fff; }
+.flow-cal-cell.mid { background: var(--warn); color: #fff; border-color: var(--warn); }
+.flow-cal-cell.mid .d, .flow-cal-cell.mid .amt { color: #fff; }
+.flow-cal-cell.high { background: var(--danger); color: #fff; border-color: var(--danger); }
+.flow-cal-cell.high .d, .flow-cal-cell.high .amt { color: #fff; }
+.flow-cal-cell.empty { background: transparent; border-color: transparent; pointer-events: none; }
+
+.flow-chart-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;
+}
+.flow-chart-card {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px;
+}
+.flow-chart-card h3 { margin: 0 0 14px; font-size: 14px; font-weight: 800; color: var(--ink); }
+.flow-chart-body { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.flow-pie-wrap, .flow-donut-wrap { position: relative; width: 150px; height: 150px; flex-shrink: 0; }
+.flow-pie-wrap .center-label, .flow-donut-wrap .center-label {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; pointer-events: none;
+}
+.flow-donut-wrap .center-label .amt { font-size: 18px; font-weight: 800; font-family: var(--mono); color: var(--ink); }
+.flow-donut-wrap .center-label .lab { font-size: 10px; color: var(--muted); }
+.flow-legend { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 140px; }
+.flow-legend-item {
+  display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-2);
+}
+.flow-legend-item .dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.flow-legend-item .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.flow-legend-item .pct { font-weight: 700; font-family: var(--mono); color: var(--muted); }
+.flow-legend-item .sum { color: var(--muted); font-family: var(--mono); white-space: nowrap; }
+@media (max-width: 860px) {
+  .flow-chart-grid { grid-template-columns: 1fr; }
+}
+
+.flow-actions-bar {
+  display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+  padding: 14px; background: var(--card2); border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+}
+.flow-actions-bar .btn { min-width: 110px; }
