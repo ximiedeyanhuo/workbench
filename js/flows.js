@@ -10,6 +10,7 @@
 
   const { routes, repo, esc, debounce, uid } = window.WB;
   const flowsRepo = repo("exttx");
+  const financeRepo = repo("finance");
 
   // ---------- 状态 ----------
   const now = new Date();
@@ -232,6 +233,19 @@
       if (c.kw.split(",").some((k) => s.includes(k))) return c.name;
     }
     return r.rawType || "其它";
+  }
+
+  // ---------- 转入正式账本 ----------
+  // flows 关键词分类名 → 正式账本预设分类 id（用户有同名自定义分类时优先按名匹配）
+  const FIN_CAT_MAP = { "餐饮": "food", "交通": "traffic", "住房": "housing", "购物": "shopping", "娱乐": "fun", "医疗": "health", "学习": "study", "数码": "other-e", "人情": "other-e" };
+  /** 猜测转入分类：先按用户实际分类名匹配，再落到预设 id，最后兜底其它 */
+  function guessFinCat(cats, type, r) {
+    const guessName = categoryOf(r);
+    const list = (cats && cats[type]) || [];
+    const byName = list.find((c) => c.name === guessName);
+    if (byName) return byName.id;
+    const fallbackId = FIN_CAT_MAP[guessName] || (type === "income" ? "other-i" : "other-e");
+    return list.some((c) => c.id === fallbackId) ? fallbackId : (list[0] ? list[0].id : (type === "income" ? "other-i" : "other-e"));
   }
 
   const NEC_KW = {
@@ -522,12 +536,14 @@
           const rows = byDate[d].map((r) => {
             const sign = r.direction === "in" ? "+" : r.direction === "out" ? "-" : "±";
             const color = r.direction === "in" ? "var(--ok)" : r.direction === "out" ? "var(--danger)" : "var(--muted)";
+            const canConvert = !r.finId && (r.tag === "消费" || r.tag === "收入");
             return `<li class="flow-li">
               <div class="flow-main">
                 <div class="flow-party">${esc(r.counterparty || "(无对方)")}${r.note ? `<span class="flow-note">${esc(r.note)}</span>` : ""}</div>
-                <div class="flow-sub"><span class="flow-badge" style="color:${TAG_COLOR[r.tag] || "var(--muted)"}">${esc(r.tag)}</span><span>${esc(SOURCE_NAME[r.source] || r.source || "")}</span>${r.rawType ? `<span>${esc(r.rawType)}</span>` : ""}</div>
+                <div class="flow-sub"><span class="flow-badge" style="color:${TAG_COLOR[r.tag] || "var(--muted)"}">${esc(r.tag)}</span><span>${esc(SOURCE_NAME[r.source] || r.source || "")}</span>${r.rawType ? `<span>${esc(r.rawType)}</span>` : ""}${r.finId ? '<span style="color:var(--ok)">已转账本</span>' : ""}</div>
               </div>
               <div class="flow-amt" style="color:${color}">${sign}${fmtYuan(r.amount)}</div>
+              ${canConvert ? `<button class="icon-btn" data-act="tofin" data-id="${esc(r.id)}" title="转入正式账本">⇧</button>` : ""}
               <button class="icon-btn" data-act="edit-flow" data-id="${esc(r.id)}" title="编辑">${window.WB.icon("edit")}</button>
               <button class="icon-btn" data-act="del-flow" data-id="${esc(r.id)}" title="删除">${window.WB.icon("del")}</button>
             </li>`;
@@ -660,6 +676,9 @@
     async render(el) {
       const all = await flowsRepo.list();
       _state.all = all;
+      // 转入正式账本用的分类列表（预设 + 用户自定义，与 finance.js 同源）
+      const finSt = await window.WB.getSettings({ finCategories: { income: [], expense: [] } });
+      const finCats = window.WB.finU ? window.WB.finU.mergeCats(finSt.finCategories) : finSt.finCategories;
       destroyCharts();
       el.innerHTML = flowsHtml(all);
       renderTrend(el);
@@ -745,6 +764,69 @@
       });
 
       el.addEventListener("click", async (e) => {
+        const tofinBtn = e.target.closest('[data-act="tofin"]');
+        if (tofinBtn) {
+          e.stopPropagation();
+          const li = tofinBtn.closest(".flow-li");
+          if (!li || li.classList.contains("editing")) return;
+          const id = tofinBtn.dataset.id;
+          const rec = (_state.all || []).find((r) => r.id === id);
+          if (!rec) return;
+          const finType = rec.tag === "收入" ? "income" : "expense";
+          const catList = (finCats && finCats[finType]) || [];
+          const guessId = guessFinCat(finCats, finType, rec);
+          const defNote = [rec.counterparty, rec.note].filter(Boolean).join(" ");
+          const tofinBase = rec.updatedAt || "";
+          li.classList.add("editing");
+          li.innerHTML = `<div class="flow-edit-form">
+            <div class="flow-edit-row"><label>类型</label><span style="flex:1;font-size:13px">${finType === "income" ? "收入" : "支出"} · ${esc(SOURCE_NAME[rec.source] || rec.source || "")} ${fmtYuan(rec.amount)}</span></div>
+            <div class="flow-edit-row"><label>金额</label><input class="flow-edit-amt" type="number" step="0.01" min="0.01" value="${Number(rec.amount || 0)}" /></div>
+            <div class="flow-edit-row"><label>分类</label><select class="flow-edit-cat">${catList.map((c) => `<option value="${esc(c.id)}" ${c.id === guessId ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></div>
+            <div class="flow-edit-row"><label>日期</label><input class="flow-edit-date" type="date" value="${esc(rec.date || "")}" /></div>
+            <div class="flow-edit-row"><label>备注</label><input class="flow-edit-note2" value="${esc(defNote)}" placeholder="可选" /></div>
+            <div class="flow-edit-actions">
+              <button class="btn sm flow-tofin-save">转入账本</button>
+              <button class="btn sm ghost flow-edit-cancel">取消</button>
+            </div>
+          </div>`;
+          li.querySelector(".flow-edit-cancel").addEventListener("click", () => { rerender(); });
+          li.querySelector(".flow-tofin-save").addEventListener("click", async () => {
+            const amount = parseFloat(li.querySelector(".flow-edit-amt").value);
+            if (!(amount > 0)) { window.WB.flashInvalid(li.querySelector(".flow-edit-amt")); return; }
+            const category = li.querySelector(".flow-edit-cat").value || (finType === "income" ? "other-i" : "other-e");
+            const date = li.querySelector(".flow-edit-date").value || rec.date || window.WB.todayStr();
+            const note = li.querySelector(".flow-edit-note2").value.trim();
+            const stamp = new Date().toISOString();
+            const finRec = {
+              id: uid(),
+              type: finType,
+              category,
+              amount,
+              note,
+              date,
+              createdAt: stamp,
+              updatedAt: stamp,
+            };
+            try {
+              await financeRepo.put(finRec);
+              // 流水回写 finId 防重复转入；带乐观锁基线，被其他端改过则放弃回写（账本已转成功，仅提示）
+              const fresh = await flowsRepo.get(id);
+              if (fresh && !fresh.finId) {
+                try {
+                  await flowsRepo.put({ ...fresh, finId: finRec.id, updatedAt: new Date().toISOString() }, tofinBase ? { ifUpdated: tofinBase } : undefined);
+                } catch (err) {
+                  if (String((err && err.message) || "").indexOf("其他窗口") < 0) throw err;
+                }
+              }
+            } catch (err) {
+              window.WB.showToast("转入失败：" + ((err && err.message) || err), "error");
+              return;
+            }
+            window.WB.showToast(`已转入正式账本（${finType === "income" ? "收入" : "支出"} ${fmtYuan(amount)}），统计页可见`, "success");
+            rerender();
+          });
+          return;
+        }
         const editBtn = e.target.closest('[data-act="edit-flow"]');
         if (editBtn) {
           e.stopPropagation();
