@@ -417,10 +417,7 @@
     if (flowsMonth) list = list.filter((r) => (r.date || "").slice(0, 7) === flowsMonth);
     if (flowsTag) list = list.filter((r) => r.tag === flowsTag);
     if (flowsSource) list = list.filter((r) => r.source === flowsSource);
-    if (flowsQ) {
-      const q = flowsQ.toLowerCase();
-      list = list.filter((r) => String(r.counterparty || "").toLowerCase().includes(q) || String(r.note || "").toLowerCase().includes(q) || String(r.rawType || "").toLowerCase().includes(q));
-    }
+    if (flowsQ) list = list.filter((r) => qHit(r, flowsQ));
     list = list.slice().sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.id || "").localeCompare(a.id || ""));
 
     // 分页：大数据量（千条级）避免一次渲染全部 DOM
@@ -438,12 +435,7 @@
     _trendRows = all.filter((r) => {
       if (flowsTag && r.tag !== flowsTag) return false;
       if (flowsSource && r.source !== flowsSource) return false;
-      if (flowsQ) {
-        const q = flowsQ.toLowerCase();
-        const hit = String(r.counterparty || "").toLowerCase().includes(q) || String(r.note || "").toLowerCase().includes(q) || String(r.rawType || "").toLowerCase().includes(q);
-        if (!hit) return false;
-      }
-      return true;
+      return qHit(r, flowsQ);
     });
 
     // 小计（当前筛选范围）
@@ -613,6 +605,17 @@
     return Number(n || 0).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  /** 关键词命中（列表筛选/趋势/导出三处共用，口径必须一致）：对方/商品/交易类型，大小写不敏感 */
+  function qHit(r, q) {
+    if (!q) return true;
+    const s = q.toLowerCase();
+    return (
+      String(r.counterparty || "").toLowerCase().includes(s) ||
+      String(r.note || "").toLowerCase().includes(s) ||
+      String(r.rawType || "").toLowerCase().includes(s)
+    );
+  }
+
   // ---------- 统计图表 ----------
   function destroyCharts() {
     _charts.forEach((c) => c.destroy());
@@ -730,8 +733,7 @@
           if (flowsMonth && !(r.date || "").startsWith(flowsMonth)) return false;
           if (flowsTag && r.tag !== flowsTag) return false;
           if (flowsSource && r.source !== flowsSource) return false;
-          if (flowsQ && !(r.counterparty || "").includes(flowsQ) && !(r.note || "").includes(flowsQ) && !(r.detail || "").includes(flowsQ)) return false;
-          return true;
+          return qHit(r, flowsQ);
         });
         if (!rows.length) { window.WB.showToast("当前筛选无数据可导出", "error"); return; }
         const fmt = (n) => Number(n || 0).toFixed(2);
@@ -791,6 +793,9 @@
           </div>`;
           li.querySelector(".flow-edit-cancel").addEventListener("click", () => { rerender(); });
           li.querySelector(".flow-tofin-save").addEventListener("click", async () => {
+            // 防重复转入竞态：另一窗口可能刚转过本条，落库前以服务端最新状态为准
+            const latest = await flowsRepo.get(id);
+            if (latest && latest.finId) { window.WB.showToast("这条流水已转入过账本，不重复转入", "error"); return; }
             const amount = parseFloat(li.querySelector(".flow-edit-amt").value);
             if (!(amount > 0)) { window.WB.flashInvalid(li.querySelector(".flow-edit-amt")); return; }
             const category = li.querySelector(".flow-edit-cat").value || (finType === "income" ? "other-i" : "other-e");
