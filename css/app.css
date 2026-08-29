@@ -1823,6 +1823,8 @@ button.tab:focus-visible { outline-offset: 0; }
 
 /* 记账：年账表 */
 .tx-year-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+/* 窄屏防逐字竖排：单元格不换行，表格依赖 wrap 横向滑动查看 */
+.tx-year-table th, .tx-year-table td { white-space: nowrap; }
 .tx-year-table {
   width: 100%; border-collapse: collapse;
   font-size: 13px; font-variant-numeric: tabular-nums;
@@ -5362,7 +5364,8 @@ details.set-fold > .set-fold-body { padding: 2px 20px 18px; }
   width: 10px; height: 10px; border-radius: 3px; display: inline-block;
 }
 .flow-cal-grid {
-  display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;
+  /* minmax(0,1fr) 而非 1fr：1fr 的 min-content 下限会被金额文本与泄漏的 .cal-cell padding 撑爆，窄屏 7 列溢出屏外 */
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px;
 }
 .flow-cal-wd {
   text-align: center; font-size: 11px; font-weight: 700; color: var(--muted); padding: 6px 0;
@@ -5370,6 +5373,8 @@ details.set-fold > .set-fold-body { padding: 2px 20px 18px; }
 .flow-cal-cell {
   aspect-ratio: 1; border-radius: var(--radius-xs); display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 2px;
+  /* 覆盖 .cal-cell（记账日历）同名子串泄漏：min-height:70px 会把 1:1 小格拉成长方形、padding 挤压金额 */
+  min-height: 0; padding: 2px 1px; cursor: default;
   background: var(--card2); border: 1px solid var(--line);
   font-size: 11px; color: var(--muted); transition: all .15s;
 }
