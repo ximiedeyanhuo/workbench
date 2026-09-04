@@ -122,7 +122,7 @@ LOGIN_FAIL_MAX = 5
 LOGIN_LOCK_SECONDS = 60
 
 # 无需登录即可访问的 API（其余 /api/* 全部鉴权，静态页面不拦——登录遮罩在前端）
-OPEN_API_PATHS = {"/api/ping", "/api/auth/login"}
+OPEN_API_PATHS = {"/api/ping", "/api/auth/login", "/api/auth/token"}
 
 # 当前请求的登录用户：鉴权中间件写入，get_conn 据此路由到对应库文件。
 # Starlette 把同步端点扔进线程池时会复制 contextvars，线程内读得到。
@@ -201,8 +201,17 @@ def ensure_default_admin() -> None:
 
 
 def session_user(request: Request):
-    """从 Cookie 解析当前登录用户，无效/过期/用户已删返回 None"""
+    """解析当前登录用户，无效/过期/用户已删返回 None。
+    兼容两种凭证来源：
+      1. HttpOnly Cookie（Web 端，JS 接触不到 token）；
+      2. Authorization: Bearer <token> 头（小程序端，wx.request 手动携带）。
+    两者共用同一份 SESSIONS，token 可互换。"""
     token = request.cookies.get(COOKIE_NAME)
+    if not token:
+        # 小程序无法携带 Cookie，改从 Authorization 头取 token
+        auth = request.headers.get("authorization", "")
+        if auth.startswith("Bearer "):
+            token = auth[len("Bearer "):].strip()
     if not token:
         return None
     sess = SESSIONS.get(token)
@@ -399,6 +408,48 @@ async def auth_login(request: Request):
     # 不设 Secure：局域网/公网 http 直连也能用；上 HTTPS 后可改 secure=True
     resp.set_cookie(COOKIE_NAME, token, max_age=SESSION_TTL, httponly=True, samesite="lax", path="/")
     return resp
+
+
+@app.post("/api/auth/token")
+async def auth_token(request: Request):
+    """小程序登录：body {username, password}，成功返回 {token, username, isAdmin}。
+    与 /api/auth/login 共用同一份 SESSIONS（token 即会话 token），小程序端
+    后续请求带 Authorization: Bearer <token> 头即可通过 auth_guard。
+    复用 login 的防爆破逻辑，故直接委托给 auth_login 的验证流程。"""
+    payload = await request.json()
+    username = str(payload.get("username", "")).strip()
+    password = str(payload.get("password", ""))
+    # 防爆破锁键与 login 一致（用户名 + 来源 IP），复用同一份 _login_fails
+    peer = request.client.host if request.client else ""
+    client_ip = peer
+    try:
+        if peer and ipaddress.ip_address(peer).is_loopback:
+            fwd = request.headers.get("x-forwarded-for", "")
+            last = fwd.split(",")[-1].strip() if fwd else ""
+            if last:
+                client_ip = last
+    except ValueError:
+        pass
+    lock_key = username + "|" + client_ip
+    fail = _login_fails.get(lock_key)
+    if fail and fail.get("lock_until", 0) > time.time():
+        raise HTTPException(status_code=429, detail="失败次数过多，请 1 分钟后重试")
+    user = USERS.get(username)
+    valid = bool(user) and await run_in_threadpool(verify_password, password, user)
+    if not user or not valid:
+        rec = _login_fails.setdefault(lock_key, {"count": 0, "lock_until": 0})
+        rec["count"] += 1
+        if rec["count"] >= LOGIN_FAIL_MAX:
+            rec["count"] = 0
+            rec["lock_until"] = time.time() + LOGIN_LOCK_SECONDS
+        _save_login_fails()
+        raise HTTPException(status_code=401, detail="用户名或密码错误")
+    _login_fails.pop(lock_key, None)
+    _save_login_fails()
+    token = secrets.token_urlsafe(32)
+    SESSIONS[token] = {"user": username, "created": time.time()}
+    save_sessions()
+    return {"token": token, "username": username, "isAdmin": username == ADMIN_USER}
 
 
 @app.post("/api/auth/logout")

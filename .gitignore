@@ -29,3 +29,4 @@ deploy.ps1
 e2e-*.png
 tmp/
 login_fails.json.tmp
+.codebuddy/
